@@ -1,6 +1,14 @@
-package graphics.scenery
+package graphics.scenery.dimensionalreduction
 
 import cleargl.GLVector
+import graphics.scenery.*
+import graphics.scenery.utils.extensions.times
+import graphics.scenery.utils.extensions.toFloatArray
+import graphics.scenery.utils.extensions.xyzw
+import graphics.scenery.numerics.Random.*
+import org.joml.Vector2f
+import org.joml.Vector3f
+import org.joml.Vector4f
 import java.io.File
 import java.util.*
 import kotlin.collections.HashMap
@@ -107,9 +115,10 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         v.name = "master sphere"
         v.material = ShaderMaterial.fromFiles("DefaultDeferredInstancedColor.vert", "DefaultDeferredInstanced.frag")
         //overrides the shader
-        v.material.diffuse = GLVector(0.8f, 0.7f, 0.7f).xyzw()
-        v.material.ambient = GLVector(0.1f, 0.0f, 0.0f)
-        v.material.specular = GLVector(0.05f, 0f, 0f)
+        v.material.diffuse = Vector3f(0.8f, 0.7f, 0.7f)
+        //v.material.diffuse = Vector3f(0.8f, 0.7f, 0.7f).xyzw()
+        v.material.ambient = Vector3f(0.1f, 0.0f, 0.0f)
+        v.material.specular = Vector3f(0.05f, 0f, 0f)
         v.material.roughness = 0.8f
         v.metadata["sourceCount"] = 2
         v.instancedProperties["ModelMatrix"] = { v.world }
@@ -130,21 +139,21 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
 
             s.name = cellName
             s.metadata["source"] = cellSource
-            s.scale = GLVector(
+            s.scale = Vector3f(
                     (if((normalizedParsedGeneExpressions[2]) < 0.2f){0.2f} else{(normalizedParsedGeneExpressions[2])}),
                     (if((normalizedParsedGeneExpressions[3]) < 0.2f){0.2f} else{(normalizedParsedGeneExpressions[3])}),
                     (if((normalizedParsedGeneExpressions[4]) < 0.2f){0.2f} else{(normalizedParsedGeneExpressions[4])}))
 
-            s.position = GLVector(coord[0], coord[1], coord[2])*positionScaling
+            s.position = Vector3f(coord[0], coord[1], coord[2])*positionScaling
             logger.info("x coordinate is: ${coord[0]}")
 
             s.instancedProperties["ModelMatrix"] = { s.world }
             s.instancedProperties["Color"] = {
                 var color = if(textBoardPicker) {
-                    tabulaColorMap.getOrDefault(cellName, GLVector(1.0f, 0f, 0f)).xyzw()
+                    tabulaColorMap.getOrDefault(cellName, Vector3f(1.0f, 0f, 0f)).xyzw()
                 } else {
                     //roundedColorMap[(normalizedParsedGeneExpressions[genePicker]*10).toInt()]?.xyzw() ?: GLVector(250f/255f, 231f/255f, 85f/255f, 1.0f)
-                    roundedColorMap[(1/(7*(1.0f + log10(0.1f + parsedGeneExpressions[genePicker])))).toInt()]?.xyzw() ?: GLVector(250f/255f, 231f/255f, 85f/255f, 1.0f)
+                    roundedColorMap[(1/(7*(1.0f + log10(0.1f + parsedGeneExpressions[genePicker])))).toInt()]?.xyzw() ?: Vector4f(250f/255f, 231f/255f, 85f/255f, 1.0f)
                 }
 
                 (s.metadata["selected"] as? Boolean)?.let {
@@ -165,15 +174,16 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         }
 
         geneBoard.transparent = 0
-        geneBoard.fontColor = GLVector(0.0f, 0.0f, 0.0f)
-        geneBoard.backgroundColor = GLVector(1.0f, 1.0f, 1.0f)
+        geneBoard.fontColor = Vector3f(0.0f, 0.0f, 0.0f).xyzw()
+        geneBoard.backgroundColor = Vector3f(1.0f, 1.0f, 1.0f).xyzw()
         //geneBoard.position = GLVector(-15f, -10f, -48f)
-        geneBoard.scale = GLVector(0.1f, 0.1f, 0.1f)
+        geneBoard.scale = Vector3f(0.1f, 0.1f, 0.1f)
         geneBoard.visible = false
         geneBoard.update.add {
             val cam = getScene()?.findObserver() ?: return@add
 
-            geneBoard.position = cam.viewportToWorld(GLVector(0.7f, 0.85f), 1.0f) + cam.forward * 0.8f
+            geneBoard.position = cam.viewportToWorld(Vector2f(0.7f, 0.85f))
+            //            geneBoard.position = cam.viewportToWorld(Vector2f(0.7f, 0.85f), 1.0f) + cam.forward * 0.8f
             geneBoard.rotation = if (cam is DetachedHeadCamera) {
                 cam.headOrientation.conjugate().normalize()
             } else {
@@ -182,12 +192,12 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         }
         addChild(geneBoard)
 
-        val x = Cylinder.betweenPoints(GLVector(-5.00f, 0f, 0f), GLVector(5.00f, 0f, 0f))
-        x.material.diffuse = GLVector(1.0f, 1.0f, 1.0f)
-        val y = Cylinder.betweenPoints(GLVector(0f, -5.00f, 0f), GLVector(0f, 5.00f, 0f))
-        y.material.diffuse = GLVector(1.0f, 1.0f, 1.0f)
-        val z = Cylinder.betweenPoints(GLVector(0f, 0f, -5.00f), GLVector(0f, 0f, 5.00f))
-        z.material.diffuse = GLVector(1.0f, 1.0f, 1.0f)
+        val x = Cylinder.betweenPoints(Vector3f(-5.00f, 0f, 0f), Vector3f(5.00f, 0f, 0f))
+        x.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+        val y = Cylinder.betweenPoints(Vector3f(0f, -5.00f, 0f), Vector3f(0f, 5.00f, 0f))
+        y.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+        val z = Cylinder.betweenPoints(Vector3f(0f, 0f, -5.00f), Vector3f(0f, 0f, 5.00f))
+        z.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
 
         // Add objects to the scene
         addChild(x)
@@ -201,27 +211,27 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         }
 
         //Add box to scene for sense of bound
-        val hullbox = Box(GLVector(100.0f, 100.0f, 100.0f), insideNormals = true)
+        val hullbox = Box(Vector3f(100.0f, 100.0f, 100.0f), insideNormals = true)
         with(hullbox) {
-            position = GLVector(0.0f, 0.0f, 0.0f)
+            position = Vector3f(0.0f, 0.0f, 0.0f)
 
-            material.ambient = GLVector(0.6f, 0.6f, 0.6f)
-            material.diffuse = GLVector(0.4f, 0.4f, 0.4f)
-            material.specular = GLVector(0.0f, 0.0f, 0.0f)
+            material.ambient = Vector3f(0.6f, 0.6f, 0.6f)
+            material.diffuse = Vector3f(0.4f, 0.4f, 0.4f)
+            material.specular = Vector3f(0.0f, 0.0f, 0.0f)
             material.cullingMode = Material.CullingMode.Front
         }
-        addChild(hullbox)//hullbox
+        addChild(hullbox)
 
-        laser.material.diffuse = GLVector(5.0f, 0.0f, 0.02f)
+        laser.material.diffuse = Vector3f(5.0f, 0.0f, 0.02f)
         laser.material.metallic = 0.5f
         laser.material.roughness = 1.0f
-        laser.rotation.rotateByAngleX(-Math.PI.toFloat()/1.5f)
+        //laser.rotation.rotateByAngleX(-Math.PI.toFloat()/1.5f)
         laser.visible = true//laser
 
-        laser2.material.diffuse = GLVector(0.01f, 0.0f, 5.0f)
+        laser2.material.diffuse = Vector3f(0.01f, 0.0f, 5.0f)
         laser2.material.metallic = 0.5f
         laser2.material.roughness = 1.0f
-        laser2.rotation.rotateByAngleX(-Math.PI.toFloat()/1.5f)
+        //laser2.rotation.rotateByAngleX(-Math.PI.toFloat()/1.5f)
         laser2.visible = true//laser
 
         //fetch center of mass for each cell type and attach TextBoard with cell type at that location
@@ -245,18 +255,18 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             t.text = i
             t.name = i
             t.transparent = 0
-            t.fontColor = GLVector(0.0f, 0.0f, 0.0f)
-            t.backgroundColor = tabulaColorMap[i]!!
+            t.fontColor = Vector3f(0.0f, 0.0f, 0.0f).xyzw()
+            t.backgroundColor = tabulaColorMap[i]!!.xyzw()
             t.position = massMap[i]!!
-            t.scale = GLVector(0.4f, 0.4f, 0.4f)*positionScaling
-            t.opacity = 0.5f
+            t.scale = Vector3f(0.4f, 0.4f, 0.4f)*positionScaling
+            //t.opacity = 0.5f
             textBoardMesh.addChild(t)
         }
 
         addChild(textBoardMesh)
         addChild(dotMesh)
         logger.info("my gene names are: $geneNames")
-        v.notifyUpdate()
+        //v.notifyUpdate()
     }
 
     fun csvReader(pathName: String = "GMB_cellAtlas_data.csv "): Triple<ArrayList<String>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>> {
@@ -318,35 +328,35 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
     }//read in tabula muris data//csvReader
 
 
-    fun getColorMaps(): HashMap<String, HashMap<String, GLVector>> {
+    fun getColorMaps(): HashMap<String, HashMap<String, Vector3f>> {
 
-        val tabulaCells = HashMap<String, GLVector>()
+        val tabulaCells = HashMap<String, Vector3f>()
         for(i in uniqueCellNames){
-            tabulaCells[i] = graphics.scenery.numerics.Random.randomVectorFromRange(3, 0f, 1.0f)
+            tabulaCells[i] = graphics.scenery.numerics.Random.random3DVectorFromRange(0f, 1.0f)
         }
 
         val pancreaticCellMap = hashMapOf(
-                "udf" to GLVector(255 / 255f, 98 / 255f, 188 / 255f),
-                "type B pancreatic cell" to GLVector(232 / 255f, 107 / 255f, 244 / 255f),
-                "pancreatic stellate cell" to GLVector(149 / 255f, 145 / 255f, 255 / 255f),
-                "pancreatic PP cell" to GLVector(0 / 255f, 176 / 255f, 246 / 255f),
-                "pancreatic ductal cell" to GLVector(0 / 255f, 191 / 255f, 196 / 255f),
-                "pancreatic D cell" to GLVector(0 / 255f, 190 / 255f, 125 / 255f),
-                "pancreatic acinar cell" to GLVector(57 / 255f, 182 / 255f, 0 / 255f),
-                "pancreatic A cell" to GLVector(162 / 255f, 165 / 255f, 0 / 255f),
-                "leukocyte" to GLVector(216 / 255f, 144 / 255f, 0 / 255f),
-                "endothelial cell" to GLVector(248 / 255f, 118 / 255f, 108 / 255f)
+                "udf" to Vector3f(255 / 255f, 98 / 255f, 188 / 255f),
+                "type B pancreatic cell" to Vector3f(232 / 255f, 107 / 255f, 244 / 255f),
+                "pancreatic stellate cell" to Vector3f(149 / 255f, 145 / 255f, 255 / 255f),
+                "pancreatic PP cell" to Vector3f(0 / 255f, 176 / 255f, 246 / 255f),
+                "pancreatic ductal cell" to Vector3f(0 / 255f, 191 / 255f, 196 / 255f),
+                "pancreatic D cell" to Vector3f(0 / 255f, 190 / 255f, 125 / 255f),
+                "pancreatic acinar cell" to Vector3f(57 / 255f, 182 / 255f, 0 / 255f),
+                "pancreatic A cell" to Vector3f(162 / 255f, 165 / 255f, 0 / 255f),
+                "leukocyte" to Vector3f(216 / 255f, 144 / 255f, 0 / 255f),
+                "endothelial cell" to Vector3f(248 / 255f, 118 / 255f, 108 / 255f)
         )
 
         val plateMap = hashMapOf(
-                "MAA000574" to GLVector(102 / 255f, 194 / 255f, 165 / 255f),
-                "MAA000577" to GLVector(252 / 255f, 141 / 255f, 98 / 255f),
-                "MAA000884" to GLVector(141 / 255f, 160 / 255f, 203 / 255f),
-                "MAA000910" to GLVector(231 / 255f, 138 / 255f, 195 / 255f),
-                "MAA001857" to GLVector(166 / 255f, 216 / 255f, 84 / 255f),
-                "MAA001861" to GLVector(255 / 255f, 217 / 255f, 47 / 255f),
-                "MAA001862" to GLVector(229 / 255f, 196 / 255f, 148 / 255f),
-                "MAA001868" to GLVector(179 / 255f, 179 / 255f, 179 / 255f)
+                "MAA000574" to Vector3f(102 / 255f, 194 / 255f, 165 / 255f),
+                "MAA000577" to Vector3f(252 / 255f, 141 / 255f, 98 / 255f),
+                "MAA000884" to Vector3f(141 / 255f, 160 / 255f, 203 / 255f),
+                "MAA000910" to Vector3f(231 / 255f, 138 / 255f, 195 / 255f),
+                "MAA001857" to Vector3f(166 / 255f, 216 / 255f, 84 / 255f),
+                "MAA001861" to Vector3f(255 / 255f, 217 / 255f, 47 / 255f),
+                "MAA001862" to Vector3f(229 / 255f, 196 / 255f, 148 / 255f),
+                "MAA001868" to Vector3f(179 / 255f, 179 / 255f, 179 / 255f)
         )
 
         val hashDatabase = hashMapOf(
@@ -363,11 +373,11 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         return hashMapOf(
                 "deltahedra" to Icosphere(0.20f * positionScaling, 0),
                 "ellipses" to Icosphere(0.20f * positionScaling, 3),
-                "cubes" to Box(GLVector(0.01f * positionScaling, 0.01f * positionScaling, 0.01f * positionScaling))
+                "cubes" to Box(Vector3f(0.01f * positionScaling, 0.01f * positionScaling, 0.01f * positionScaling))
         )
     }//get shape maps//get shape maps - not used in current build
 
-    fun fetchCenterOfMass(type: String): GLVector {
+    fun fetchCenterOfMass(type: String): Vector3f {
 
         val additiveMass = FloatArray(3)
         var filteredLength = 0f
@@ -381,15 +391,15 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             filteredLength += 1
         }
 
-        return GLVector(
+        return Vector3f(
                 (additiveMass[0] / filteredLength),
                 (additiveMass[1] / filteredLength),
                 (additiveMass[2] / filteredLength)
         )
     }//fetchCenterOfMass
 
-    fun textBoardPositions(): HashMap<String, GLVector> {
-        val massMap = HashMap<String, GLVector>()
+    fun textBoardPositions(): HashMap<String, Vector3f> {
+        val massMap = HashMap<String, Vector3f>()
         for(i in uniqueCellNames){
             massMap[i] = fetchCenterOfMass(i)
             logger.info("center of mass for $i is: ${fetchCenterOfMass(i)}")
@@ -402,7 +412,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         for(i in globalGeneExpression){
             maxList.add(i[geneLocus])
         }
-        val max = maxList.max()
+        val max = maxList.maxOrNull()
         return max!!
     }
 

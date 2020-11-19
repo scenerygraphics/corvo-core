@@ -1,4 +1,4 @@
-package graphics.scenery.tests.examples.advanced
+package graphics.scenery.dimensionalreduction
 
 import cleargl.GLVector
 import graphics.scenery.*
@@ -6,6 +6,7 @@ import graphics.scenery.backends.Renderer
 import graphics.scenery.controls.OpenVRHMD
 import graphics.scenery.controls.TrackedDeviceType
 import graphics.scenery.controls.TrackerRole
+import graphics.scenery.utils.extensions.times
 import org.junit.Test
 import org.scijava.Context
 import org.scijava.ui.UIService
@@ -15,6 +16,9 @@ import java.io.File
 import java.io.IOException
 import javax.sound.sampled.*
 import kotlin.concurrent.thread
+import org.joml.Vector2f
+import org.joml.Vector3f
+import org.joml.Vector4f
 
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
@@ -44,14 +48,15 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
         // Magic to get the VR to start up
         hmd?.let { hub.add(SceneryElement.HMDInput, it) }
         renderer = hub.add(Renderer.createRenderer(hub, applicationName, scene, windowWidth, windowHeight))
-//        renderer?.toggleVR()
+//       renderer?.toggleVR()
 
         // add parameter hmd for VR
         val cam: Camera = DetachedHeadCamera()
         with(cam) {
-            position = GLVector(0.0f, 0.0f, 5.0f)
-            perspectiveCamera(50.0f, windowWidth.toFloat(), windowHeight.toFloat())
-            active = true
+            position = Vector3f(0.0f, 0.0f, 5.0f)
+            perspectiveCamera(50.0f, windowWidth, windowHeight)
+            //perspectiveCamera(50.0f, windowWidth.toFloat(), windowHeight.toFloat())
+            //active = true
             scene.addChild(this)
         }
         globalCam = cam
@@ -150,7 +155,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             }
             plot.v.scale = plot.v.scale * 1.02f
             plot.textBoardMesh.scale = plot.textBoardMesh.scale * 1.02f
-            plot.v.notifyUpdate()
+            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("increase_size", increaseSize)
@@ -163,7 +168,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             }
             plot.v.scale = plot.v.scale * (1.0f/1.02f)
             plot.textBoardMesh.scale = plot.textBoardMesh.scale * (1.0f/1.02f)
-            plot.v.notifyUpdate()
+            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("decrease_size", decreaseSize)
@@ -180,7 +185,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             if(plot.textBoardPicker){
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
-            plot.v.notifyUpdate()
+            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("toggle_genes_forwards", toggleGenesForwards)
@@ -197,7 +202,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             if(plot.textBoardPicker){
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
-            plot.v.notifyUpdate()
+            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("toggle_genes_backwards", toggleGenesBackwards)
@@ -233,7 +238,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             }
             plot.geneBoard.visible = !plot.geneBoard.visible
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-            plot.v.notifyUpdate()
+            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("toggleTextBoards", toggleTextBoards)
@@ -262,21 +267,24 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
 
         val deletePoints = ClickBehaviour { _, _ ->
             plot.v.instances.forEach {
-                if(plot.laser2.intersects(it, parent = plot.v)){
+                if(plot.laser2.intersects(it)){
+                    //if(plot.laser2.intersects(it, parent = plot.v)){
                     it.visible = false
                 }
             }
-            plot.v.notifyUpdate()
+            //plot.v.notifyUpdate()
         }
 
         val markPoints = ClickBehaviour { _, _ ->
             plot.v.instances.forEach {
-                if(plot.laser.intersects(it, parent = plot.v)){
-                    it.material.diffuse = GLVector(1.0f, 0.0f, 0.0f, 1.0f)
+                if(plot.laser.intersects(it,)){
+                    //if(plot.laser.intersects(it, parent = plot.v)){
+                    it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f)
+                    //it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f, 1.0f)
                     it.metadata["selected"] = true//!(it.metadata["selected"] as? Boolean ?: false)
                 }
             }
-            plot.v.notifyUpdate()
+            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("deletePoints", deletePoints)
@@ -317,6 +325,10 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
     override fun main() {
         super.main()
     }
+}
+
+private fun Vector3f.set(i: Int, fl: Float) {
+
 }
 
 

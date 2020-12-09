@@ -83,54 +83,6 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
 
     }
 
-    class AudioPlayer : LineListener {
-        var playCompleted: Boolean = false
-
-        fun play(audioFilePath: String) {
-            val audioFile = File(audioFilePath)
-
-            try {
-                val audioStream = AudioSystem.getAudioInputStream(audioFile)
-                val format = audioStream.format
-                val info = DataLine.Info(Clip::class.java, format)
-                val audioClip = AudioSystem.getLine(info) as Clip
-                audioClip.addLineListener(this)
-                audioClip.open(audioStream)
-                audioClip.start()
-
-                while (!playCompleted) {
-                    // wait for the playback completes
-                    try {
-                        Thread.sleep(1000)
-                    } catch (ex: InterruptedException) {
-                        ex.printStackTrace()
-                    }
-                }
-                audioClip.close()
-
-            } catch (ex: UnsupportedAudioFileException) {
-                println("The specified audio file is not supported.")
-                ex.printStackTrace()
-            } catch (ex: LineUnavailableException) {
-                println("Audio line for playing back is unavailable.")
-                ex.printStackTrace()
-            } catch (ex: IOException) {
-                println("Error playing the audio file.")
-                ex.printStackTrace()
-            }
-        }
-
-        override fun update(event: LineEvent) {
-            val type = event.type
-            if (type == LineEvent.Type.START) {
-                println("Playback started.")
-            } else if (type == LineEvent.Type.STOP) {
-                playCompleted = true
-                println("Playback completed.")
-            }
-        }
-    }//audio class
-
     override fun inputSetup() {
         super.inputSetup()
         // see [OpenVRhmd?.toAWTKeyCode] for key bindings
@@ -155,7 +107,6 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             }
             plot.v.scale = plot.v.scale * 1.02f
             plot.textBoardMesh.scale = plot.textBoardMesh.scale * 1.02f
-            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("increase_size", increaseSize)
@@ -168,7 +119,6 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             }
             plot.v.scale = plot.v.scale * (1.0f/1.02f)
             plot.textBoardMesh.scale = plot.textBoardMesh.scale * (1.0f/1.02f)
-            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("decrease_size", decreaseSize)
@@ -185,7 +135,6 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             if(plot.textBoardPicker){
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
-            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("toggle_genes_forwards", toggleGenesForwards)
@@ -202,7 +151,6 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             if(plot.textBoardPicker){
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
-            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("toggle_genes_backwards", toggleGenesBackwards)
@@ -238,7 +186,6 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             }
             plot.geneBoard.visible = !plot.geneBoard.visible
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("toggleTextBoards", toggleTextBoards)
@@ -256,15 +203,6 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
         hmd?.addBehaviour("toggleDataSets", toggleDataSets)
         hmd?.addKeyBinding("toggleDataSets", "Y")
 
-        val audioFeedback = ClickBehaviour { _, _ ->
-            val audioFilePath = "audioFiles/LRMonoPhase4.wav"
-            val player = AudioPlayer()
-            player.play(audioFilePath)
-        }
-
-        inputHandler?.addBehaviour("audioFeedback", audioFeedback)
-        inputHandler?.addKeyBinding("audioFeedback", "B")
-
         val deletePoints = ClickBehaviour { _, _ ->
             plot.v.instances.forEach {
                 if(plot.laser2.intersects(it)){
@@ -272,7 +210,6 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
                     it.visible = false
                 }
             }
-            //plot.v.notifyUpdate()
         }
 
         val markPoints = ClickBehaviour { _, _ ->
@@ -284,7 +221,6 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
                     it.metadata["selected"] = true//!(it.metadata["selected"] as? Boolean ?: false)
                 }
             }
-            //plot.v.notifyUpdate()
         }
 
         hmd?.addBehaviour("deletePoints", deletePoints)

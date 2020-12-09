@@ -2,6 +2,7 @@ package graphics.scenery.dimensionalreduction
 
 import cleargl.GLVector
 import graphics.scenery.*
+import graphics.scenery.backends.Shaders
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.extensions.toFloatArray
 import graphics.scenery.utils.extensions.xyzw
@@ -96,24 +97,25 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             normalizedGeneExpression.add(subNormalized)
         }
 
-        val roundedColorMap = hashMapOf<Int, GLVector>(
-                0 to GLVector(62f/255f, 20f/255f, 81f/255f),
-                1 to GLVector(66f/255f, 27f/255f, 100f/255f),
-                2 to GLVector(64f/255f, 72f/255f, 132f/255f),
-                3 to GLVector(62f/255f, 99f/255f, 138f/255f),
-                4 to GLVector(63f/255f, 112f/255f, 139f/255f),
-                5 to GLVector(68f/255f, 136f/255f, 140f/255f),
-                6 to GLVector(78f/255f, 160f/255f, 135f/255f),
-                7 to GLVector(117f/255f,195f/255f, 113f/255f),
-                8 to GLVector(139f/255f, 205f/255f, 102f/255f),
-                9 to GLVector(192f/255f, 220f/255f, 80f/255f),
-                10 to GLVector(250f/255f, 231f/255f, 85f/255f)
+        val roundedColorMap = hashMapOf<Int, Vector3f>(
+                0 to Vector3f(62f/255f, 20f/255f, 81f/255f),
+                1 to Vector3f(66f/255f, 27f/255f, 100f/255f),
+                2 to Vector3f(64f/255f, 72f/255f, 132f/255f),
+                3 to Vector3f(62f/255f, 99f/255f, 138f/255f),
+                4 to Vector3f(63f/255f, 112f/255f, 139f/255f),
+                5 to Vector3f(68f/255f, 136f/255f, 140f/255f),
+                6 to Vector3f(78f/255f, 160f/255f, 135f/255f),
+                7 to Vector3f(117f/255f,195f/255f, 113f/255f),
+                8 to Vector3f(139f/255f, 205f/255f, 102f/255f),
+                9 to Vector3f(192f/255f, 220f/255f, 80f/255f),
+                10 to Vector3f(250f/255f, 231f/255f, 85f/255f)
         )
         //Color map options: https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html, https://github.com/sjmgarnier/viridisLite/tree/master/data-raw\
 
 
         v.name = "master sphere"
-        v.material = ShaderMaterial.fromFiles("DefaultDeferredInstancedColor.vert", "DefaultDeferredInstanced.frag")
+        v.material = ShaderMaterial(Shaders.ShadersFromFiles(arrayOf("DefaultDeferredInstanced.frag", "DefaultDeferredInstancedColor.vert"), TSNEPlot::class.java))
+        //v.material = ShaderMaterial.fromFiles("DefaultDeferredInstancedColor.vert", "DefaultDeferredInstanced.frag")
         //overrides the shader
         v.material.diffuse = Vector3f(0.8f, 0.7f, 0.7f)
         //v.material.diffuse = Vector3f(0.8f, 0.7f, 0.7f).xyzw()
@@ -132,9 +134,9 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             val cellSource = cell.split("//").getOrNull(0)?.toInt() ?: -1
 
             val parsedGeneExpressions = geneExpressions[zipCounter]
-            logger.info("gene expression values: ${parsedGeneExpressions}")
+            //logger.info("gene expression values: ${parsedGeneExpressions}")
             val normalizedParsedGeneExpressions = normalizedGeneExpression[zipCounter]
-            print(normalizedParsedGeneExpressions)
+            //print(normalizedParsedGeneExpressions)
             s.parent = v
 
             s.name = cellName
@@ -145,12 +147,12 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
                     (if((normalizedParsedGeneExpressions[4]) < 0.2f){0.2f} else{(normalizedParsedGeneExpressions[4])}))
 
             s.position = Vector3f(coord[0], coord[1], coord[2])*positionScaling
-            logger.info("x coordinate is: ${coord[0]}")
+            //logger.info("x coordinate is: ${coord[0]}")
 
             s.instancedProperties["ModelMatrix"] = { s.world }
             s.instancedProperties["Color"] = {
                 var color = if(textBoardPicker) {
-                    tabulaColorMap.getOrDefault(cellName, Vector3f(1.0f, 0f, 0f)).xyzw()
+                    tabulaColorMap.getOrDefault(cellName, Vector3f(1.0f, 0f, 0f))
                 } else {
                     //roundedColorMap[(normalizedParsedGeneExpressions[genePicker]*10).toInt()]?.xyzw() ?: GLVector(250f/255f, 231f/255f, 85f/255f, 1.0f)
                     roundedColorMap[(1/(7*(1.0f + log10(0.1f + parsedGeneExpressions[genePicker])))).toInt()]?.xyzw() ?: Vector4f(250f/255f, 231f/255f, 85f/255f, 1.0f)
@@ -176,7 +178,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         geneBoard.transparent = 0
         geneBoard.fontColor = Vector3f(0.0f, 0.0f, 0.0f).xyzw()
         geneBoard.backgroundColor = Vector3f(1.0f, 1.0f, 1.0f).xyzw()
-        //geneBoard.position = GLVector(-15f, -10f, -48f)
+        //geneBoard.position = Vector3f(-15f, -10f, -48f)
         geneBoard.scale = Vector3f(0.1f, 0.1f, 0.1f)
         geneBoard.visible = false
         geneBoard.update.add {
@@ -266,7 +268,6 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         addChild(textBoardMesh)
         addChild(dotMesh)
         logger.info("my gene names are: $geneNames")
-        //v.notifyUpdate()
     }
 
     fun csvReader(pathName: String = "GMB_cellAtlas_data.csv "): Triple<ArrayList<String>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>> {
@@ -279,6 +280,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         var nline = 0
         csv.forEachLine(Charsets.UTF_8) {line ->
             if(nline != 0) {
+
                 val tsneFields = ArrayList<Float>()
                 val geneFields = ArrayList<Float>()
                 //val roundedGeneFields = ArrayList<Float>()
@@ -289,7 +291,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
                 line.split(";").drop(1).forEach {
                     if(colN == 0) {
                         cellName = it.replace("\"", "")
-                        logger.info("cell type: $it")
+                        //logger.info("cell type: $it")
                     }
                     else if(colN in 1..10) {
                         //val itFloatGene = it.toFloat()
@@ -306,18 +308,21 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
                         val name = it.replace("\"", "")
                         dataSet.add(name)
                         index = dataSet.indexOf(name)
-                        logger.info("dataSet result: $it")
+                        //logger.info("dataSet result: $it")
                     }
                     colN += 1
                 }
-                logger.info("gene expression is: $geneFields")
-                logger.info("coordinates added are: $tsneFields")
+                //logger.info("gene expression is: $geneFields")
+                //logger.info("coordinates added are: $tsneFields")
                 geneExpressions.add(geneFields)
                 tsneCoordinates.add(tsneFields)
                 cellNames.add("$index//$cellName")
                 //roundedGeneExpression.add(roundedGeneFields)
             }
             else if(nline == 0){
+
+
+
                 line.split(";").drop(2).dropLast(4).forEach {
                     geneNames.add(it)
                 }
@@ -375,7 +380,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
                 "ellipses" to Icosphere(0.20f * positionScaling, 3),
                 "cubes" to Box(Vector3f(0.01f * positionScaling, 0.01f * positionScaling, 0.01f * positionScaling))
         )
-    }//get shape maps//get shape maps - not used in current build
+    }//get shape maps - not used in current build
 
     fun fetchCenterOfMass(type: String): Vector3f {
 

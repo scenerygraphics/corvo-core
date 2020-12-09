@@ -6,10 +6,12 @@
         <sourceOutputDir name="target/generated-sources/annotations" />
         <sourceTestOutputDir name="target/generated-test-sources/test-annotations" />
         <outputRelativeToContentRoot value="true" />
+        <module name="scenery" />
         <module name="scenery-dimensional_reduction" />
       </profile>
     </annotationProcessing>
     <bytecodeTargetLevel>
+      <module name="scenery" target="1.8" />
       <module name="scenery-dimensional_reduction" target="1.8" />
     </bytecodeTargetLevel>
   </component>

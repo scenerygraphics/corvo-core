@@ -15,6 +15,8 @@
         <compilerSettings />
         <compilerArguments>
           <option name="jvmTarget" value="1.8" />
+          <option name="languageVersion" value="1.4" />
+          <option name="apiVersion" value="1.4" />
           <option name="pluginOptions">
             <array />
           </option>
@@ -39,6 +41,15 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-opengl:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-glfw:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-jemalloc:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-openvr:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-xxhash:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-remotery:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: graphics.scenery:spirvcrossj:natives-linux:0.7.0-1.1.106.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: graphics.scenery:jvrpn:natives-linux:1.1.0" level="project" />
     <orderEntry type="library" name="Maven: graphics.scenery:scenery:fe3ab440" level="project" />
     <orderEntry type="library" name="Maven: org.jogamp.gluegen:gluegen-rt:2.3.2" level="project" />
     <orderEntry type="library" name="Maven: org.jogamp.gluegen:gluegen-rt:natives-linux-amd64:2.3.2" level="project" />
@@ -139,21 +150,21 @@
     <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-opengl:3.2.3" level="project" />
     <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-openvr:3.2.3" level="project" />
     <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-xxhash:3.2.3" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl:natives-macos:3.2.3" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-opengl:natives-macos:3.2.3" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-glfw:natives-macos:3.2.3" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-jemalloc:natives-macos:3.2.3" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-openvr:natives-macos:3.2.3" level="project" />
-    <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-xxhash:natives-macos:3.2.3" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-opengl:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-glfw:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-jemalloc:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-openvr:natives-linux:3.2.3" level="project" />
+    <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-xxhash:natives-linux:3.2.3" level="project" />
     <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-remotery:3.2.3" level="project" />
-    <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-remotery:natives-macos:3.2.3" level="project" />
+    <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-remotery:natives-linux:3.2.3" level="project" />
     <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-databind:2.11.0" level="project" />
     <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-annotations:2.11.0" level="project" />
     <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-core:2.11.0" level="project" />
     <orderEntry type="library" name="Maven: com.fasterxml.jackson.module:jackson-module-kotlin:2.11.0" level="project" />
     <orderEntry type="library" name="Maven: com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.11.0" level="project" />
     <orderEntry type="library" name="Maven: graphics.scenery:spirvcrossj:0.7.0-1.1.106.0" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: graphics.scenery:spirvcrossj:natives-macos:0.7.0-1.1.106.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: graphics.scenery:spirvcrossj:natives-linux:0.7.0-1.1.106.0" level="project" />
     <orderEntry type="library" name="Maven: org.zeromq:jeromq:0.4.3" level="project" />
     <orderEntry type="library" name="Maven: org.zeromq:jnacl:0.1.0" level="project" />
     <orderEntry type="library" name="Maven: com.esotericsoftware:kryo:4.0.2" level="project" />
@@ -163,7 +174,7 @@
     <orderEntry type="library" name="Maven: org.msgpack:msgpack-core:0.8.20" level="project" />
     <orderEntry type="library" name="Maven: org.msgpack:jackson-dataformat-msgpack:0.8.20" level="project" />
     <orderEntry type="library" name="Maven: graphics.scenery:jvrpn:1.1.0" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: graphics.scenery:jvrpn:natives-macos:1.1.0" level="project" />
+    <orderEntry type="library" scope="RUNTIME" name="Maven: graphics.scenery:jvrpn:natives-linux:1.1.0" level="project" />
     <orderEntry type="library" name="Maven: io.scif:scifio:0.41.0" level="project" />
     <orderEntry type="library" name="Maven: io.scif:scifio-jai-imageio:1.1.1" level="project" />
     <orderEntry type="library" name="Maven: net.imagej:imagej-common:0.33.0" level="project" />

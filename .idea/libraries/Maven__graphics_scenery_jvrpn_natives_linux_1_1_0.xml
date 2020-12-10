@@ -1,7 +1,7 @@
 <component name="libraryTable">
-  <library name="Maven: graphics.scenery:jvrpn:natives-macos:1.1.0">
+  <library name="Maven: graphics.scenery:jvrpn:natives-linux:1.1.0">
     <CLASSES>
-      <root url="jar://$MAVEN_REPOSITORY$/graphics/scenery/jvrpn/1.1.0/jvrpn-1.1.0-natives-macos.jar!/" />
+      <root url="jar://$MAVEN_REPOSITORY$/graphics/scenery/jvrpn/1.1.0/jvrpn-1.1.0-natives-linux.jar!/" />
     </CLASSES>
     <JAVADOC>
       <root url="jar://$MAVEN_REPOSITORY$/graphics/scenery/jvrpn/1.1.0/jvrpn-1.1.0-javadoc.jar!/" />

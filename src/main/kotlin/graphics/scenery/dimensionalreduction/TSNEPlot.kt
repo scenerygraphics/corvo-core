@@ -74,7 +74,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         // Parameters
         val colorMaps = getColorMaps()
         val defaultColor = "pancreaticCellMap"
-        val defaultShape = "ellipses"
+        //val defaultShape = "ellipses"
         val colorMap = colorMaps[defaultColor]//deprecated - for old data set
         val tabulaColorMap = colorMaps["tabulaCells"]
         if (colorMap == null || tabulaColorMap == null) {
@@ -112,7 +112,6 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         )
         //Color map options: https://cran.r-project.org/web/packages/viridis/vignettes/intro-to-viridis.html, https://github.com/sjmgarnier/viridisLite/tree/master/data-raw\
 
-
         v.name = "master sphere"
         v.material = ShaderMaterial(Shaders.ShadersFromFiles(arrayOf("DefaultDeferredInstanced.frag", "DefaultDeferredInstancedColor.vert"), TSNEPlot::class.java))
         //v.material = ShaderMaterial.fromFiles("DefaultDeferredInstancedColor.vert", "DefaultDeferredInstanced.frag")
@@ -124,9 +123,8 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         v.material.roughness = 0.8f
         v.metadata["sourceCount"] = 2
         v.instancedProperties["ModelMatrix"] = { v.world }
-        v.instancedProperties["Color"] = { v.material.diffuse }
+        v.instancedProperties["Color"] = { v.material.diffuse.xyzw() }
         dotMesh.addChild(v)
-
         var zipCounter = 0
         cellNames.zip(tsneCoordinates) {cell, coord ->
             val s = Mesh()
@@ -152,7 +150,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             s.instancedProperties["ModelMatrix"] = { s.world }
             s.instancedProperties["Color"] = {
                 var color = if(textBoardPicker) {
-                    tabulaColorMap.getOrDefault(cellName, Vector3f(1.0f, 0f, 0f))
+                    tabulaColorMap.getOrDefault(cellName, Vector3f(1.0f, 0f, 0f)).xyzw()
                 } else {
                     //roundedColorMap[(normalizedParsedGeneExpressions[genePicker]*10).toInt()]?.xyzw() ?: GLVector(250f/255f, 231f/255f, 85f/255f, 1.0f)
                     roundedColorMap[(1/(7*(1.0f + log10(0.1f + parsedGeneExpressions[genePicker])))).toInt()]?.xyzw() ?: Vector4f(250f/255f, 231f/255f, 85f/255f, 1.0f)
@@ -160,7 +158,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
 
                 (s.metadata["selected"] as? Boolean)?.let {
                     if(it) {
-                        color = s.material.diffuse
+                        color = s.material.diffuse.xyzw()
                     }
                 }
 
@@ -238,17 +236,17 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
 
         //fetch center of mass for each cell type and attach TextBoard with cell type at that location
 
-        val listOfCells = arrayListOf(
-                "udf",
-                "type B pancreatic cell",
-                "pancreatic stellate cell",
-                "pancreatic PP cell",
-                "pancreatic ductal cell",
-                "pancreatic D cell",
-                "pancreatic acinar cell",
-                "pancreatic A cell",
-                "leukocyte",
-                "endothelial cell")//reduced list of cell types - not used in current build
+//        val listOfCells = arrayListOf(
+//                "udf",
+//                "type B pancreatic cell",
+//                "pancreatic stellate cell",
+//                "pancreatic PP cell",
+//                "pancreatic ductal cell",
+//                "pancreatic D cell",
+//                "pancreatic acinar cell",
+//                "pancreatic A cell",
+//                "leukocyte",
+//                "endothelial cell")//reduced list of cell types - not used in current build
 
         val massMap = textBoardPositions()
 

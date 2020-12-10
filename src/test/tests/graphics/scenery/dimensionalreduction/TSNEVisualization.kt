@@ -68,7 +68,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             hmd?.events?.onDeviceConnect?.add { hmd, device, timestamp ->
                 if(device.type == TrackedDeviceType.Controller) {
                     logger.info("Got device ${device.name} at $timestamp")
-                    device.model?.let { hmd?.attachToNode(device, it, cam)
+                    device.model?.let { hmd.attachToNode(device, it, cam)
                         if(device.role == TrackerRole.RightHand) {
                             it.addChild(plot.laser)
                         }
@@ -214,7 +214,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
 
         val markPoints = ClickBehaviour { _, _ ->
             plot.v.instances.forEach {
-                if(plot.laser.intersects(it,)){
+                if(plot.laser.intersects(it)){
                     //if(plot.laser.intersects(it, parent = plot.v)){
                     it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f)
                     //it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f, 1.0f)
@@ -231,14 +231,16 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
 
         val extendLaser = ClickBehaviour{ _, _ ->
             val scale = plot.laser.scale
-            scale.set(1, scale.y() * 1.1f)
+            //scale.set(1, scale.y() * 1.1f)
+            scale.y *= 1.10f
             plot.laser.scale = scale
             plot.laser2.scale = scale
         }
 
         val shrinkLaser = ClickBehaviour { _, _ ->
             val scale = plot.laser.scale
-            scale.set(1, scale.y() / 1.1f)
+//            scale.set(1, scale.y() / 1.1f)
+            scale.y /= 1.1f
             plot.laser.scale = scale
             plot.laser2.scale = scale
         }
@@ -261,10 +263,6 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
     override fun main() {
         super.main()
     }
-}
-
-private fun Vector3f.set(i: Int, fl: Float) {
-
 }
 
 

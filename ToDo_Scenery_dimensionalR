@@ -1,0 +1,32 @@
+To-Do
+
+General
+- prepare demo for Shalin
+- Look into integration with SciView
+- Reach out to Kyle about python integration
+- Reach out to maintainer of python tool for accessing cell atals data
+- make textboard work the way described in Steve's lab by Fabio. Off until you request them, then their location in space is calculated by your position/view in order to be unobscured and for the text not to be mirrored
+
+Functionality
+- add a default file path (rough fix, might want to make more inteligent/useful)
+- break apart loadDataset() function
+- Rethink colormap calling. 
+
+
+Issues
+- no color for most cell types
+	- can be fixed by removing two statements in instancing - debug
+- Not issue, but nan cells appear as ######## in excel
+- Find a better way record the number of genes in the dataset (currently a global variable and assignment on line 312)
+	- currently done with a small if statement - there may be a more efficient way to do this
+- Will break with no default dataset. Find a better way to go to default if no datasets are found
+- increasing and decreasing size of data: when going from increasing to decreasing, for one press, points increase and textboards decrease and vice versa. 
+
+Fix notes
+- Changed GMB dataset to comma-separated
+- Both files now start with index, followed by cell name, n gene expression columns, three coordinate columns, and a one dataset column
+- Tabula has 7 gene columsn, GMB has 10 columns
+- added new colormap that better encodes gene expression (dark for more expression, down to almost white for no expression)
+- commenting 
+- commented part of color instancing fixed lack of gradient in color map - unclear what the other line was for - binary color encoding
+- Rewriting of csvReader function to be dynamic and allow for datasets with a variable number of genes

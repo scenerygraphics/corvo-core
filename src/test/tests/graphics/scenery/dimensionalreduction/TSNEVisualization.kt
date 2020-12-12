@@ -33,14 +33,15 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
     private lateinit var globalCam: Camera
 
     override fun init() {
-        val dataset = System.getProperty("tsneDataset")
-        val filename = if(dataset == null) {
+        val defaultData = "null_test"
+        val defaultFile = File(defaultData)
+        val filename = if (defaultFile.exists()){
+            defaultData
+        } else {
             val c = Context()
             val ui = c.getService(UIService::class.java)
             val file = ui.chooseFile(null, FileWidget.OPEN_STYLE)
             file.absolutePath
-        } else {
-            dataset
         }
 
         plot = TSNEPlot(filename)
@@ -55,8 +56,6 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
         with(cam) {
             position = Vector3f(0.0f, 0.0f, 5.0f)
             perspectiveCamera(50.0f, windowWidth, windowHeight)
-            //perspectiveCamera(50.0f, windowWidth.toFloat(), windowHeight.toFloat())
-            //active = true
             scene.addChild(this)
         }
         globalCam = cam
@@ -109,8 +108,8 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             plot.textBoardMesh.scale = plot.textBoardMesh.scale * 1.02f
         }
 
-        hmd?.addBehaviour("increase_size", increaseSize)
-        hmd?.addKeyBinding("increase_size", "L")
+        inputHandler?.addBehaviour("increase_size", increaseSize)
+        inputHandler?.addKeyBinding("increase_size", "L")
 
         val decreaseSize = ClickBehaviour { _, _ ->
             plot.dotMesh.children.firstOrNull()?.instances?.forEach{
@@ -121,8 +120,8 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             plot.textBoardMesh.scale = plot.textBoardMesh.scale * (1.0f/1.02f)
         }
 
-        hmd?.addBehaviour("decrease_size", decreaseSize)
-        hmd?.addKeyBinding("decrease_size", "H")
+        inputHandler?.addBehaviour("decrease_size", decreaseSize)
+        inputHandler?.addKeyBinding("decrease_size", "H")
 
         val toggleGenesForwards= ClickBehaviour { _, _ ->
             if(plot.genePicker < plot.geneNames.size - 1){
@@ -137,8 +136,8 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             }
         }
 
-        hmd?.addBehaviour("toggle_genes_forwards", toggleGenesForwards)
-        hmd?.addKeyBinding("toggle_genes_forwards", "I")
+        inputHandler?.addBehaviour("toggle_genes_forwards", toggleGenesForwards)
+        inputHandler?.addKeyBinding("toggle_genes_forwards", "I")
 
         val toggleGenesBackwards= ClickBehaviour { _, _ ->
             if(plot.genePicker > 0){
@@ -153,8 +152,8 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             }
         }
 
-        hmd?.addBehaviour("toggle_genes_backwards", toggleGenesBackwards)
-        hmd?.addKeyBinding("toggle_genes_backwards", "O")
+        inputHandler?.addBehaviour("toggle_genes_backwards", toggleGenesBackwards)
+        inputHandler?.addKeyBinding("toggle_genes_backwards", "O")
 
         //try openAL for audio - spatial audio - sound sources that move around - connect to a node? See link to tutorial:
         //http://wiki.lwjgl.org/wiki/OpenAL_Tutorial_1_-_Single_Static_Source.html
@@ -188,8 +187,8 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
         }
 
-        hmd?.addBehaviour("toggleTextBoards", toggleTextBoards)
-        hmd?.addKeyBinding("toggleTextBoards", "X")
+        inputHandler?.addBehaviour("toggleTextBoards", toggleTextBoards)
+        inputHandler?.addKeyBinding("toggleTextBoards", "X")
 
         val toggleDataSets = ClickBehaviour { _, _ ->
             plot.dotMesh.children.firstOrNull()?.instances?.forEach{
@@ -200,8 +199,8 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
 
         }
 
-        hmd?.addBehaviour("toggleDataSets", toggleDataSets)
-        hmd?.addKeyBinding("toggleDataSets", "Y")
+        inputHandler?.addBehaviour("toggleDataSets", toggleDataSets)
+        inputHandler?.addKeyBinding("toggleDataSets", "Y")
 
         val deletePoints = ClickBehaviour { _, _ ->
             plot.v.instances.forEach {
@@ -223,11 +222,11 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             }
         }
 
-        hmd?.addBehaviour("deletePoints", deletePoints)
-        hmd?.addKeyBinding("deletePoints", "T")
+        inputHandler?.addBehaviour("deletePoints", deletePoints)
+        inputHandler?.addKeyBinding("deletePoints", "T")
 
-        hmd?.addBehaviour("markPoints", markPoints)
-        hmd?.addKeyBinding("markPoints", "U")
+        inputHandler?.addBehaviour("markPoints", markPoints)
+        inputHandler?.addKeyBinding("markPoints", "U")
 
         val extendLaser = ClickBehaviour{ _, _ ->
             val scale = plot.laser.scale
@@ -245,11 +244,11 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             plot.laser2.scale = scale
         }
 
-        hmd?.addBehaviour("extendLaser", extendLaser)
-        hmd?.addKeyBinding("extendLaser", "K")
+        inputHandler?.addBehaviour("extendLaser", extendLaser)
+        inputHandler?.addKeyBinding("extendLaser", "K")
 
-        hmd?.addBehaviour("shrinkLaser", shrinkLaser)
-        hmd?.addKeyBinding("shrinkLaser", "J")
+        inputHandler?.addBehaviour("shrinkLaser", shrinkLaser)
+        inputHandler?.addKeyBinding("shrinkLaser", "J")
 
         inputHandler?.addBehaviour("resetVisibility", ClickBehaviour { _, _ -> plot.resetVisibility() })
         inputHandler?.addKeyBinding("resetVisibility", "R")
@@ -264,6 +263,3 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
         super.main()
     }
 }
-
-
-//C:\Program Files\Oculus\Support\oculus-diagnostics\OculusMirror.exe --Size 2560 1440 --FovTanAngleMultiplier 1.3 1.3 --DisableTimewarp --SymmetricFov --RectilinearBothEyes --DisableFovStencil --IncludeSystemGui --IncludeNotifications

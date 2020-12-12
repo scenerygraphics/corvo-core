@@ -41,15 +41,6 @@
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl:natives-linux:3.2.3" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-opengl:natives-linux:3.2.3" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-glfw:natives-linux:3.2.3" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-jemalloc:natives-linux:3.2.3" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: org.lwjgl:lwjgl-openvr:natives-linux:3.2.3" level="project" />
-    <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-xxhash:natives-linux:3.2.3" level="project" />
-    <orderEntry type="library" name="Maven: org.lwjgl:lwjgl-remotery:natives-linux:3.2.3" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: graphics.scenery:spirvcrossj:natives-linux:0.7.0-1.1.106.0" level="project" />
-    <orderEntry type="library" scope="RUNTIME" name="Maven: graphics.scenery:jvrpn:natives-linux:1.1.0" level="project" />
     <orderEntry type="library" name="Maven: graphics.scenery:scenery:fe3ab440" level="project" />
     <orderEntry type="library" name="Maven: org.jogamp.gluegen:gluegen-rt:2.3.2" level="project" />
     <orderEntry type="library" name="Maven: org.jogamp.gluegen:gluegen-rt:natives-linux-amd64:2.3.2" level="project" />

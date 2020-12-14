@@ -18,7 +18,6 @@ import kotlin.math.log10
 import kotlin.math.round
 import kotlin.properties.Delegates
 
-
 /**.
  *
  *
@@ -116,7 +115,6 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             10 to Vector3f(0f/255f, 17f/255f, 6f/255f)
         )
 
-
         v.name = "master sphere"
         v.material = ShaderMaterial(Shaders.ShadersFromFiles(arrayOf("DefaultDeferredInstanced.frag", "DefaultDeferredInstancedColor.vert"), TSNEPlot::class.java)) //overrides the shader
         v.material.diffuse = Vector3f(0.8f, 0.7f, 0.7f)
@@ -146,7 +144,6 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
                     (if((normalizedParsedGeneExpressions[4]) < 0.2f){0.2f} else{(normalizedParsedGeneExpressions[4])}))
 
             s.position = Vector3f(coord[0], coord[1], coord[2])*positionScaling
-            //logger.info("x coordinate is: ${coord[0]}")
 
             s.instancedProperties["ModelMatrix"] = { s.world }
             s.instancedProperties["Color"] = {
@@ -156,7 +153,6 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
                     roundedColorMap[(normalizedParsedGeneExpressions[genePicker]*10).toInt()]?.xyzw() ?: Vector4f(250f/255f, 231f/255f, 85f/255f, 1.0f)
                     //roundedColorMap[(1/(7*(1.0f + log10(0.1f + parsedGeneExpressions[genePicker])))).toInt()]?.xyzw() ?: Vector4f(255f/255f, 255f/255f, 255f/255f, 1.0f)
                 }
-
                 (s.metadata["selected"] as? Boolean)?.let {
                     if(it) {
                         color = s.material.diffuse.xyzw()
@@ -176,10 +172,11 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             zipCounter += 1
         }
 
+        //text board displaying name of gene currently encoded as colormap. Disappears if color encodes cell type
         geneBoard.transparent = 0
-        geneBoard.fontColor = Vector3f(0.0f, 0.0f, 0.0f).xyzw()
+        geneBoard.fontColor = Vector3f(20f, 20f, 20f).xyzw()
         geneBoard.backgroundColor = Vector3f(1.0f, 1.0f, 1.0f).xyzw()
-        //geneBoard.position = Vector3f(-15f, -10f, -48f)
+        //geneBoard.position = Vector3f(-15f, -10f, -48f) // on far wall
         geneBoard.scale = Vector3f(0.1f, 0.1f, 0.1f)
         geneBoard.visible = false
         geneBoard.update.add {
@@ -193,19 +190,16 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             }
         }
         addChild(geneBoard)
-        //textboard displaying name of gene currently encoded as colormap. Disappears if color encodes cell type
 
-        val x = Cylinder.betweenPoints(Vector3f(-5.00f, 0f, 0f), Vector3f(5.00f, 0f, 0f))
-        x.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
-        val y = Cylinder.betweenPoints(Vector3f(0f, -5.00f, 0f), Vector3f(0f, 5.00f, 0f))
-        y.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
-        val z = Cylinder.betweenPoints(Vector3f(0f, 0f, -5.00f), Vector3f(0f, 0f, 5.00f))
-        z.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+        // create cylinders orthogonal to each other, representing axes centered around 0,0,0
+        val x = generateAxis("X", 5.00f)
+        val y = generateAxis("Y", 5.00f)
+        val z = generateAxis("Z", 5.00f)
 
-        // Add objects to the scene
+        // Add all objects to the scene
         addChild(x)
         addChild(y)
-        addChild(z)// Cylinders
+        addChild(z) // cylinders
         addChild(mesh)
 
         // Create scene lighting
@@ -246,7 +240,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         addChild(dotMesh)
     }
 
-    fun csvReader(pathName: String = "GMB_cellAtlas_data.csv "): Triple<ArrayList<String>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>> {
+    private fun csvReader(pathName: String = "GMB_cellAtlas_data.csv "): Triple<ArrayList<String>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>> {
         val cellNames = ArrayList<String>()
         val geneExpressions = ArrayList<ArrayList<Float>>()
         val tsneCoordinates = ArrayList<ArrayList<Float>>()
@@ -267,7 +261,6 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
                 var colN = 0
                 var cellName = ""
                 var index = -1
-                //val roundedGeneFields = ArrayList<Float>()
 
                 line.split(",").drop(1).dropLast(4).forEach{
                     if(colN == 0 ){
@@ -305,14 +298,13 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
                 geneExpressions.add(geneFields)
                 tsneCoordinates.add(tsneFields)
                 cellNames.add("$index//$cellName")
-                //roundedGeneExpression.add(roundedGeneFields)
             }
             nline += 1
         }
         return Triple(cellNames, geneExpressions, tsneCoordinates)
     }//read data from GMB dataset into three arrays
 
-    fun getColorMaps(): HashMap<String, HashMap<String, Vector3f>> {
+    private fun getColorMaps(): HashMap<String, HashMap<String, Vector3f>> {
 
         val tabulaCells = HashMap<String, Vector3f>()
         for(i in uniqueCellNames){
@@ -348,7 +340,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         return hashDatabase
     }// fetch a color map for cell type. Currently only works with random color map
 
-    fun fetchCenterOfMass(type: String): Vector3f {
+    private fun fetchCenterOfMass(type: String): Vector3f {
         val additiveMass = FloatArray(3)
         var filteredLength = 0f
 
@@ -366,7 +358,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         )
     }//fetchCenterOfMass
 
-    fun textBoardPositions(): HashMap<String, Vector3f> {
+    private fun textBoardPositions(): HashMap<String, Vector3f> {
         val massMap = HashMap<String, Vector3f>()
         for(i in uniqueCellNames){
             massMap[i] = fetchCenterOfMass(i)
@@ -375,7 +367,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         return massMap
     }//textBoardPositionslaser
 
-    fun fetchMaxGeneExp(geneLocus: Int): Float {
+    private fun fetchMaxGeneExp(geneLocus: Int): Float {
         val maxList = ArrayList<Float>()
         for(i in globalGeneExpression){
             maxList.add(i[geneLocus])
@@ -402,12 +394,23 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         loadDataset()
     }
 
-    fun initializeLaser(laserName: Cylinder){
+    private fun initializeLaser(laserName: Cylinder){
         laserName.material.diffuse = Vector3f(5.0f, 0.0f, 0.02f)
         laserName.material.metallic = 0.5f
         laserName.material.roughness = 1.0f
         //laser.rotation.rotateByAngleX(-Math.PI.toFloat()/1.5f)
-        laserName.visible = true//laser
+        laserName.visible = true
+    }
+
+    private fun generateAxis(dimension: String = "x", length: Float = 5.00f): Cylinder{
+        val cyl: Cylinder = when(dimension.capitalize()){
+            "X" -> { Cylinder.betweenPoints(Vector3f(-length, 0f, 0f), Vector3f(length, 0f, 0f)) }
+            "Y" -> { Cylinder.betweenPoints(Vector3f(0f, -length, 0f), Vector3f(0f, length, 0f)) }
+            "Z" -> { Cylinder.betweenPoints(Vector3f(0f, 0f, -length), Vector3f(0f, 0f, length)) }
+            else -> throw IllegalArgumentException("$dimension is not a valid dimension")
+        }
+        cyl.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+        return cyl
     }
 
     fun cycleDatasets() {

@@ -13,7 +13,7 @@ target/
 gradle.properties
 
 # IntelliJ project files -- create by `gradle idea` - do not commit!
-.idea
+.idea/
 *.ipr
 *.iws
 *.iml

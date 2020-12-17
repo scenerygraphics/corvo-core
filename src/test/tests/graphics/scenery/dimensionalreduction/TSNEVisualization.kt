@@ -59,7 +59,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
         renderer?.toggleVR()
 
         // add parameter hmd to DetachedHeadCamera for VR
-        val cam: Camera = DetachedHeadCamera()
+        val cam: Camera = DetachedHeadCamera(hmd)
         with(cam) {
             position = Vector3f(0.0f, 0.0f, 3.5f)
             perspectiveCamera(50.0f, windowWidth, windowHeight)

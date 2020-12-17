@@ -19,6 +19,7 @@ import kotlin.concurrent.thread
 import org.joml.Vector2f
 import org.joml.Vector3f
 import org.joml.Vector4f
+import kotlin.system.exitProcess
 
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
@@ -28,11 +29,17 @@ import org.joml.Vector4f
  */
 class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
     //2560 1440
-    var hmd: OpenVRHMD? = OpenVRHMD(useCompositor = true)
+    private lateinit var hmd: OpenVRHMD
     lateinit var plot: TSNEPlot
-    private lateinit var globalCam: Camera
 
     override fun init() {
+        hmd = OpenVRHMD(useCompositor = true)
+
+        if(!hmd.initializedAndWorking()) {
+            logger.info("Visualization is running without a hmd and may have limited interactivity")
+        }
+
+        // pick data set (file). No default functionality atm
         val defaultData = "null_test"
         val defaultFile = File(defaultData)
         val filename = if (defaultFile.exists()){
@@ -47,27 +54,26 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
         plot = TSNEPlot(filename)
 
         // Magic to get the VR to start up
-        hmd?.let { hub.add(SceneryElement.HMDInput, it) }
+        hmd.let { hub.add(SceneryElement.HMDInput, it) }
         renderer = hub.add(Renderer.createRenderer(hub, applicationName, scene, windowWidth, windowHeight))
-//       renderer?.toggleVR()
+        renderer?.toggleVR()
 
-        // add parameter hmd for VR
+        // add parameter hmd to DetachedHeadCamera for VR
         val cam: Camera = DetachedHeadCamera()
         with(cam) {
-            position = Vector3f(0.0f, 0.0f, 5.0f)
+            position = Vector3f(0.0f, 0.0f, 3.5f)
             perspectiveCamera(50.0f, windowWidth, windowHeight)
             scene.addChild(this)
         }
-        globalCam = cam
 
         thread {
             while(!running) {
                 Thread.sleep(200)
             }
-            hmd?.events?.onDeviceConnect?.add { hmd, device, timestamp ->
+            hmd.events.onDeviceConnect.add { hmd, device, timestamp ->
                 if(device.type == TrackedDeviceType.Controller) {
                     logger.info("Got device ${device.name} at $timestamp")
-                    device.model?.let { hmd.attachToNode(device, it, cam)
+                     device.model?.let { hmd.attachToNode(device, it, cam)
                         if(device.role == TrackerRole.RightHand) {
                             it.addChild(plot.laser)
                         }
@@ -88,42 +94,41 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
 
         inputHandler?.let { handler ->
             hashMapOf(
-                    "move_forward" to "W",
-                    "move_back" to "S",
-                    "move_left" to "A",
-                    "move_right" to "D").forEach { (name, key) ->
+                    "move_forward" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Up),
+                    "move_back" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Down),
+                    "move_left" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Left),
+                    "move_right" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Right)).forEach { (name, key) ->
                 handler.getBehaviour(name)?.let { b ->
-                    hmd?.addBehaviour(name, b)
-                    hmd?.addKeyBinding(name, key)
+                    logger.info("Adding behaviour $name bound to $key to HMD")
+                    hmd.addBehaviour(name, b)
+                    hmd.addKeyBinding(name, key)
                 }
             }
         }
 
-        val increaseSize = ClickBehaviour { _, _ ->
+        hmd.addBehaviour("increase_size", ClickBehaviour{ _, _->
             plot.dotMesh.children.firstOrNull()?.instances?.forEach{
                 it.needsUpdate = true
                 it.needsUpdateWorld = true
             }
             plot.v.scale = plot.v.scale * 1.02f
             plot.textBoardMesh.scale = plot.textBoardMesh.scale * 1.02f
-        }
+        })
+        hmd.addKeyBinding("increase_size", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Right) //L
 
-        inputHandler?.addBehaviour("increase_size", increaseSize)
-        inputHandler?.addKeyBinding("increase_size", "L")
 
-        val decreaseSize = ClickBehaviour { _, _ ->
+        hmd.addBehaviour("decrease_size", ClickBehaviour{ _, _ ->
             plot.dotMesh.children.firstOrNull()?.instances?.forEach{
                 it.needsUpdate = true
                 it.needsUpdateWorld = true
             }
             plot.v.scale = plot.v.scale * (1.0f/1.02f)
             plot.textBoardMesh.scale = plot.textBoardMesh.scale * (1.0f/1.02f)
-        }
+        })
+        hmd.addKeyBinding("decrease_size", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Left) //H
 
-        inputHandler?.addBehaviour("decrease_size", decreaseSize)
-        inputHandler?.addKeyBinding("decrease_size", "H")
 
-        val toggleGenesForwards= ClickBehaviour { _, _ ->
+        hmd.addBehaviour("toggle_genes_forwards", ClickBehaviour{ _, _ ->
             if(plot.genePicker < plot.geneNames.size - 1){
                 plot.genePicker += 1
             }
@@ -134,12 +139,11 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             if(plot.textBoardPicker){
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
-        }
+        })
+        hmd.addKeyBinding("toggle_genes_forwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.IndexA) //I
 
-        inputHandler?.addBehaviour("toggle_genes_forwards", toggleGenesForwards)
-        inputHandler?.addKeyBinding("toggle_genes_forwards", "I")
 
-        val toggleGenesBackwards= ClickBehaviour { _, _ ->
+        hmd.addBehaviour("toggle_genes_backwards", ClickBehaviour { _, _ ->
             if(plot.genePicker > 0){
                 plot.genePicker -= 1
             }
@@ -150,10 +154,8 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             if(plot.textBoardPicker){
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
-        }
-
-        inputHandler?.addBehaviour("toggle_genes_backwards", toggleGenesBackwards)
-        inputHandler?.addKeyBinding("toggle_genes_backwards", "O")
+        })
+        hmd.addKeyBinding("toggle_genes_backwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.IndexB) //O
 
         //try openAL for audio - spatial audio - sound sources that move around - connect to a node? See link to tutorial:
         //http://wiki.lwjgl.org/wiki/OpenAL_Tutorial_1_-_Single_Static_Source.html
@@ -173,7 +175,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
 //    })
 //    hmd?.addKeyBinding("toggle_laser", "Y")
 
-        val toggleTextBoards = ClickBehaviour {_, _ ->
+        hmd.addBehaviour("toggleTextBoards", ClickBehaviour {_, _ ->
             if(plot.textBoardPicker && plot.textBoardMesh.visible){
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
                 plot.textBoardPicker = !plot.textBoardPicker
@@ -185,33 +187,31 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             }
             plot.geneBoard.visible = !plot.geneBoard.visible
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-        }
+        })
+        hmd.addKeyBinding("toggleTextBoards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Side) //X
 
-        inputHandler?.addBehaviour("toggleTextBoards", toggleTextBoards)
-        inputHandler?.addKeyBinding("toggleTextBoards", "X")
 
-        val toggleDataSets = ClickBehaviour { _, _ ->
+        hmd.addBehaviour("toggleDataSets", ClickBehaviour { _, _ ->
             plot.dotMesh.children.firstOrNull()?.instances?.forEach{
                 it.needsUpdate = true
                 it.needsUpdateWorld = true
             }
             plot.currentDatasetIndex = (plot.currentDatasetIndex + 1) % plot.dataSet.size
+        })
+        hmd.addKeyBinding("toggleDataSets", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Side) //Y
 
-        }
 
-        inputHandler?.addBehaviour("toggleDataSets", toggleDataSets)
-        inputHandler?.addKeyBinding("toggleDataSets", "Y")
-
-        val deletePoints = ClickBehaviour { _, _ ->
+        hmd.addBehaviour("deletePoints", ClickBehaviour { _, _ ->
             plot.v.instances.forEach {
                 if(plot.laser2.intersects(it)){
                     //if(plot.laser2.intersects(it, parent = plot.v)){
                     it.visible = false
                 }
             }
-        }
+        })
+        hmd.addKeyBinding("deletePoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger) // T
 
-        val markPoints = ClickBehaviour { _, _ ->
+        hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
             plot.v.instances.forEach {
                 if(plot.laser.intersects(it)){
                     //if(plot.laser.intersects(it, parent = plot.v)){
@@ -220,35 +220,28 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
                     it.metadata["selected"] = true//!(it.metadata["selected"] as? Boolean ?: false)
                 }
             }
-        }
+        })
+        hmd.addKeyBinding("markPoints", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
 
-        inputHandler?.addBehaviour("deletePoints", deletePoints)
-        inputHandler?.addKeyBinding("deletePoints", "T")
-
-        inputHandler?.addBehaviour("markPoints", markPoints)
-        inputHandler?.addKeyBinding("markPoints", "U")
-
-        val extendLaser = ClickBehaviour{ _, _ ->
+        hmd.addBehaviour("extendLaser", ClickBehaviour { _, _ ->
             val scale = plot.laser.scale
             //scale.set(1, scale.y() * 1.1f)
             scale.y *= 1.10f
             plot.laser.scale = scale
             plot.laser2.scale = scale
-        }
+        })
+        hmd.addKeyBinding("extendLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Up) //K
 
-        val shrinkLaser = ClickBehaviour { _, _ ->
+        hmd.addBehaviour("shrinkLaser", ClickBehaviour { _, _ ->
             val scale = plot.laser.scale
-//            scale.set(1, scale.y() / 1.1f)
+            //scale.set(1, scale.y() / 1.1f)
             scale.y /= 1.1f
             plot.laser.scale = scale
             plot.laser2.scale = scale
-        }
+        })
+        hmd.addKeyBinding("shrinkLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
 
-        inputHandler?.addBehaviour("extendLaser", extendLaser)
-        inputHandler?.addKeyBinding("extendLaser", "K")
 
-        inputHandler?.addBehaviour("shrinkLaser", shrinkLaser)
-        inputHandler?.addKeyBinding("shrinkLaser", "J")
 
         inputHandler?.addBehaviour("resetVisibility", ClickBehaviour { _, _ -> plot.resetVisibility() })
         inputHandler?.addKeyBinding("resetVisibility", "R")

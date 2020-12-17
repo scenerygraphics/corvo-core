@@ -118,7 +118,7 @@
         <dependency>
             <groupId>graphics.scenery</groupId>
             <artifactId>scenery</artifactId>
-            <version>fe3ab440</version>
+            <version>80d656d</version>
         </dependency>
 
         <dependency>
@@ -185,6 +185,12 @@
             <artifactId>kotlin-test</artifactId>
             <version>${kotlin.version}</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.jetbrains.kotlin</groupId>
+            <artifactId>kotlin-stdlib</artifactId>
+            <version>1.4.20</version>
+            <scope>compile</scope>
         </dependency>
 
 

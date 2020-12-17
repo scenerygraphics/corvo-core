@@ -14,7 +14,6 @@ import java.util.*
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 import kotlin.collections.set
-import kotlin.math.log10
 import kotlin.math.round
 import kotlin.properties.Delegates
 
@@ -29,7 +28,6 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
     val laser2 = Cylinder(0.01f, 2.0f, 20)
 
     // define meshes that make up the scene
-    var mesh = Mesh()
     var dotMesh = Mesh()
     var textBoardMesh = Mesh()
 
@@ -60,12 +58,16 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
          *
          */
 
+        // calls csvReader function on chosen dataset and outputs cell names (+ its dataset name), gene expression data, and its coordinates in UMAP space to three arrays
         val (cellNames, geneExpressions, tsneCoordinates) = csvReader(fileName)
 
+        // creates a set including each cell type once
         uniqueCellNames = cellNames.map { it.split("//")[1] }.toSet()
+
+        // initializes global variable used in some functions and in TSNEVisualization class
         globalGeneExpression = geneExpressions
 
-        // Parameters
+        // Choose colormap
         val colorMaps = getColorMaps()
         val defaultColor = "pancreaticCellMap"
         val colorMap = colorMaps[defaultColor]//deprecated - for old data set
@@ -73,21 +75,8 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         if (colorMap == null || tabulaColorMap == null) {
             throw IllegalStateException("colorMap not found") }
 
-        val normalizedGeneExpression = ArrayList<ArrayList<Float>>()
-        val maxList = ArrayList<Float>()
-        for(i in 0 until globalGeneCount){
-            maxList.add(fetchMaxGeneExp(i))
-        }
-
-        for(row in geneExpressions){
-            val subNormalized = ArrayList<Float>()
-            var geneCounter = 0
-            for(gene in row){
-                subNormalized.add((round(gene/maxList[geneCounter]*10f))/10f)
-                geneCounter += 1
-            }
-            normalizedGeneExpression.add(subNormalized)
-        }
+        // calls function that normalizes all gene expression values between 0 and 1
+        val normGeneExp = normalizeGeneExpressions()
 
         val roundedColorMap = hashMapOf<Int, Vector3f>(
 
@@ -115,6 +104,12 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             10 to Vector3f(0f/255f, 17f/255f, 6f/255f)
         )
 
+        /*
+        Instancing
+        - Create parent sphere that instances inherit from.
+        - Instanced properties are position and color.
+        - All instances and parent exist in dotMesh.
+         */
         v.name = "master sphere"
         v.material = ShaderMaterial(Shaders.ShadersFromFiles(arrayOf("DefaultDeferredInstanced.frag", "DefaultDeferredInstancedColor.vert"), TSNEPlot::class.java)) //overrides the shader
         v.material.diffuse = Vector3f(0.8f, 0.7f, 0.7f)
@@ -129,30 +124,35 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         var zipCounter = 0
         cellNames.zip(tsneCoordinates) {cell, coord ->
             val s = Mesh()
+
+            // cell name and data set index returned as single list delimited by //. Is split into separate lists
             val cellName = cell.split("//").getOrNull(1) ?: ""
             val cellSource = cell.split("//").getOrNull(0)?.toInt() ?: -1
 
             val parsedGeneExpressions = geneExpressions[zipCounter]
-            val normalizedParsedGeneExpressions = normalizedGeneExpression[zipCounter]
+            val normParsedGeneExp = normGeneExp[zipCounter]
 
             s.parent = v
             s.name = cellName
             s.metadata["source"] = cellSource
+            // gene expression has been normalized between 0 and 1. Expressions less than 0.2f is set constant for aesthetics
             s.scale = Vector3f(
-                    (if((normalizedParsedGeneExpressions[2]) < 0.2f){0.2f} else{(normalizedParsedGeneExpressions[2])}),
-                    (if((normalizedParsedGeneExpressions[3]) < 0.2f){0.2f} else{(normalizedParsedGeneExpressions[3])}),
-                    (if((normalizedParsedGeneExpressions[4]) < 0.2f){0.2f} else{(normalizedParsedGeneExpressions[4])}))
-
+                    (if((normParsedGeneExp[2]) < 0.2f){0.2f} else{(normParsedGeneExp[2])}),
+                    (if((normParsedGeneExp[3]) < 0.2f){0.2f} else{(normParsedGeneExp[3])}),
+                    (if((normParsedGeneExp[4]) < 0.2f){0.2f} else{(normParsedGeneExp[4])}))
             s.position = Vector3f(coord[0], coord[1], coord[2])*positionScaling
 
             s.instancedProperties["ModelMatrix"] = { s.world }
             s.instancedProperties["Color"] = {
                 var color = if(textBoardPicker) {
                     tabulaColorMap.getOrDefault(cellName, Vector3f(1.0f, 0f, 0f)).xyzw()
+                    // cel type encoded as color
                 } else {
-                    roundedColorMap[(normalizedParsedGeneExpressions[genePicker]*10).toInt()]?.xyzw() ?: Vector4f(250f/255f, 231f/255f, 85f/255f, 1.0f)
+                    roundedColorMap[(normParsedGeneExp[genePicker]*10).toInt()]?.xyzw() ?: Vector4f(250f/255f, 231f/255f, 85f/255f, 1.0f)
+                    // gene expression encoded as color
                     //roundedColorMap[(1/(7*(1.0f + log10(0.1f + parsedGeneExpressions[genePicker])))).toInt()]?.xyzw() ?: Vector4f(255f/255f, 255f/255f, 255f/255f, 1.0f)
                 }
+                // metadata "selected" stores whether point has been marked by laser. Colors marked cells red.
                 (s.metadata["selected"] as? Boolean)?.let {
                     if(it) {
                         color = s.material.diffuse.xyzw()
@@ -191,23 +191,20 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         }
         addChild(geneBoard)
 
-        // create cylinders orthogonal to each other, representing axes centered around 0,0,0
+        // create cylinders orthogonal to each other, representing axes centered around 0,0,0 and add them to the scene
         val x = generateAxis("X", 5.00f)
-        val y = generateAxis("Y", 5.00f)
-        val z = generateAxis("Z", 5.00f)
-
-        // Add all objects to the scene
         addChild(x)
+        val y = generateAxis("Y", 5.00f)
         addChild(y)
-        addChild(z) // cylinders
-        addChild(mesh)
+        val z = generateAxis("Z", 5.00f)
+        addChild(z)
 
-        // Create scene lighting
+        // create scene lighting
         Light.createLightTetrahedron<PointLight>(spread = 10.0f, radius = 95.0f).forEach {
             addChild(it)
         }
 
-        //Add box to scene for sense of bound
+        // add box to scene for sense of bound
         val hullbox = Box(Vector3f(100.0f, 100.0f, 100.0f), insideNormals = true)
         with(hullbox) {
             position = Vector3f(0.0f, 0.0f, 0.0f)
@@ -218,11 +215,11 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         }
         addChild(hullbox)
 
+        // give lasers texture and set them to be visible (could use to have different lasers/colors/styles and switch between them)
         initializeLaser(laser)
         initializeLaser(laser2)
-        // give lasers texture and set them to be visible (could use to have different lasers/colors/styles and switch between them)
 
-        //fetch center of mass for each cell type and attach TextBoard with cell type at that location
+        // fetch center of mass for each cell type and attach TextBoard with cell type at that location
         val massMap = textBoardPositions()
         for(i in uniqueCellNames){
             val t = TextBoard(isBillboard = false)
@@ -233,9 +230,10 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             t.backgroundColor = tabulaColorMap[i]!!.xyzw()
             t.position = massMap[i]!!
             t.scale = Vector3f(0.4f, 0.4f, 0.4f)*positionScaling
-            //t.opacity = 0.5f
             textBoardMesh.addChild(t)
         }
+
+        // add all data points and their possible labels to the scene
         addChild(textBoardMesh)
         addChild(dotMesh)
     }
@@ -302,44 +300,66 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             nline += 1
         }
         return Triple(cellNames, geneExpressions, tsneCoordinates)
-    }//read data from GMB dataset into three arrays
+    }
+
+    private fun normalizeGeneExpressions(): ArrayList<ArrayList<Float>> {
+
+        val normalizedGeneExpression = ArrayList<ArrayList<Float>>()
+        val maxList = ArrayList<Float>()
+
+        for(i in 0 until globalGeneCount){
+            maxList.add(fetchMaxGeneExp(i))
+        }
+
+        for(row in globalGeneExpression){
+            val subNormalized = ArrayList<Float>()
+            var geneCounter = 0
+            for(gene in row){
+                subNormalized.add((round(gene/maxList[geneCounter]*10f))/10f)
+                geneCounter += 1
+            }
+            normalizedGeneExpression.add(subNormalized)
+        }
+
+        return normalizedGeneExpression
+    }
 
     private fun getColorMaps(): HashMap<String, HashMap<String, Vector3f>> {
 
         val tabulaCells = HashMap<String, Vector3f>()
-        for(i in uniqueCellNames){
+        for (i in uniqueCellNames) {
             tabulaCells[i] = graphics.scenery.numerics.Random.random3DVectorFromRange(0f, 1.0f)
         }
         val pancreaticCellMap = hashMapOf(
-                "udf" to Vector3f(255 / 255f, 98 / 255f, 188 / 255f),
-                "type B pancreatic cell" to Vector3f(232 / 255f, 107 / 255f, 244 / 255f),
-                "pancreatic stellate cell" to Vector3f(149 / 255f, 145 / 255f, 255 / 255f),
-                "pancreatic PP cell" to Vector3f(0 / 255f, 176 / 255f, 246 / 255f),
-                "pancreatic ductal cell" to Vector3f(0 / 255f, 191 / 255f, 196 / 255f),
-                "pancreatic D cell" to Vector3f(0 / 255f, 190 / 255f, 125 / 255f),
-                "pancreatic acinar cell" to Vector3f(57 / 255f, 182 / 255f, 0 / 255f),
-                "pancreatic A cell" to Vector3f(162 / 255f, 165 / 255f, 0 / 255f),
-                "leukocyte" to Vector3f(216 / 255f, 144 / 255f, 0 / 255f),
-                "endothelial cell" to Vector3f(248 / 255f, 118 / 255f, 108 / 255f)
+            "udf" to Vector3f(255 / 255f, 98 / 255f, 188 / 255f),
+            "type B pancreatic cell" to Vector3f(232 / 255f, 107 / 255f, 244 / 255f),
+            "pancreatic stellate cell" to Vector3f(149 / 255f, 145 / 255f, 255 / 255f),
+            "pancreatic PP cell" to Vector3f(0 / 255f, 176 / 255f, 246 / 255f),
+            "pancreatic ductal cell" to Vector3f(0 / 255f, 191 / 255f, 196 / 255f),
+            "pancreatic D cell" to Vector3f(0 / 255f, 190 / 255f, 125 / 255f),
+            "pancreatic acinar cell" to Vector3f(57 / 255f, 182 / 255f, 0 / 255f),
+            "pancreatic A cell" to Vector3f(162 / 255f, 165 / 255f, 0 / 255f),
+            "leukocyte" to Vector3f(216 / 255f, 144 / 255f, 0 / 255f),
+            "endothelial cell" to Vector3f(248 / 255f, 118 / 255f, 108 / 255f)
         )
         val plateMap = hashMapOf(
-                "MAA000574" to Vector3f(102 / 255f, 194 / 255f, 165 / 255f),
-                "MAA000577" to Vector3f(252 / 255f, 141 / 255f, 98 / 255f),
-                "MAA000884" to Vector3f(141 / 255f, 160 / 255f, 203 / 255f),
-                "MAA000910" to Vector3f(231 / 255f, 138 / 255f, 195 / 255f),
-                "MAA001857" to Vector3f(166 / 255f, 216 / 255f, 84 / 255f),
-                "MAA001861" to Vector3f(255 / 255f, 217 / 255f, 47 / 255f),
-                "MAA001862" to Vector3f(229 / 255f, 196 / 255f, 148 / 255f),
-                "MAA001868" to Vector3f(179 / 255f, 179 / 255f, 179 / 255f)
+            "MAA000574" to Vector3f(102 / 255f, 194 / 255f, 165 / 255f),
+            "MAA000577" to Vector3f(252 / 255f, 141 / 255f, 98 / 255f),
+            "MAA000884" to Vector3f(141 / 255f, 160 / 255f, 203 / 255f),
+            "MAA000910" to Vector3f(231 / 255f, 138 / 255f, 195 / 255f),
+            "MAA001857" to Vector3f(166 / 255f, 216 / 255f, 84 / 255f),
+            "MAA001861" to Vector3f(255 / 255f, 217 / 255f, 47 / 255f),
+            "MAA001862" to Vector3f(229 / 255f, 196 / 255f, 148 / 255f),
+            "MAA001868" to Vector3f(179 / 255f, 179 / 255f, 179 / 255f)
         )
-        val hashDatabase = hashMapOf(
-                "pancreaticCellMap" to pancreaticCellMap,
-                "plateMap" to plateMap,
-                "tabulaCells" to tabulaCells
+        return hashMapOf(
+            "pancreaticCellMap" to pancreaticCellMap,
+            "plateMap" to plateMap,
+            "tabulaCells" to tabulaCells,
         )
-        return hashDatabase
-    }// fetch a color map for cell type. Currently only works with random color map
+    }// Currently only works with random color map
 
+    // for a given cell type, find the average position for all of its instances. Used to place label in sensible position, given that the data is clustered
     private fun fetchCenterOfMass(type: String): Vector3f {
         val additiveMass = FloatArray(3)
         var filteredLength = 0f
@@ -356,8 +376,9 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
                 (additiveMass[1] / filteredLength),
                 (additiveMass[2] / filteredLength)
         )
-    }//fetchCenterOfMass
+    }
 
+    // for each unique cell type in the dataset, calculate the average position of all of its instances
     private fun textBoardPositions(): HashMap<String, Vector3f> {
         val massMap = HashMap<String, Vector3f>()
         for(i in uniqueCellNames){
@@ -365,40 +386,24 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             logger.info("center of mass for $i is: ${fetchCenterOfMass(i)}")
         }
         return massMap
-    }//textBoardPositionslaser
+    }
 
     private fun fetchMaxGeneExp(geneLocus: Int): Float {
         val maxList = ArrayList<Float>()
+        // index chosen gene (geneLocus) from each row (cell) and add to list maxList
         for(i in globalGeneExpression){
             maxList.add(i[geneLocus])
         }
+        // return highest gene expression from list
         val max = maxList.maxOrNull()
         return max!!
-    }
-
-    fun resetVisibility() {
-        v.instances.forEach {
-            it.visible = true
-            it.metadata.remove("selected")
-        }
-    }
-
-    fun reload() {
-        children.forEach { child -> removeChild(child) }
-
-        v = Icosphere(0.2f * positionScaling, 1)
-        dotMesh = Mesh()
-        textBoardMesh = Mesh()
-        mesh = Mesh()
-
-        loadDataset()
     }
 
     private fun initializeLaser(laserName: Cylinder){
         laserName.material.diffuse = Vector3f(5.0f, 0.0f, 0.02f)
         laserName.material.metallic = 0.5f
         laserName.material.roughness = 1.0f
-        //laser.rotation.rotateByAngleX(-Math.PI.toFloat()/1.5f)
+        laser.rotation.rotateX(-Math.PI.toFloat()/1.5f) // point laser forwards
         laserName.visible = true
     }
 
@@ -417,4 +422,20 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         currentDatasetIndex = (currentDatasetIndex + 1) % dataSet.size
     }
 
+    fun resetVisibility() {
+        v.instances.forEach {
+            it.visible = true
+            it.metadata.remove("selected")
+        }
+    }
+
+    fun reload() {
+        children.forEach { child -> removeChild(child) }
+
+        v = Icosphere(0.2f * positionScaling, 1)
+        dotMesh = Mesh()
+        textBoardMesh = Mesh()
+
+        loadDataset()
+    }
 }

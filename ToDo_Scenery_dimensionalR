@@ -11,7 +11,6 @@ Functionality
 - break apart loadDataset() function
 - Rethink colormap calling. 
 
-
 Issues
 - no color for most cell types
 	- can be fixed by removing two statements in instancing - debug
@@ -20,6 +19,8 @@ Issues
 	- currently done with a small if statement - there may be a more efficient way to do this
 - Will break with no default dataset. Find a better way to go to default if no datasets are found
 - increasing and decreasing size of data: when going from increasing to decreasing, points lag input by one press. Textboards change size with input, points, grow/shrink for one more press before shrinking/growing.
+
+Change-log
 
 Fix notes
 - Changed GMB dataset to comma-separated
@@ -32,3 +33,22 @@ Fix notes
 
 14.12.20
 - added a generateCylinder function to prevent reused code. Catches invalid dimensions and is not case sensitive.
+
+15.12.20
+- gene expression normalization now in a function and called in loadDataset()
+- commenting
+
+16.12.20
+to-do: 
+- update keybindings to new format
+- color map out of loadDataset()
+- "on a related note regarding OpenVR -- this now logs all input events when debug logging is activated, which can be done by setting the system property scenery.LogLevel.OpenVRHMD=debug
+- make sure you initialise OpenVRHMD in the init() method, and not before"
+- "check out VRControllerExample for the new key binding goodness"
+- push with maven dependency on newest Scenery version
+- Check if Vivie now takes inputs
+
+changelog:
+- placed OpenVRHMD into init()
+- changed keybindings to directly reference controller key instead of keyboard key map
+- changed scenery version reference in pom 

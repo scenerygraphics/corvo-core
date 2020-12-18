@@ -219,6 +219,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         initializeLaser(laser)
         initializeLaser(laser2)
 
+
         // fetch center of mass for each cell type and attach TextBoard with cell type at that location
         val massMap = textBoardPositions()
         for(i in uniqueCellNames){
@@ -403,7 +404,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         laserName.material.diffuse = Vector3f(5.0f, 0.0f, 0.02f)
         laserName.material.metallic = 0.5f
         laserName.material.roughness = 1.0f
-        laser.rotation.rotateX(-Math.PI.toFloat()/1.5f) // point laser forwards
+        laserName.rotation.rotateX(-Math.PI.toFloat()/1.5f) // point laser forwards
         laserName.visible = true
     }
 

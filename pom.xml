@@ -118,7 +118,7 @@
         <dependency>
             <groupId>graphics.scenery</groupId>
             <artifactId>scenery</artifactId>
-            <version>80d656d</version>
+            <version>8a3a43164e0a4da1328910ec947e393172c2146d</version>
         </dependency>
 
         <dependency>

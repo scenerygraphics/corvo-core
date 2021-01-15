@@ -6,6 +6,7 @@ import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.extensions.toFloatArray
 import graphics.scenery.utils.extensions.xyzw
 import graphics.scenery.numerics.Random.*
+import graphics.scenery.utils.extensions.plus
 import org.joml.Vector2f
 import org.joml.Vector3f
 import org.joml.Vector4f
@@ -14,6 +15,7 @@ import java.util.*
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 import kotlin.collections.set
+import kotlin.math.ceil
 import kotlin.math.round
 import kotlin.properties.Delegates
 
@@ -27,13 +29,24 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
     val laser = Cylinder(0.01f, 2.0f, 20)
     val laser2 = Cylinder(0.01f, 2.0f, 20)
 
+    //private var cellCount by Delegates.notNull<Int>()
+
     // define meshes that make up the scene
     var dotMesh = Mesh()
     var textBoardMesh = Mesh()
 
     // set type of shape data is represented as + a scaling factor for better scale relative to user
     var positionScaling = 0.2f
-    var v = Icosphere(0.20f * positionScaling, 1)
+
+
+
+    var v = Icosphere(0.1f * positionScaling, 1) // default r: 0.2f
+
+
+
+    lateinit var globalMasterMap: HashMap<Int, Icosphere>
+
+
 
     // variables that need to be accessed globally, but are defined in a limited namespace
     private lateinit var globalGeneExpression: ArrayList<ArrayList<Float>>
@@ -60,6 +73,9 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
 
         // calls csvReader function on chosen dataset and outputs cell names (+ its dataset name), gene expression data, and its coordinates in UMAP space to three arrays
         val (cellNames, geneExpressions, tsneCoordinates) = csvReader(fileName)
+
+        //cellCount = cellNames.size
+        //logger.info("master count = :$masterCount")
 
         // creates a set including each cell type once
         uniqueCellNames = cellNames.map { it.split("//")[1] }.toSet()
@@ -110,86 +126,107 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         - Instanced properties are position and color.
         - All instances and parent exist in dotMesh.
          */
-        v.name = "master sphere"
-        v.material = ShaderMaterial(Shaders.ShadersFromFiles(arrayOf("DefaultDeferredInstanced.frag", "DefaultDeferredInstancedColor.vert"), TSNEPlot::class.java)) //overrides the shader
-        v.material.diffuse = Vector3f(0.8f, 0.7f, 0.7f)
-        v.material.ambient = Vector3f(0.1f, 0.0f, 0.0f)
-        v.material.specular = Vector3f(0.05f, 0f, 0f)
-        v.material.roughness = 0.8f
-        v.metadata["sourceCount"] = 2
-        v.instancedProperties["ModelMatrix"] = { v.world }
-        v.instancedProperties["Color"] = { v.material.diffuse.xyzw() }
-        dotMesh.addChild(v)
+
+        val numCells = cellNames.size.toFloat()
+        val masterCount = ceil(numCells/10000).toInt()
+
+        if(masterCount==0){
+            throw java.lang.IllegalStateException("no cells could be found")
+        }
+
+        val masterMap = hashMapOf<Int, Icosphere>()
+
+        // hashmap to emulate at run time variable declaration
+        // allows for dynamically growing number of master spheres with size of dataset
+        for (i in 1..masterCount){
+            val masterTemp = Icosphere(0.1f * positionScaling, 1)
+            masterMap[i] = addMasterProperties(masterTemp, i)
+        }
+
+        logger.info("hashmap looks like: $masterMap")
+
+        // give access to hashmap of master objects to functions outside of init and to TSNEViz. class.
+        globalMasterMap = masterMap
 
         var zipCounter = 0
+        var resettingZipCounter = 0
+        var parentIterator = 1
+
         cellNames.zip(tsneCoordinates) {cell, coord ->
+
+            if(resettingZipCounter >= 10000){
+                parentIterator += 1
+                logger.info("parentIterator: $parentIterator")
+                resettingZipCounter = 0
+            }
+
             val s = Mesh()
 
             // cell name and data set index returned as single list delimited by //. Is split into separate lists
             val cellName = cell.split("//").getOrNull(1) ?: ""
             val cellSource = cell.split("//").getOrNull(0)?.toInt() ?: -1
 
-            val parsedGeneExpressions = geneExpressions[zipCounter]
             val normParsedGeneExp = normGeneExp[zipCounter]
 
-            s.parent = v
+            s.parent = masterMap[parentIterator]
             s.name = cellName
             s.metadata["source"] = cellSource
             // gene expression has been normalized between 0 and 1. Expressions less than 0.2f is set constant for aesthetics
             s.scale = Vector3f(
-                    (if((normParsedGeneExp[2]) < 0.2f){0.2f} else{(normParsedGeneExp[2])}),
-                    (if((normParsedGeneExp[3]) < 0.2f){0.2f} else{(normParsedGeneExp[3])}),
-                    (if((normParsedGeneExp[4]) < 0.2f){0.2f} else{(normParsedGeneExp[4])}))
-            s.position = Vector3f(coord[0], coord[1], coord[2])*positionScaling
+                ((if ((normParsedGeneExp[2]) < 0.2f) {
+                    0.2f
+                } else normParsedGeneExp[2])), ((if ((normParsedGeneExp[3]) < 0.2f) {
+                    0.2f
+                } else (normParsedGeneExp[3]))), ((if ((normParsedGeneExp[4]) < 0.2f) {
+                    0.2f
+                } else (normParsedGeneExp[4])))
+            )
+            s.position = Vector3f(coord[0], coord[1], coord[2]) * positionScaling
 
             s.instancedProperties["ModelMatrix"] = { s.world }
-            s.instancedProperties["Color"] = {
-                var color = if(textBoardPicker) {
-                    tabulaColorMap.getOrDefault(cellName, Vector3f(1.0f, 0f, 0f)).xyzw()
-                    // cel type encoded as color
-                } else {
-                    roundedColorMap[(normParsedGeneExp[genePicker]*10).toInt()]?.xyzw() ?: Vector4f(250f/255f, 231f/255f, 85f/255f, 1.0f)
+            s.instancedProperties ["Color"] = {
+            var color = if (textBoardPicker) {
+                tabulaColorMap.getOrDefault(cellName, Vector3f(1.0f, 0f, 0f)).xyzw()
+                // cel type encoded as color
+            } else {
+                roundedColorMap[(normParsedGeneExp[genePicker] * 10).toInt()]?.xyzw() ?: Vector4f(
+                    250f / 255f,
+                    231f / 255f,
+                    85f / 255f,
+                    1.0f
+                    )
                     // gene expression encoded as color
-                    //roundedColorMap[(1/(7*(1.0f + log10(0.1f + parsedGeneExpressions[genePicker])))).toInt()]?.xyzw() ?: Vector4f(255f/255f, 255f/255f, 255f/255f, 1.0f)
                 }
                 // metadata "selected" stores whether point has been marked by laser. Colors marked cells red.
                 (s.metadata["selected"] as? Boolean)?.let {
-                    if(it) {
+                    if (it) {
                         color = s.material.diffuse.xyzw()
                     }
                 }
-
-//                val source = s.metadata["source"] as? Int
-//                if(source != null && source != currentDatasetIndex) {
-//                    color = Vector4f(0.5f, 0.5f, 0.5f, 1.0f)
-//                }
-
-                // Uncommenting causes color loss for some clusters - debug
-
                 color
             }
-            v.instances.add(s)
+
+            masterMap[parentIterator]?.instances?.add(s)
             zipCounter += 1
+            resettingZipCounter += 1
         }
 
+        logger.info("master 1 instances:${masterMap[1]?.instances?.size}")
+        logger.info("master 2 instances:${masterMap[2]?.instances?.size}")
+        logger.info("master 3 instances:${masterMap[3]?.instances?.size}")
+        logger.info("master 4 instances:${masterMap[4]?.instances?.size}")
+        logger.info("master 5 instances:${masterMap[5]?.instances?.size}")
+
         //text board displaying name of gene currently encoded as colormap. Disappears if color encodes cell type
-        geneBoard.transparent = 0
-        geneBoard.fontColor = Vector3f(20f, 20f, 20f).xyzw()
+        geneBoard.transparent = 1
+        geneBoard.fontColor = Vector3f(0f, 0f, 0f).xyzw()
         geneBoard.backgroundColor = Vector3f(1.0f, 1.0f, 1.0f).xyzw()
         //geneBoard.position = Vector3f(-15f, -10f, -48f) // on far wall
         geneBoard.scale = Vector3f(0.1f, 0.1f, 0.1f)
         geneBoard.visible = false
-        geneBoard.update.add {
-            val cam = getScene()?.findObserver() ?: return@add
-            geneBoard.position = cam.viewportToWorld(Vector2f(0.7f, 0.85f))
-            //geneBoard.position = cam.viewportToWorld(Vector2f(0.7f, 0.85f), 1.0f) + cam.forward * 0.8f
-            geneBoard.rotation = if (cam is DetachedHeadCamera) {
-                cam.headOrientation.conjugate().normalize()
-            } else {
-                cam.rotation.conjugate().normalize()
-            }
-        }
-        addChild(geneBoard)
+        geneBoard.position = Vector3f(0f, 0f, -0.2f)
+        geneBoard.scale = Vector3f(0.05f, 0.05f, 0.05f)
+
 
         // create cylinders orthogonal to each other, representing axes centered around 0,0,0 and add them to the scene
         val x = generateAxis("X", 5.00f)
@@ -219,14 +256,13 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         initializeLaser(laser)
         initializeLaser(laser2)
 
-
         // fetch center of mass for each cell type and attach TextBoard with cell type at that location
         val massMap = textBoardPositions()
         for(i in uniqueCellNames){
             val t = TextBoard(isBillboard = false)
             t.text = i
             t.name = i
-            t.transparent = 0
+            t.transparent = 1
             t.fontColor = Vector3f(0.0f, 0.0f, 0.0f).xyzw()
             t.backgroundColor = tabulaColorMap[i]!!.xyzw()
             t.position = massMap[i]!!
@@ -234,12 +270,12 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
             textBoardMesh.addChild(t)
         }
 
-        // add all data points and their possible labels to the scene
+        // add all data points and their labels (if color encodes cell type) to the scene
         addChild(textBoardMesh)
         addChild(dotMesh)
     }
 
-    private fun csvReader(pathName: String = "GMB_cellAtlas_data.csv "): Triple<ArrayList<String>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>> {
+    private fun csvReader(pathName: String): Triple<ArrayList<String>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>> {
         val cellNames = ArrayList<String>()
         val geneExpressions = ArrayList<ArrayList<Float>>()
         val tsneCoordinates = ArrayList<ArrayList<Float>>()
@@ -249,54 +285,52 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         var nline = 0
 
         csv.forEachLine(Charsets.UTF_8) {line ->
-            if(nline == 0){
-                line.split(",").drop(2).dropLast(4).forEach {
+            when {
+                nline == 0 -> line.split(",").drop(2).dropLast(4).forEach {
                     geneNames.add(it)
                 }
-            }
-            else if(nline != 0) {
-                val tsneFields = ArrayList<Float>()
-                val geneFields = ArrayList<Float>()
-                var colN = 0
-                var cellName = ""
-                var index = -1
+                nline != 0 -> {
+                    val tsneFields = ArrayList<Float>()
+                    val geneFields = ArrayList<Float>()
+                    var colN = 0
+                    var cellName = ""
+                    var index = -1
 
-                line.split(",").drop(1).dropLast(4).forEach{
-                    if(colN == 0 ){
-                        // cell name
-                        cellName = it.replace("\"", "")
+                    line.split(",").drop(1).dropLast(4).forEach{
+                        if(colN == 0 ){
+                            // cell name
+                            cellName = it.replace("\"", "")
+                        } else{
+                            // gene expression
+                            val itFloatGene = (round(it.toFloat()*10f))/10f
+                            geneFields.add(itFloatGene)
+                        }
+                        colN += 1
                     }
-                    else{
-                        // gene expression
-                        val itFloatGene = (round(it.toFloat()*10f))/10f
-                        geneFields.add(itFloatGene)
+
+                    if(nline < 2) {
+                        globalGeneCount = colN - 1
                     }
-                    colN += 1
+
+                    var coordinateCol = 0
+                    line.split(",").drop(1+colN).forEach{
+                        if(coordinateCol < 3){
+                            // coordinate
+                            val itFloatTsne = it.toFloat()
+                            tsneFields.add(itFloatTsne)
+                        } else{
+                            // dataset
+                            val name = it.replace("\"", "")
+                            dataSet.add(name)
+                            index = dataSet.indexOf(name)
+                        }
+                        coordinateCol += 1
+                    }
+
+                    geneExpressions.add(geneFields)
+                    tsneCoordinates.add(tsneFields)
+                    cellNames.add("$index//$cellName")
                 }
-
-                if(nline < 2) {
-                    globalGeneCount = colN - 1
-                }
-
-                var coordinateCol = 0
-                line.split(",").drop(1+colN).forEach{
-                    if(coordinateCol < 3){
-                        // coordinate
-                        val itFloatTsne = it.toFloat()
-                        tsneFields.add(itFloatTsne)
-                    }
-                    else{
-                        // dataset
-                        val name = it.replace("\"", "")
-                        dataSet.add(name)
-                        index = dataSet.indexOf(name)
-                    }
-                    coordinateCol += 1
-                }
-
-                geneExpressions.add(geneFields)
-                tsneCoordinates.add(tsneFields)
-                cellNames.add("$index//$cellName")
             }
             nline += 1
         }
@@ -365,7 +399,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         val additiveMass = FloatArray(3)
         var filteredLength = 0f
 
-        for(i in v.instances.filter{ it.name == type }) {
+        for(i in globalMasterMap[1]!!.instances.filter{ it.name == type }) {
             additiveMass[0] += i.position.toFloatArray()[0]
             additiveMass[1] += i.position.toFloatArray()[1]
             additiveMass[2] += i.position.toFloatArray()[2]
@@ -421,6 +455,27 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
 
     fun cycleDatasets() {
         currentDatasetIndex = (currentDatasetIndex + 1) % dataSet.size
+    }
+
+    private fun addMasterProperties(master: Icosphere, masterNumber: Int): Icosphere {
+        /*
+       Generate an Icosphere used as Master for 10k instances.
+       Override shader to allow for varied color on instancing and makes color an instanced property.
+        */
+
+        master.name = "master$masterNumber"
+        master.material = ShaderMaterial(Shaders.ShadersFromFiles(arrayOf("DefaultDeferredInstanced.frag", "DefaultDeferredInstancedColor.vert"), TSNEPlot::class.java)) //overrides the shader
+        master.material.diffuse = Vector3f(0.8f, 0.7f, 0.7f)
+        master.material.ambient = Vector3f(0.1f, 0.0f, 0.0f)
+        master.material.specular = Vector3f(0.05f, 0f, 0f)
+        master.material.roughness = 0.2f
+        master.metadata["sourceCount"] = 2
+        master.instancedProperties["ModelMatrix"] = { master.world }
+        master.instancedProperties["Color"] = { master.material.diffuse.xyzw() }
+
+        dotMesh.addChild(master)
+
+        return master
     }
 
     fun resetVisibility() {

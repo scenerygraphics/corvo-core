@@ -65,6 +65,8 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             perspectiveCamera(50.0f, windowWidth, windowHeight)
             scene.addChild(this)
         }
+        cam.addChild(plot.geneBoard)
+
 
         thread {
             while(!running) {
@@ -140,7 +142,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
         })
-        hmd.addKeyBinding("toggle_genes_forwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.IndexA) //I
+        hmd.addKeyBinding("toggle_genes_forwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
 
 
         hmd.addBehaviour("toggle_genes_backwards", ClickBehaviour { _, _ ->
@@ -155,26 +157,32 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
         })
-        hmd.addKeyBinding("toggle_genes_backwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.IndexB) //O
+        hmd.addKeyBinding("toggle_genes_backwards", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //N
 
         //try openAL for audio - spatial audio - sound sources that move around - connect to a node? See link to tutorial:
         //http://wiki.lwjgl.org/wiki/OpenAL_Tutorial_1_-_Single_Static_Source.html
 
         //adding a pointing laser for interacting with objects
-//    hmd?.addBehaviour("toggle_laser", object: ClickBehaviour {
-//        val timeout = 500*1000*1000
-//        var last = 0L
-//
-//        override fun click(p0: Int, p1: Int) {
-//            logger.info("Toggling laser")
-//            if(System.nanoTime() - last < timeout) return
-//            plot.laser.visible = !plot.laser.visible
-//            plot.laser2.visible = !plot.laser2.visible
-//            last = System.nanoTime()
-//        }
-//    })
-//    hmd?.addKeyBinding("toggle_laser", "Y")
+      hmd.addBehaviour("toggle_laser", object: ClickBehaviour {
+           val timeout = 500*1000*1000
+           var last = 0L
 
+            override fun click(p0: Int, p1: Int) {
+                logger.info("Toggling laser")
+                if(System.nanoTime() - last < timeout) return
+                plot.laser.visible = !plot.laser.visible
+                plot.laser2.visible = !plot.laser2.visible
+                last = System.nanoTime()
+            }
+        })
+        hmd.addKeyBinding("toggle_laser", "Y")
+
+        /*
+        toggles between cell name and gene name view by triggering if statement in instancing zip
+        in cell name view: makes cell name boards invisible and activates gene name label in fov
+        in gene name view: makes cell name boards visible (even if made invisible by toggle_genes behaviour)
+        note from Ulrik: "when textBoards are shown transparent, the rendering order matters"
+         */
         hmd.addBehaviour("toggleTextBoards", ClickBehaviour {_, _ ->
             if(plot.textBoardPicker && plot.textBoardMesh.visible){
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
@@ -190,6 +198,22 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
         })
         hmd.addKeyBinding("toggleTextBoards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Side) //X
 
+        inputHandler?.addBehaviour("toggleTextBoards", ClickBehaviour {_, _ ->
+            if(plot.textBoardPicker && plot.textBoardMesh.visible){
+                plot.textBoardMesh.visible = !plot.textBoardMesh.visible
+                plot.textBoardPicker = !plot.textBoardPicker
+            } else if(plot.textBoardPicker && !plot.textBoardMesh.visible){
+                plot.textBoardPicker = !plot.textBoardPicker
+            } else if(!plot.textBoardPicker && !plot.textBoardMesh.visible){
+                plot.textBoardPicker = !plot.textBoardPicker
+                plot.textBoardMesh.visible = !plot.textBoardMesh.visible
+            }
+            plot.geneBoard.visible = !plot.geneBoard.visible
+            plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
+        })
+
+        inputHandler?.addKeyBinding("toggleTextBoards", "X")
+
 
         hmd.addBehaviour("toggleDataSets", ClickBehaviour { _, _ ->
             plot.dotMesh.children.firstOrNull()?.instances?.forEach{
@@ -199,7 +223,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             plot.currentDatasetIndex = (plot.currentDatasetIndex + 1) % plot.dataSet.size
         })
         hmd.addKeyBinding("toggleDataSets", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Side) //Y
-
+        // currently has no function as datasetIndex is not used
 
         hmd.addBehaviour("deletePoints", ClickBehaviour { _, _ ->
             plot.v.instances.forEach {

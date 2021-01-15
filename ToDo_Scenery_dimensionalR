@@ -40,15 +40,38 @@ Fix notes
 
 16.12.20
 to-do: 
-- update keybindings to new format
 - color map out of loadDataset()
 - "on a related note regarding OpenVR -- this now logs all input events when debug logging is activated, which can be done by setting the system property scenery.LogLevel.OpenVRHMD=debug
-- make sure you initialise OpenVRHMD in the init() method, and not before"
-- "check out VRControllerExample for the new key binding goodness"
-- push with maven dependency on newest Scenery version
-- Check if Vivie now takes inputs
 
 changelog:
 - placed OpenVRHMD into init()
 - changed keybindings to directly reference controller key instead of keyboard key map
 - changed scenery version reference in pom 
+- 
+
+
+- gitter notes todo:
+1)
+- Every few times I run, I get a crash with a java.lang.OutOfMemryError. Rerunning it fixes it so not a big issue:
+
+ add -Xmx8g in the VM options for the run configuration, these things need more memory than what's the default
+
+2)
+ - you are binding only to the inputHandler, if you want the behavior to execute on key presses and on the controllers, addBehaviour and addKeybinding needs to be called on both
+
+stable: 80d656d
+ hey @ljjh20! check out scenery version 69f4b99, which might have a potential fix for the lag behaviour. let me know if that fixes it. with the 25fps issue, please also try using a lower radius for your spheres in case that they are very crowded, if there's a lot of them drawn on top of each other, that also negatively affects performance. how many data points do you have in the scene there? additionally, it might also help splitting up all the points between several master objects, in case there's a lot of them (more than 50-100k)
+
+ yeah split at 10k and then it was fairly smooth up to 1M on my laptop
+
+References to v:
+- reload()
+- resetVisibility()
+- fetchCenterOfMass()
+- var declaration
+- instancing
+- in viz class (size, laser mark, delete)
+
+- figure out naming. Might want to first figure out how many masters I will need and then create them all in a for loop
+- should be reusable for different sized datasets of course
+- 

@@ -40,7 +40,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
         }
 
         // pick data set (file). No default functionality atm
-        val defaultData = "TabulaMuris3Ddata.csv"
+        val defaultData = ""
         val defaultFile = File(defaultData)
         val filename = if (defaultFile.exists()){
             defaultData

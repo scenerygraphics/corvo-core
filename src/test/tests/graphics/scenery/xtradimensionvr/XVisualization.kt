@@ -1,6 +1,5 @@
-package graphics.scenery.dimensionalreduction
+package graphics.scenery.xtradimensionvr
 
-import cleargl.GLVector
 import graphics.scenery.*
 import graphics.scenery.backends.Renderer
 import graphics.scenery.controls.OpenVRHMD
@@ -13,13 +12,8 @@ import org.scijava.ui.UIService
 import org.scijava.ui.behaviour.ClickBehaviour
 import org.scijava.widget.FileWidget
 import java.io.File
-import java.io.IOException
-import javax.sound.sampled.*
 import kotlin.concurrent.thread
-import org.joml.Vector2f
 import org.joml.Vector3f
-import org.joml.Vector4f
-import kotlin.system.exitProcess
 
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
@@ -27,10 +21,10 @@ import kotlin.system.exitProcess
  *
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
-class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
+class XVisualization: SceneryBase("XVisualization", 2560, 1440) {
     //2560 1440
     private lateinit var hmd: OpenVRHMD
-    lateinit var plot: TSNEPlot
+    lateinit var plot: XPlot
 
     override fun init() {
         hmd = OpenVRHMD(useCompositor = true)
@@ -51,10 +45,11 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
             file.absolutePath
         }
 
-        plot = TSNEPlot(filename)
+        plot = XPlot(filename)
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
+        settings.set("Renderer.DisableVsync", true)
         renderer = hub.add(Renderer.createRenderer(hub, applicationName, scene, windowWidth, windowHeight))
         renderer?.toggleVR()
 
@@ -271,7 +266,7 @@ class TSNEVisualization: SceneryBase("TSNEVisualization", 2560, 1440) {
         inputHandler?.addKeyBinding("resetVisibility", "R")
 
         inputHandler?.addBehaviour("reloadFile", ClickBehaviour { _, _ -> plot.reload()  })
-        inputHandler?.addKeyBinding("reloadFile", "shift R")
+        inputHandler?.addKeyBinding("reloadFilea -Xmx8ge", "shift R")
 
     }
 

@@ -1,13 +1,10 @@
-package graphics.scenery.dimensionalreduction
+package graphics.scenery.xtradimensionvr
 
 import graphics.scenery.*
 import graphics.scenery.backends.Shaders
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.extensions.toFloatArray
 import graphics.scenery.utils.extensions.xyzw
-import graphics.scenery.numerics.Random.*
-import graphics.scenery.utils.extensions.plus
-import org.joml.Vector2f
 import org.joml.Vector3f
 import org.joml.Vector4f
 import java.io.File
@@ -25,7 +22,7 @@ import kotlin.properties.Delegates
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
 
-class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
+class XPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
     val laser = Cylinder(0.01f, 2.0f, 20)
     val laser2 = Cylinder(0.01f, 2.0f, 20)
 
@@ -464,7 +461,7 @@ class TSNEPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         */
 
         master.name = "master$masterNumber"
-        master.material = ShaderMaterial(Shaders.ShadersFromFiles(arrayOf("DefaultDeferredInstanced.frag", "DefaultDeferredInstancedColor.vert"), TSNEPlot::class.java)) //overrides the shader
+        master.material = ShaderMaterial(Shaders.ShadersFromFiles(arrayOf("DefaultDeferredInstanced.frag", "DefaultDeferredInstancedColor.vert"), XPlot::class.java)) //overrides the shader
         master.material.diffuse = Vector3f(0.8f, 0.7f, 0.7f)
         master.material.ambient = Vector3f(0.1f, 0.0f, 0.0f)
         master.material.specular = Vector3f(0.05f, 0f, 0f)

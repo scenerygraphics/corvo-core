@@ -6,7 +6,6 @@ import graphics.scenery.controls.OpenVRHMD
 import graphics.scenery.controls.TrackedDeviceType
 import graphics.scenery.controls.TrackerRole
 import graphics.scenery.utils.extensions.times
-import org.junit.Test
 import org.scijava.Context
 import org.scijava.ui.UIService
 import org.scijava.ui.behaviour.ClickBehaviour
@@ -14,6 +13,7 @@ import org.scijava.widget.FileWidget
 import java.io.File
 import kotlin.concurrent.thread
 import org.joml.Vector3f
+import org.junit.Test
 
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the

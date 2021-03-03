@@ -48,6 +48,9 @@ dependencies {
     implementation("org.jogamp.jogl:jogl-all:2.3.2")
     implementation("org.scijava:ui-behaviour:2.0.3")
     implementation("graphics.scenery:spirvcrossj:0.7.0-1.1.106.0")
+    implementation("com.bc.zarr:jzarr:0.3.3-SNAPSHOT")
+    implementation("org.nd4j:nd4j-api:1.0.0-beta7")
+    implementation("org.nd4j:nd4j-native-platform:1.0.0-beta7")
     runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.0-1.1.106.0", classifier = lwjglNative)
     testImplementation("junit:junit:4.13")
 }

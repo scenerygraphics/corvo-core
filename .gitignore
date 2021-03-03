@@ -18,6 +18,7 @@ gradle.properties
 *.iws
 *.iml
 *.class
+out
 
 # Vulkan Validation Layers
 VkLayer_*.json

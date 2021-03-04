@@ -51,6 +51,8 @@ dependencies {
     implementation("com.bc.zarr:jzarr:0.3.3-SNAPSHOT")
     implementation("org.nd4j:nd4j-api:1.0.0-beta7")
     implementation("org.nd4j:nd4j-native-platform:1.0.0-beta7")
+    implementation("org.janelia.saalfeldlab:n5:2.3.0")
+    implementation("org.janelia.saalfeldlab:n5-zarr:0.0.6")
     runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.0-1.1.106.0", classifier = lwjglNative)
     testImplementation("junit:junit:4.13")
 }

@@ -51,6 +51,7 @@ class N5ZarrReader {
                 else -> error("Unsupported DataType: $it")
             }
         }
+
     }
 }
 

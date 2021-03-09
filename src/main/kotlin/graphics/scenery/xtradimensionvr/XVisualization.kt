@@ -33,27 +33,27 @@ class XVisualization constructor(val resource: String? = null): SceneryBase("XVi
         }
 
         // pick data set (file). No default functionality atm
-        val defaultData = ""
-        val defaultFile = File(defaultData)
-        val filename = if (defaultFile.exists()){
-            defaultData
-        } else {
-            val c = Context()
-            val ui = c.getService(UIService::class.java)
-            val file = ui.chooseFile(null, FileWidget.OPEN_STYLE)
-            file.absolutePath
-        }
-
+//        val defaultData = ""
+//        val defaultFile = File(defaultData)
+//        val filename = if (defaultFile.exists()){
+//            defaultData
+//        } else {
+//            val c = Context()
+//            val ui = c.getService(UIService::class.java)
+//            val file = ui.chooseFile(null, FileWidget.OPEN_STYLE)
+//            file.absolutePath
+//        }
+        val filename = "GMB_cellAtlas_data.csv"
         plot = XPlot(filename)
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
         settings.set("Renderer.DisableVsync", true)
         renderer = hub.add(Renderer.createRenderer(hub, applicationName, scene, windowWidth, windowHeight))
-        renderer?.toggleVR()
+        //renderer?.toggleVR()
 
         // add parameter hmd to DetachedHeadCamera for VR
-        val cam: Camera = DetachedHeadCamera(hmd)
+        val cam: Camera = DetachedHeadCamera()
         with(cam) {
             position = Vector3f(0.0f, 0.0f, 3.5f)
             perspectiveCamera(50.0f, windowWidth, windowHeight)

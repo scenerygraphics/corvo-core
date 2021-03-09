@@ -21,7 +21,7 @@ import org.junit.Test
  *
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
-class XVisualization: SceneryBase("XVisualization", 2560, 1440) {
+class XVisualization constructor(val resource: String? = null): SceneryBase("XVisualization", 2560, 1440, wantREPL = false) {
     //2560 1440
     private lateinit var hmd: OpenVRHMD
     lateinit var plot: XPlot
@@ -61,7 +61,6 @@ class XVisualization: SceneryBase("XVisualization", 2560, 1440) {
             scene.addChild(this)
         }
         cam.addChild(plot.geneBoard)
-
 
         thread {
             while(!running) {
@@ -270,8 +269,27 @@ class XVisualization: SceneryBase("XVisualization", 2560, 1440) {
 
     }
 
-    @Test
-    override fun main() {
-        super.main()
+//    @Test
+//    override fun main() {
+//        super.main()
+//    }
+
+    companion object {
+        @JvmStatic
+        fun main(args: Array<String>) {
+            XVisualization().main()
+            if(args.isNotEmpty()){
+                println(args[0])
+            }
+        }
     }
 }
+
+
+
+//fun main(args: Array<String>) {
+//    XVisualization().main()
+//}
+
+
+

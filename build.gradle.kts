@@ -4,7 +4,9 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     java
     maven
+    application
     kotlin("jvm") version "1.4.20"
+    id("com.github.johnrengelman.shadow") version "6.0.0"
 }
 
 group = "graphics.scenery"
@@ -57,6 +59,12 @@ dependencies {
     testImplementation("junit:junit:4.13")
 }
 
+application {
+//    mainClass.set("graphics.scenery.xtradimensionvr.XVisualizationKT")
+    @Suppress("DEPRECATION")
+    mainClassName ="graphics.scenery.xtradimensionvr.XVisualization"
+}
+
 tasks {
     withType<KotlinCompile> {
         kotlinOptions.jvmTarget = "11"
@@ -65,5 +73,9 @@ tasks {
 
     test {
         useJUnitPlatform()
+    }
+
+    shadowJar {
+        isZip64 = true
     }
 }

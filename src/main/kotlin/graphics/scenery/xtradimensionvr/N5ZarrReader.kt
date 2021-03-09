@@ -14,25 +14,28 @@ import org.janelia.saalfeldlab.n5.zarr.N5ZarrReader
 class N5ZarrReader {
     init {
 
-
         val n5 = N5ZarrReader("datasets/array.zarr")
         //val zDataset = N5Utils.open<FloatType>(n5, "/X")
-        val zDataset = openDataset(n5, "/X")
+        val zDataset = openDataset(n5, "/obs/n_genes")
 
-        val dType = n5.getDatasetAttributes("/X").dataType
+        val dType = n5.getDatasetAttributes("/obs/n_genes").dataType
         println(dType)
         println(zDataset)
 
-        val hyperView = Views.flatIterable(Views.hyperSlice(zDataset, 1, 2637))
-        val cursor = hyperView.cursor() as Cursor<FloatType>
-        while (cursor.hasNext()) {
-            val t = cursor.next()
-            val x = cursor.getLongPosition(0)
-            //val y = cursor.getLongPosition(1)
-            print(x)
-            print(":")
-            println(t)
+        for(i in zDataset){
+            println(i)
         }
+
+//        val hyperView = Views.flatIterable(Views.hyperSlice(zDataset, 0, 0))
+//        val cursor = hyperView.cursor() as Cursor<LongType>
+//        while (cursor.hasNext()) {
+//            val t = cursor.next()
+//            val x = cursor.getLongPosition(0)
+//            //val y = cursor.getLongPosition(1)
+//            print(x)
+//            print(":")
+//            println(t)
+//        }
     }
 
     fun openDataset(reader: N5ZarrReader, dataset: String): CachedCellImg<*,*>{

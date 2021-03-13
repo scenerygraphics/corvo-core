@@ -32,7 +32,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("com.github.scenerygraphics:scenery:886a7492")
+//    implementation("com.github.scenerygraphics:scenery:886a7492")
     implementation("junit:junit:4.12")
     val lwjglNative = "natives-" + when(current()) {
         WINDOWS -> "windows"
@@ -55,6 +55,7 @@ dependencies {
     implementation("org.nd4j:nd4j-native-platform:1.0.0-beta7")
     implementation("org.janelia.saalfeldlab:n5:2.3.0")
     implementation("org.janelia.saalfeldlab:n5-zarr:0.0.6")
+    runtimeOnly("net.java.jinput", "jinput", version="2.0.9", classifier="natives-all")
     runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.0-1.1.106.0", classifier = lwjglNative)
     testImplementation("junit:junit:4.13")
 }

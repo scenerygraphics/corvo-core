@@ -34,16 +34,18 @@ class XVisualization constructor(val resource: String? = null): SceneryBase("XVi
         }
 
         // pick data set (file). No default functionality atm
-        val defaultData = ""
-        val defaultFile = File(defaultData)
-        val filename = if (defaultFile.exists()){
-            defaultData
-        } else {
-            val c = Context()
-            val ui = c.getService(UIService::class.java)
-            val file = ui.chooseFile(null, FileWidget.OPEN_STYLE)
-            file.absolutePath
-        }
+//        val defaultData = ""
+//        val defaultFile = File(defaultData)
+//        val filename = if (defaultFile.exists()){
+//            defaultData
+//        } else {
+//            val c = Context()
+//            val ui = c.getService(UIService::class.java)
+//            val file = ui.chooseFile(null, FileWidget.OPEN_STYLE)
+//            file.absolutePath
+//        }
+
+        val filename = "datasets/GMB_cellAtlas_data.csv"
 
         plot = XPlot(filename)
 

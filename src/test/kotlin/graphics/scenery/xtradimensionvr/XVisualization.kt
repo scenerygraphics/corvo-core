@@ -13,7 +13,7 @@ import org.scijava.widget.FileWidget
 import java.io.File
 import kotlin.concurrent.thread
 import org.joml.Vector3f
-import org.junit.Test
+import org.junit.jupiter.api.Test
 
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the

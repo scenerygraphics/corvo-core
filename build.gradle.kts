@@ -25,6 +25,7 @@ description = "scenery-dimensional-reduction"
 //
 repositories {
     mavenCentral()
+    mavenLocal()
     maven("https://maven.scijava.org/content/groups/public")
     maven("https://jitpack.io")
     maven("http://nexus.senbox.net/nexus/content/groups/public/")
@@ -33,7 +34,9 @@ repositories {
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
 //    implementation("com.github.scenerygraphics:scenery:886a7492")
+    implementation("graphics.scenery:scenery:0.7.0-beta-8-SNAPSHOT-04")
     implementation("junit:junit:4.12")
+    implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when(current()) {
         WINDOWS -> "windows"
         LINUX -> "linux"
@@ -57,7 +60,11 @@ dependencies {
     implementation("org.janelia.saalfeldlab:n5-zarr:0.0.6")
     runtimeOnly("net.java.jinput", "jinput", version="2.0.9", classifier="natives-all")
     runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.0-1.1.106.0", classifier = lwjglNative)
-    testImplementation("junit:junit:4.13")
+    testImplementation ("org.junit.jupiter:junit-jupiter:5.6.0")
+
+    implementation("org.apache.logging.log4j:log4j-api:2.13.3")
+    implementation("org.apache.logging.log4j:log4j-core:2.13.3")
+    implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.13.3")
 }
 
 application {
@@ -72,11 +79,19 @@ tasks {
         sourceCompatibility = "11"
     }
 
-    test {
+    named<Test>("test") {
         useJUnitPlatform()
     }
 
     shadowJar {
         isZip64 = true
     }
+
+    jar {
+        manifest {
+            attributes ("Class-Path" to "/libs/a.jar")
+        }
+    }
 }
+
+

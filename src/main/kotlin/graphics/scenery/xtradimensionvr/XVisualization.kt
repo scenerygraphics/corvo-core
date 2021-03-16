@@ -6,14 +6,9 @@ import graphics.scenery.controls.OpenVRHMD
 import graphics.scenery.controls.TrackedDeviceType
 import graphics.scenery.controls.TrackerRole
 import graphics.scenery.utils.extensions.times
-import org.scijava.Context
-import org.scijava.ui.UIService
 import org.scijava.ui.behaviour.ClickBehaviour
-import org.scijava.widget.FileWidget
-import java.io.File
 import kotlin.concurrent.thread
 import org.joml.Vector3f
-import org.junit.Test
 
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
@@ -21,7 +16,7 @@ import org.junit.Test
  *
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
-class XVisualization constructor(val resource: String? = null): SceneryBase("XVisualization", 2560, 1440, wantREPL = false) {
+class XVisualization constructor(val resource: Array<String> = emptyArray()): SceneryBase("XVisualization", 2560, 1440, wantREPL = false) {
     //2560 1440
     private lateinit var hmd: OpenVRHMD
     lateinit var plot: XPlot
@@ -45,6 +40,10 @@ class XVisualization constructor(val resource: String? = null): SceneryBase("XVi
 //            file.absolutePath
 //        }
 
+//        if (resource.isEmpty()){
+//            error("no file path provided")
+//        }
+//        val filename = resource[0]
         val filename = "datasets/GMB_cellAtlas_data.csv"
 
         plot = XPlot(filename)
@@ -279,6 +278,9 @@ class XVisualization constructor(val resource: String? = null): SceneryBase("XVi
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
+            System.setProperty("scenery.Renderer.Device", "3070")
+            System.setProperty("spirvcrossj.useContextClassLoader", "true")
+            System.setProperty("scenery.Renderer", "VulkanRenderer")
             XVisualization().main()
             if(args.isNotEmpty()){
                 println(args[0])
@@ -286,7 +288,6 @@ class XVisualization constructor(val resource: String? = null): SceneryBase("XVi
         }
     }
 }
-
 
 
 //fun main(args: Array<String>) {

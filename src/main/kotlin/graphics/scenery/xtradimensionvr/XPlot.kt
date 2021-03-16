@@ -22,7 +22,7 @@ import kotlin.properties.Delegates
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
 
-class XPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
+class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
     val laser = Cylinder(0.01f, 2.0f, 20)
     val laser2 = Cylinder(0.01f, 2.0f, 20)
 

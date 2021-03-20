@@ -25,16 +25,18 @@ description = "scenery-dimensional-reduction"
 //
 repositories {
     mavenCentral()
-    mavenLocal()
     maven("https://maven.scijava.org/content/groups/public")
     maven("https://jitpack.io")
     maven("http://nexus.senbox.net/nexus/content/groups/public/")
+//    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1194/")
+    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1195/")
+//    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1196/")
+
 }
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-//    implementation("com.github.scenerygraphics:scenery:886a7492")
-    implementation("graphics.scenery:scenery:0.7.0-beta-8-SNAPSHOT-04")
+    implementation("graphics.scenery:scenery:eeb7210e2a")
     implementation("junit:junit:4.12")
     implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when(current()) {
@@ -52,12 +54,13 @@ dependencies {
     implementation("org.jogamp.gluegen:gluegen-rt:2.3.2")
     implementation("org.jogamp.jogl:jogl-all:2.3.2")
     implementation("org.scijava:ui-behaviour:2.0.3")
-    implementation("graphics.scenery:spirvcrossj:0.7.0-1.1.106.0")
+    implementation("graphics.scenery:spirvcrossj:0.7.1-1.1.106.0")
     implementation("com.bc.zarr:jzarr:0.3.3-SNAPSHOT")
     implementation("org.nd4j:nd4j-api:1.0.0-beta7")
     implementation("org.nd4j:nd4j-native-platform:1.0.0-beta7")
     implementation("org.janelia.saalfeldlab:n5:2.3.0")
     implementation("org.janelia.saalfeldlab:n5-zarr:0.0.6")
+    implementation("cisd:jhdf5:19.04.0")
     runtimeOnly("net.java.jinput", "jinput", version="2.0.9", classifier="natives-all")
     runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.0-1.1.106.0", classifier = lwjglNative)
     testImplementation ("org.junit.jupiter:junit-jupiter:5.6.0")

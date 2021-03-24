@@ -9,34 +9,6 @@ class AnnotationsIngest {
     private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
     private val annotationsPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_annotations"
 
-    val obsAnnMap = hashMapOf(
-        "index" to arrayOf(0, String),
-        "FACS.selection" to arrayOf(1, String),
-        "age" to arrayOf(2, String),
-        "cell" to arrayOf(3, String),
-        "cell_ontology_class" to arrayOf(4, String),
-        "cell_ontology_id" to arrayOf(5, String),
-        "free_annotation" to arrayOf(6, String),
-        "method" to arrayOf(7, String),
-        "mouse.id" to arrayOf(8, String),
-        "sex" to arrayOf(9, String),
-        "subtissue" to arrayOf(10, String),
-        "tissue" to arrayOf(11, String),
-        "n_genes" to arrayOf(12, Int),
-        "n_counts" to arrayOf(13, Float),
-        "louvain" to arrayOf(14, Int),
-        "leiden" to arrayOf(15, Int)
-    )
-
-    val varAnnMap = hashMapOf(
-        "index" to arrayOf(0, String),
-        "n_cells" to arrayOf(1, Int),
-        "means" to arrayOf(2, Float),
-        "dispersions" to arrayOf(3, Float),
-        "dispersions_norm" to arrayOf(4, Int),
-        "highly_variable" to arrayOf(5, String)
-    )
-
     private val intTypeArray = arrayOf("n_genes", "louvain", "leiden", "n_cells", "dispersions_norm")
     private val floatTypeArray = arrayOf("n_counts", "means", "dispersions")
 
@@ -117,60 +89,6 @@ class AnnotationsIngest {
             }
             println(annotationArray)
             println("catching exception")
-        }
-        return annotationArray
-    }
-
-    fun csvUMAPReader(): ArrayList<ArrayList<Float>> {
-        val UMAP = ArrayList<ArrayList<Float>>()
-        val UMAPCsv = File("$annotationsPath/obsm.csv")
-
-        var lineIndex = 0
-
-        UMAPCsv.forEachLine { line ->
-            if(lineIndex != 0){
-                val cellUMAP = ArrayList<Float>()
-
-                line.split(",").drop(1).forEach{
-                    cellUMAP.add(it.toFloat())
-                }
-                UMAP.add(cellUMAP)
-            }
-
-            lineIndex += 1
-        }
-        return UMAP
-    }
-
-    fun csvAnnotationReader(array: Array<Any>, annType: String): ArrayList<Any> {
-        if((annType != "obs") && (annType != "var")){
-            throw IllegalArgumentException("annType must be either 'var' or 'obs'")
-        }
-
-        val annCsv = File("$annotationsPath/$annType.csv")
-
-        val index: Int = array[0] as Int
-        val dType = array[1]
-
-        val drop = index
-        val dropLast = if(annType == "obs") 15 - index  else 5 - index
-
-        val annotationArray = ArrayList<Any>()
-
-        var lineIndex = 0
-
-        annCsv.forEachLine { line ->
-
-            if(lineIndex != 0) {
-                line.split("+").drop(drop).dropLast(dropLast).forEach {
-                    when (dType) {
-                        Float -> annotationArray.add(it.toFloat())
-                        Int -> annotationArray.add(it.toInt())
-                        else -> annotationArray.add(it)
-                    }
-                }
-            }
-            lineIndex += 1
         }
         return annotationArray
     }

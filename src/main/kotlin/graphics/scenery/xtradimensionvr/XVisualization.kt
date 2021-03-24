@@ -28,21 +28,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
             logger.info("Visualization is running without a hmd and may have limited interactivity")
         }
 
-        // pick data set (file). No default functionality atm
-//        val defaultData = ""
-//        val defaultFile = File(defaultData)
-//        val filename = if (defaultFile.exists()){
-//            defaultData
-//        } else {
-//            val c = Context()
-//            val ui = c.getService(UIService::class.java)
-//            val file = ui.chooseFile(null, FileWidget.OPEN_STYLE)
-//            file.absolutePath
-//        }
-
-//        if (resource.isEmpty()){
-//            error("no file path provided")
-//        }
 //        val filename = resource[0]
         val filename = "datasets/GMB_cellAtlas_data.csv"
 

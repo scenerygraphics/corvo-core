@@ -8,7 +8,7 @@ import graphics.scenery.utils.extensions.xyzw
 import org.joml.Vector3f
 import org.joml.Vector4f
 import java.io.File
-import java.util.*
+import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 import kotlin.collections.set
@@ -23,6 +23,10 @@ import kotlin.properties.Delegates
  */
 
 class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
+
+    val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
+    val annotationsPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_annotations"
+
     val laser = Cylinder(0.01f, 2.0f, 20)
     val laser2 = Cylinder(0.01f, 2.0f, 20)
 
@@ -33,17 +37,11 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
     var textBoardMesh = Mesh()
 
     // set type of shape data is represented as + a scaling factor for better scale relative to user
-    var positionScaling = 0.2f
+    var positionScaling = 1f
 
-
-
-    var v = Icosphere(0.1f * positionScaling, 1) // default r: 0.2f
-
-
+    var v = Icosphere(2f * positionScaling, 1) // default r: 0.2f - deprecated, still used for reset
 
     lateinit var globalMasterMap: HashMap<Int, Icosphere>
-
-
 
     // variables that need to be accessed globally, but are defined in a limited namespace
     private lateinit var globalGeneExpression: ArrayList<ArrayList<Float>>
@@ -64,12 +62,15 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
 
     private fun loadDataset() {
         /**
-         * main function to
-         *
          */
 
         // calls csvReader function on chosen dataset and outputs cell names (+ its dataset name), gene expression data, and its coordinates in UMAP space to three arrays
-        val (cellNames, geneExpressions, tsneCoordinates) = csvReader(fileName)
+        val (cellNames, geneExpressions, spatialCoordinates) = csvReader(fileName)
+
+        val testSpatialCoordinates = AnnotationsIngest().UMAPReader()
+
+
+
 
         //cellCount = cellNames.size
         //logger.info("master count = :$masterCount")
@@ -91,19 +92,7 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
         // calls function that normalizes all gene expression values between 0 and 1
         val normGeneExp = normalizeGeneExpressions()
 
-        val roundedColorMap = hashMapOf<Int, Vector3f>(
-
-//                0 to Vector3f(62f/255f, 20f/255f, 81f/255f),
-//                1 to Vector3f(66f/255f, 27f/255f, 100f/255f),
-//                2 to Vector3f(64f/255f, 72f/255f, 132f/255f),
-//                3 to Vector3f(62f/255f, 99f/255f, 138f/255f),
-//                4 to Vector3f(63f/255f, 112f/255f, 139f/255f),
-//                5 to Vector3f(68f/255f, 136f/255f, 140f/255f),
-//                6 to Vector3f(78f/255f, 160f/255f, 135f/255f),
-//                7 to Vector3f(117f/255f,195f/255f, 113f/255f),
-//                8 to Vector3f(139f/255f, 205f/255f, 102f/255f),
-//                9 to Vector3f(192f/255f, 220f/255f, 80f/255f),
-//                10 to Vector3f(250f/255f, 231f/255f, 85f/255f)
+        val roundedColorMap = hashMapOf(
             0 to Vector3f(247f/255f, 252f/255f, 253f/255f),
             1 to Vector3f(229f/255f, 245f/255f, 249f/255f),
             2 to Vector3f(204f/255f, 236f/255f, 230f/255f),
@@ -142,14 +131,14 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
 
         logger.info("hashmap looks like: $masterMap")
 
-        // give access to hashmap of master objects to functions outside of init and to TSNEViz. class.
+        // give access to hashmap of master objects to functions outside of init and to XVisualization class
         globalMasterMap = masterMap
 
         var zipCounter = 0
         var resettingZipCounter = 0
         var parentIterator = 1
 
-        cellNames.zip(tsneCoordinates) {cell, coord ->
+        cellNames.zip(testSpatialCoordinates) {cell, coord ->
 
             if(resettingZipCounter >= 10000){
                 parentIterator += 1
@@ -230,7 +219,8 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
         addChild(x)
         val y = generateAxis("Y", 5.00f)
         addChild(y)
-        val z = generateAxis("Z", 5.00f)
+        val z = generateAxis(
+"Z", 5.00f)
         addChild(z)
 
         // create scene lighting
@@ -271,6 +261,11 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
         addChild(textBoardMesh)
         addChild(dotMesh)
     }
+
+    private fun annotationReader(){
+
+    }
+
 
     private fun csvReader(pathName: String): Triple<ArrayList<String>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>> {
         val cellNames = ArrayList<String>()

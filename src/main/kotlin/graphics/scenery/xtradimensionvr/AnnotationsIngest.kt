@@ -1,15 +1,13 @@
 package graphics.scenery.xtradimensionvr
 
-import ch.systemsx.cisd.hdf5.HDF5DataSetInformation
 import ch.systemsx.cisd.hdf5.HDF5Factory
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import java.io.File
 import java.lang.IllegalArgumentException
-import java.lang.reflect.Type
 
 class AnnotationsIngest {
-    val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
-    val annotationsPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_annotations"
+    private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
+    private val annotationsPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_annotations"
 
     val obsAnnMap = hashMapOf(
         "index" to arrayOf(0, String),
@@ -39,75 +37,40 @@ class AnnotationsIngest {
         "highly_variable" to arrayOf(5, String)
     )
 
-    val intTypeArray = arrayOf("n_genes", "louvain", "leiden", "n_cells", "dispersions_norm")
-    val floatTypeArray = arrayOf("n_counts", "means", "dispersions")
+    private val intTypeArray = arrayOf("n_genes", "louvain", "leiden", "n_cells", "dispersions_norm")
+    private val floatTypeArray = arrayOf("n_counts", "means", "dispersions")
 
     init{
-//        var type = obsAnnMap["n_counts"]?.get(1)
-//        print(csvAnnotationReader(obsAnnMap["cell_ontology_class"]!!, "obs"))
-        h5adAnnotationReader("/obs/nah")
     }
 
-    fun UMAPReader(): ArrayList<ArrayList<Float>> {
-        val UMAP = ArrayList<ArrayList<Float>>()
-        val UMAPCsv = File("$annotationsPath/obsm.csv")
+    fun UMAPReader3D(): ArrayList<ArrayList<Float>>{
 
-        var lineIndex = 0
+        val reader = HDF5Factory.openForReading(h5adPath)
+        val UMAP = arrayListOf<ArrayList<Float>>()
 
-        UMAPCsv.forEachLine { line ->
-            if(lineIndex != 0){
-                val cellUMAP = ArrayList<Float>()
+        var tripletCounter = 0
+        val cellUMAP = ArrayList<Float>()
 
-                line.split(",").drop(1).forEach{
-                    cellUMAP.add(it.toFloat())
-                }
-                UMAP.add(cellUMAP)
+        for(coordinate in reader.float32().readArray("/obsm/X_umap")){
+            if(tripletCounter < 3){
+                cellUMAP.add(coordinate)
+                tripletCounter += 1
             }
-
-            lineIndex += 1
+            else {
+                UMAP.add(arrayListOf(cellUMAP[0], cellUMAP[1], cellUMAP[2])) // actual values instead of pointer to object
+                cellUMAP.clear()
+                tripletCounter = 1 // zero for first loop, then 1, as first entry is added in else clause
+                cellUMAP.add(coordinate)
+            }
         }
+        UMAP.add(arrayListOf(cellUMAP[0], cellUMAP[1], cellUMAP[2])) // add final sub-array
         return UMAP
-    }
-
-    fun csvaAnnotationReader(array: Array<Any>, annType: String): ArrayList<Any> {
-        if((annType != "obs") && (annType != "var")){
-            throw IllegalArgumentException("annType must be either 'var' or 'obs'")
-        }
-
-        val annCsv = File("$annotationsPath/$annType.csv")
-
-        val index: Int = array[0] as Int
-        val dType = array[1]
-
-        val drop = index
-        val dropLast = if(annType == "obs") 15 - index  else 5 - index
-
-        var annotationArray = ArrayList<Any>()
-
-        var lineIndex = 0
-
-        annCsv.forEachLine { line ->
-
-            if(lineIndex != 0) {
-                line.split("+").drop(drop).dropLast(dropLast).forEach {
-                    when (dType) {
-                        Float -> annotationArray.add(it.toFloat())
-                        Int -> annotationArray.add(it.toInt())
-                        else -> annotationArray.add(it)
-                    }
-                }
-            }
-            lineIndex += 1
-        }
-//        print(annotationArray.size)
-        return annotationArray
     }
 
     fun h5adAnnotationReader(pathLike: String): ArrayList<Any>{
         /**
          * path-like input of the form </obs or /var>/<annotation>
          */
-
         val reader = HDF5Factory.openForReading(h5adPath)
         val annType: String = pathLike.slice(1 until 4) // returns either 'var' or 'obs'
         val annotation = pathLike.substring(5) // returns just the annotation requested
@@ -155,7 +118,60 @@ class AnnotationsIngest {
             println(annotationArray)
             println("catching exception")
         }
+        return annotationArray
+    }
 
+    fun csvUMAPReader(): ArrayList<ArrayList<Float>> {
+        val UMAP = ArrayList<ArrayList<Float>>()
+        val UMAPCsv = File("$annotationsPath/obsm.csv")
+
+        var lineIndex = 0
+
+        UMAPCsv.forEachLine { line ->
+            if(lineIndex != 0){
+                val cellUMAP = ArrayList<Float>()
+
+                line.split(",").drop(1).forEach{
+                    cellUMAP.add(it.toFloat())
+                }
+                UMAP.add(cellUMAP)
+            }
+
+            lineIndex += 1
+        }
+        return UMAP
+    }
+
+    fun csvAnnotationReader(array: Array<Any>, annType: String): ArrayList<Any> {
+        if((annType != "obs") && (annType != "var")){
+            throw IllegalArgumentException("annType must be either 'var' or 'obs'")
+        }
+
+        val annCsv = File("$annotationsPath/$annType.csv")
+
+        val index: Int = array[0] as Int
+        val dType = array[1]
+
+        val drop = index
+        val dropLast = if(annType == "obs") 15 - index  else 5 - index
+
+        val annotationArray = ArrayList<Any>()
+
+        var lineIndex = 0
+
+        annCsv.forEachLine { line ->
+
+            if(lineIndex != 0) {
+                line.split("+").drop(drop).dropLast(dropLast).forEach {
+                    when (dType) {
+                        Float -> annotationArray.add(it.toFloat())
+                        Int -> annotationArray.add(it.toInt())
+                        else -> annotationArray.add(it)
+                    }
+                }
+            }
+            lineIndex += 1
+        }
         return annotationArray
     }
 }

@@ -67,10 +67,7 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
         // calls csvReader function on chosen dataset and outputs cell names (+ its dataset name), gene expression data, and its coordinates in UMAP space to three arrays
         val (cellNames, geneExpressions, spatialCoordinates) = csvReader(fileName)
 
-        val testSpatialCoordinates = AnnotationsIngest().UMAPReader()
-
-
-
+        val testSpatialCoordinates = AnnotationsIngest().UMAPReader3D()
 
         //cellCount = cellNames.size
         //logger.info("master count = :$masterCount")

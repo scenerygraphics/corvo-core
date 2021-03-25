@@ -31,7 +31,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
 //        val filename = resource[0]
         val filename = "datasets/GMB_cellAtlas_data.csv"
 
-        plot = XPlot(filename)
+        plot = XPlot()
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }

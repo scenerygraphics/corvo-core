@@ -7,13 +7,11 @@ import graphics.scenery.utils.extensions.toFloatArray
 import graphics.scenery.utils.extensions.xyzw
 import org.joml.Vector3f
 import org.joml.Vector4f
-import java.io.File
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.collections.HashSet
 import kotlin.collections.set
 import kotlin.math.ceil
-import kotlin.math.round
 import kotlin.properties.Delegates
 
 /**.
@@ -22,10 +20,7 @@ import kotlin.properties.Delegates
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
 
-class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
-
-    val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
-    val annotationsPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_annotations"
+class XPlot: Node() {
 
     val laser = Cylinder(0.01f, 2.0f, 20)
     val laser2 = Cylinder(0.01f, 2.0f, 20)
@@ -37,16 +32,14 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
     var textBoardMesh = Mesh()
 
     // set type of shape data is represented as + a scaling factor for better scale relative to user
-    var positionScaling = 1f
+    var positionScaling = 0.2f
 
-    var v = Icosphere(2f * positionScaling, 1) // default r: 0.2f - deprecated, still used for reset
+    var v = Icosphere(5f * positionScaling, 1) // default r: 0.2f - deprecated, still used for reset
 
     lateinit var globalMasterMap: HashMap<Int, Icosphere>
 
     // variables that need to be accessed globally, but are defined in a limited namespace
-    private lateinit var globalGeneExpression: ArrayList<ArrayList<Float>>
     private var globalGeneCount by Delegates.notNull<Int>()
-    private lateinit var uniqueCellNames: Set<String>
 
     // global as it is required by Visualization class
     var genePicker = 0
@@ -61,33 +54,28 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
     }
 
     private fun loadDataset() {
-        /**
-         */
 
-        // calls csvReader function on chosen dataset and outputs cell names (+ its dataset name), gene expression data, and its coordinates in UMAP space to three arrays
-        val (cellNames, geneExpressions, spatialCoordinates) = csvReader(fileName)
+        val geneNumber = 12
+        val geneReader = SparseReader()
+        val geneExpression = geneReader.cscReader(geneNumber)
 
-        val testSpatialCoordinates = AnnotationsIngest().UMAPReader3D()
+        val geneName = AnnotationsIngest().h5adAnnotationReader("/var/index")[12]
+        geneNames.add(geneName as String)
 
-        //cellCount = cellNames.size
-        //logger.info("master count = :$masterCount")
+        val spatialCoordinates = AnnotationsIngest().UMAPReader3D()
 
+        val cellNames = AnnotationsIngest().h5adAnnotationReader("/obs/cell_ontology_class")
         // creates a set including each cell type once
-        uniqueCellNames = cellNames.map { it.split("//")[1] }.toSet()
+        val uniqueCellNames = cellNames.toSet() as Set<String>
 
         // initializes global variable used in some functions and in TSNEVisualization class
-        globalGeneExpression = geneExpressions
 
-        // Choose colormap
-        val colorMaps = getColorMaps()
-        val defaultColor = "pancreaticCellMap"
-        val colorMap = colorMaps[defaultColor]//deprecated - for old data set
-        val tabulaColorMap = colorMaps["tabulaCells"]
-        if (colorMap == null || tabulaColorMap == null) {
-            throw IllegalStateException("colorMap not found") }
+        val tabulaColorMap = HashMap<String, Vector3f>()
+        for (i in uniqueCellNames) {
+            tabulaColorMap[i] = graphics.scenery.numerics.Random.random3DVectorFromRange(0f, 1.0f)
+        }
 
         // calls function that normalizes all gene expression values between 0 and 1
-        val normGeneExp = normalizeGeneExpressions()
 
         val roundedColorMap = hashMapOf(
             0 to Vector3f(247f/255f, 252f/255f, 253f/255f),
@@ -103,6 +91,7 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
             10 to Vector3f(0f/255f, 17f/255f, 6f/255f)
         )
 
+        println(roundedColorMap[geneExpression[2000].toInt()])
         /*
         Instancing
         - Create parent sphere that instances inherit from.
@@ -114,15 +103,14 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
         val masterCount = ceil(numCells/10000).toInt()
 
         if(masterCount==0){
-            throw java.lang.IllegalStateException("no cells could be found")
+            throw java.lang.IndexOutOfBoundsException("no cells could be found")
         }
-
         val masterMap = hashMapOf<Int, Icosphere>()
 
         // hashmap to emulate at run time variable declaration
         // allows for dynamically growing number of master spheres with size of dataset
         for (i in 1..masterCount){
-            val masterTemp = Icosphere(0.1f * positionScaling, 1)
+            val masterTemp = Icosphere(0.05f * positionScaling, 2)
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
 
@@ -135,7 +123,7 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
         var resettingZipCounter = 0
         var parentIterator = 1
 
-        cellNames.zip(testSpatialCoordinates) {cell, coord ->
+        cellNames.zip(spatialCoordinates) { cell, coord ->
 
             if(resettingZipCounter >= 10000){
                 parentIterator += 1
@@ -145,40 +133,25 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
 
             val s = Mesh()
 
-            // cell name and data set index returned as single list delimited by //. Is split into separate lists
-            val cellName = cell.split("//").getOrNull(1) ?: ""
-            val cellSource = cell.split("//").getOrNull(0)?.toInt() ?: -1
-
-            val normParsedGeneExp = normGeneExp[zipCounter]
+            val parsedTestGeneExpression = geneExpression[zipCounter]
 
             s.parent = masterMap[parentIterator]
-            s.name = cellName
-            s.metadata["source"] = cellSource
-            // gene expression has been normalized between 0 and 1. Expressions less than 0.2f is set constant for aesthetics
-            s.scale = Vector3f(
-                ((if ((normParsedGeneExp[2]) < 0.2f) {
-                    0.2f
-                } else normParsedGeneExp[2])), ((if ((normParsedGeneExp[3]) < 0.2f) {
-                    0.2f
-                } else (normParsedGeneExp[3]))), ((if ((normParsedGeneExp[4]) < 0.2f) {
-                    0.2f
-                } else (normParsedGeneExp[4])))
-            )
+            s.name = cell as String
             s.position = Vector3f(coord[0], coord[1], coord[2]) * positionScaling
 
             s.instancedProperties["ModelMatrix"] = { s.world }
             s.instancedProperties ["Color"] = {
             var color = if (textBoardPicker) {
-                tabulaColorMap.getOrDefault(cellName, Vector3f(1.0f, 0f, 0f)).xyzw()
-                // cel type encoded as color
+                // cell type encoded as color
+                tabulaColorMap.getOrDefault(cell, Vector3f(1.0f, 0f, 0f)).xyzw()
             } else {
-                roundedColorMap[(normParsedGeneExp[genePicker] * 10).toInt()]?.xyzw() ?: Vector4f(
+                // gene expression encoded as color
+                roundedColorMap[parsedTestGeneExpression.toInt()]?.xyzw() ?: Vector4f(
                     250f / 255f,
                     231f / 255f,
-                    85f / 255f,
+                    0f / 255f,
                     1.0f
                     )
-                    // gene expression encoded as color
                 }
                 // metadata "selected" stores whether point has been marked by laser. Colors marked cells red.
                 (s.metadata["selected"] as? Boolean)?.let {
@@ -193,12 +166,6 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
             zipCounter += 1
             resettingZipCounter += 1
         }
-
-        logger.info("master 1 instances:${masterMap[1]?.instances?.size}")
-        logger.info("master 2 instances:${masterMap[2]?.instances?.size}")
-        logger.info("master 3 instances:${masterMap[3]?.instances?.size}")
-        logger.info("master 4 instances:${masterMap[4]?.instances?.size}")
-        logger.info("master 5 instances:${masterMap[5]?.instances?.size}")
 
         //text board displaying name of gene currently encoded as colormap. Disappears if color encodes cell type
         geneBoard.transparent = 1
@@ -241,7 +208,7 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
         initializeLaser(laser2)
 
         // fetch center of mass for each cell type and attach TextBoard with cell type at that location
-        val massMap = textBoardPositions()
+        val massMap = textBoardPositions(uniqueCellNames)
         for(i in uniqueCellNames){
             val t = TextBoard(isBillboard = false)
             t.text = i
@@ -250,7 +217,7 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
             t.fontColor = Vector3f(0.0f, 0.0f, 0.0f).xyzw()
             t.backgroundColor = tabulaColorMap[i]!!.xyzw()
             t.position = massMap[i]!!
-            t.scale = Vector3f(0.4f, 0.4f, 0.4f)*positionScaling
+            t.scale = Vector3f(0.8f, 0.8f, 0.8f)*positionScaling
             textBoardMesh.addChild(t)
         }
 
@@ -258,130 +225,6 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
         addChild(textBoardMesh)
         addChild(dotMesh)
     }
-
-    private fun annotationReader(){
-
-    }
-
-
-    private fun csvReader(pathName: String): Triple<ArrayList<String>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>> {
-        val cellNames = ArrayList<String>()
-        val geneExpressions = ArrayList<ArrayList<Float>>()
-        val tsneCoordinates = ArrayList<ArrayList<Float>>()
-
-        val csv = File(pathName)
-        logger.info("pathname $pathName")
-        var nline = 0
-
-        csv.forEachLine(Charsets.UTF_8) {line ->
-            when {
-                nline == 0 -> line.split(",").drop(2).dropLast(4).forEach {
-                    geneNames.add(it)
-                }
-                nline != 0 -> {
-                    val tsneFields = ArrayList<Float>()
-                    val geneFields = ArrayList<Float>()
-                    var colN = 0
-                    var cellName = ""
-                    var index = -1
-
-                    line.split(",").drop(1).dropLast(4).forEach{
-                        if(colN == 0 ){
-                            // cell name
-                            cellName = it.replace("\"", "")
-                        } else{
-                            // gene expression
-                            val itFloatGene = (round(it.toFloat()*10f))/10f
-                            geneFields.add(itFloatGene)
-                        }
-                        colN += 1
-                    }
-
-                    if(nline < 2) {
-                        globalGeneCount = colN - 1
-                    }
-
-                    var coordinateCol = 0
-                    line.split(",").drop(1+colN).forEach{
-                        if(coordinateCol < 3){
-                            // coordinate
-                            val itFloatTsne = it.toFloat()
-                            tsneFields.add(itFloatTsne)
-                        } else{
-                            // dataset
-                            val name = it.replace("\"", "")
-                            dataSet.add(name)
-                            index = dataSet.indexOf(name)
-                        }
-                        coordinateCol += 1
-                    }
-
-                    geneExpressions.add(geneFields)
-                    tsneCoordinates.add(tsneFields)
-                    cellNames.add("$index//$cellName")
-                }
-            }
-            nline += 1
-        }
-        return Triple(cellNames, geneExpressions, tsneCoordinates)
-    }
-
-    private fun normalizeGeneExpressions(): ArrayList<ArrayList<Float>> {
-
-        val normalizedGeneExpression = ArrayList<ArrayList<Float>>()
-        val maxList = ArrayList<Float>()
-
-        for(i in 0 until globalGeneCount){
-            maxList.add(fetchMaxGeneExp(i))
-        }
-
-        for(row in globalGeneExpression){
-            val subNormalized = ArrayList<Float>()
-            var geneCounter = 0
-            for(gene in row){
-                subNormalized.add((round(gene/maxList[geneCounter]*10f))/10f)
-                geneCounter += 1
-            }
-            normalizedGeneExpression.add(subNormalized)
-        }
-
-        return normalizedGeneExpression
-    }
-
-    private fun getColorMaps(): HashMap<String, HashMap<String, Vector3f>> {
-
-        val tabulaCells = HashMap<String, Vector3f>()
-        for (i in uniqueCellNames) {
-            tabulaCells[i] = graphics.scenery.numerics.Random.random3DVectorFromRange(0f, 1.0f)
-        }
-        val pancreaticCellMap = hashMapOf(
-            "udf" to Vector3f(255 / 255f, 98 / 255f, 188 / 255f),
-            "type B pancreatic cell" to Vector3f(232 / 255f, 107 / 255f, 244 / 255f),
-            "pancreatic stellate cell" to Vector3f(149 / 255f, 145 / 255f, 255 / 255f),
-            "pancreatic PP cell" to Vector3f(0 / 255f, 176 / 255f, 246 / 255f),
-            "pancreatic ductal cell" to Vector3f(0 / 255f, 191 / 255f, 196 / 255f),
-            "pancreatic D cell" to Vector3f(0 / 255f, 190 / 255f, 125 / 255f),
-            "pancreatic acinar cell" to Vector3f(57 / 255f, 182 / 255f, 0 / 255f),
-            "pancreatic A cell" to Vector3f(162 / 255f, 165 / 255f, 0 / 255f),
-            "leukocyte" to Vector3f(216 / 255f, 144 / 255f, 0 / 255f),
-            "endothelial cell" to Vector3f(248 / 255f, 118 / 255f, 108 / 255f)
-        )
-        val plateMap = hashMapOf(
-            "MAA000574" to Vector3f(102 / 255f, 194 / 255f, 165 / 255f),
-            "MAA000577" to Vector3f(252 / 255f, 141 / 255f, 98 / 255f),
-            "MAA000884" to Vector3f(141 / 255f, 160 / 255f, 203 / 255f),
-            "MAA000910" to Vector3f(231 / 255f, 138 / 255f, 195 / 255f),
-            "MAA001857" to Vector3f(166 / 255f, 216 / 255f, 84 / 255f),
-            "MAA001861" to Vector3f(255 / 255f, 217 / 255f, 47 / 255f),
-            "MAA001862" to Vector3f(229 / 255f, 196 / 255f, 148 / 255f),
-            "MAA001868" to Vector3f(179 / 255f, 179 / 255f, 179 / 255f)
-        )
-        return hashMapOf(
-            "pancreaticCellMap" to pancreaticCellMap,
-            "plateMap" to plateMap,
-            "tabulaCells" to tabulaCells,
-        )
-    }// Currently only works with random color map
 
     // for a given cell type, find the average position for all of its instances. Used to place label in sensible position, given that the data is clustered
     private fun fetchCenterOfMass(type: String): Vector3f {
@@ -403,24 +246,13 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
     }
 
     // for each unique cell type in the dataset, calculate the average position of all of its instances
-    private fun textBoardPositions(): HashMap<String, Vector3f> {
+    private fun textBoardPositions(cellNameSet: Set<String>): HashMap<String, Vector3f> {
         val massMap = HashMap<String, Vector3f>()
-        for(i in uniqueCellNames){
+        for(i in cellNameSet){
             massMap[i] = fetchCenterOfMass(i)
             logger.info("center of mass for $i is: ${fetchCenterOfMass(i)}")
         }
         return massMap
-    }
-
-    private fun fetchMaxGeneExp(geneLocus: Int): Float {
-        val maxList = ArrayList<Float>()
-        // index chosen gene (geneLocus) from each row (cell) and add to list maxList
-        for(i in globalGeneExpression){
-            maxList.add(i[geneLocus])
-        }
-        // return highest gene expression from list
-        val max = maxList.maxOrNull()
-        return max!!
     }
 
     private fun initializeLaser(laserName: Cylinder){
@@ -433,17 +265,13 @@ class XPlot(val fileName: String = "datasets/GMB_cellAtlas_data.csv "): Node() {
 
     private fun generateAxis(dimension: String = "x", length: Float = 5.00f): Cylinder{
         val cyl: Cylinder = when(dimension.capitalize()){
-            "X" -> { Cylinder.betweenPoints(Vector3f(-length, 0f, 0f), Vector3f(length, 0f, 0f)) }
-            "Y" -> { Cylinder.betweenPoints(Vector3f(0f, -length, 0f), Vector3f(0f, length, 0f)) }
-            "Z" -> { Cylinder.betweenPoints(Vector3f(0f, 0f, -length), Vector3f(0f, 0f, length)) }
+            "X" -> { Cylinder.betweenPoints(Vector3f(-length, 0f, 0f), Vector3f(length, 0f, 0f), radius = 0.01f) }
+            "Y" -> { Cylinder.betweenPoints(Vector3f(0f, -length, 0f), Vector3f(0f, length, 0f), radius = 0.01f) }
+            "Z" -> { Cylinder.betweenPoints(Vector3f(0f, 0f, -length), Vector3f(0f, 0f, length), radius = 0.01f) }
             else -> throw IllegalArgumentException("$dimension is not a valid dimension")
         }
         cyl.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
         return cyl
-    }
-
-    fun cycleDatasets() {
-        currentDatasetIndex = (currentDatasetIndex + 1) % dataSet.size
     }
 
     private fun addMasterProperties(master: Icosphere, masterNumber: Int): Icosphere {

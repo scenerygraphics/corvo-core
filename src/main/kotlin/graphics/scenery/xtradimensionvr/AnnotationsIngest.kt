@@ -2,7 +2,6 @@ package graphics.scenery.xtradimensionvr
 
 import ch.systemsx.cisd.hdf5.HDF5Factory
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
-import java.io.File
 import java.lang.IllegalArgumentException
 
 class AnnotationsIngest {
@@ -75,7 +74,7 @@ class AnnotationsIngest {
             for(i in reader.int8().readArray(pathLike)) {
                 categoryMap[i.toInt()]?.let { annotationArray.add(it) }
             }
-            println(annotationArray)
+//            println(annotationArray)
             println("try ran")
 
         } catch(e: HDF5SymbolTableException){
@@ -87,7 +86,7 @@ class AnnotationsIngest {
                 else -> for (i in reader.string().readArray(pathLike)) {
                     annotationArray.add(i) }
             }
-            println(annotationArray)
+//            println(annotationArray)
             println("catching exception")
         }
         return annotationArray

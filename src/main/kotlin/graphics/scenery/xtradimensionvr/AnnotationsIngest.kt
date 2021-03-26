@@ -1,17 +1,40 @@
 package graphics.scenery.xtradimensionvr
 
 import ch.systemsx.cisd.hdf5.HDF5Factory
+import graphics.scenery.numerics.Random
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import java.lang.IllegalArgumentException
 
 class AnnotationsIngest {
     private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
-    private val annotationsPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_annotations"
 
     private val intTypeArray = arrayOf("n_genes", "louvain", "leiden", "n_cells", "dispersions_norm")
     private val floatTypeArray = arrayOf("n_counts", "means", "dispersions")
 
     init{
+        //write proper init that removes need to call class a bunch of times.
+
+    }
+
+    fun fetchTriple(nameOutput:ArrayList<String>, geneNames: List<String>): Triple<ArrayList<ArrayList<Float>>, ArrayList<Any>, ArrayList<Int>>{
+        val nameReader = h5adAnnotationReader("/var/index")
+        val geneIndexList = ArrayList<Int>()
+
+//        for(i in geneNames){
+//            nameOutput.add(i)
+//            geneIndexList.add(nameReader.indexOf(i))
+//        }
+
+        val randGeneList = ArrayList<String>()
+        for(i in 0..20){
+            randGeneList.add(nameReader[Random.randomFromRange(0f, 2295f).toInt()] as String)
+        }
+        for(i in randGeneList){
+            nameOutput.add(i)
+            geneIndexList.add(nameReader.indexOf(i))
+        }
+
+        return Triple(UMAPReader3D(), h5adAnnotationReader("/obs/cell_ontology_class"), geneIndexList)
     }
 
     fun UMAPReader3D(): ArrayList<ArrayList<Float>>{
@@ -74,8 +97,6 @@ class AnnotationsIngest {
             for(i in reader.int8().readArray(pathLike)) {
                 categoryMap[i.toInt()]?.let { annotationArray.add(it) }
             }
-//            println(annotationArray)
-            println("try ran")
 
         } catch(e: HDF5SymbolTableException){
             when {
@@ -86,8 +107,6 @@ class AnnotationsIngest {
                 else -> for (i in reader.string().readArray(pathLike)) {
                     annotationArray.add(i) }
             }
-//            println(annotationArray)
-            println("catching exception")
         }
         return annotationArray
     }

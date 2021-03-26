@@ -46,7 +46,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
             perspectiveCamera(50.0f, windowWidth, windowHeight)
             scene.addChild(this)
         }
-        cam.addChild(plot.geneBoard)
+//        cam.addChild(plot.geneBoard)
+        cam.addChild(plot.cameraLight)
 
         thread {
             while(!running) {
@@ -93,7 +94,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
                 it.needsUpdate = true
                 it.needsUpdateWorld = true
             }
-            plot.v.scale = plot.v.scale * 1.02f
+            for(i in 0..plot.globalMasterMap.size){
+                plot.globalMasterMap[i]?.scale = plot.globalMasterMap[i]?.scale?.times(1.02f)!!
+            }
+//            plot.v.scale = plot.v.scale * 1.02f
             plot.textBoardMesh.scale = plot.textBoardMesh.scale * 1.02f
         })
         hmd.addKeyBinding("increase_size", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Right) //L
@@ -104,7 +108,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
                 it.needsUpdate = true
                 it.needsUpdateWorld = true
             }
-            plot.v.scale = plot.v.scale * (1.0f/1.02f)
+            for(i in 0..plot.globalMasterMap.size){
+                plot.globalMasterMap[i]?.scale = plot.globalMasterMap[i]?.scale?.times(1.0f/1.02f)!!
+            }
+//            plot.v.scale = plot.v.scale * (1.0f/1.02f)
             plot.textBoardMesh.scale = plot.textBoardMesh.scale * (1.0f/1.02f)
         })
         hmd.addKeyBinding("decrease_size", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Left) //H
@@ -123,6 +130,20 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
             }
         })
         hmd.addKeyBinding("toggle_genes_forwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
+
+        inputHandler?.addBehaviour("toggle_genes_forwards", ClickBehaviour{ _, _ ->
+            if(plot.genePicker < plot.geneNames.size - 1){
+                plot.genePicker += 1
+            }
+            else{
+                plot.genePicker = 0
+            }
+            plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
+            if(plot.textBoardPicker){
+                plot.textBoardMesh.visible = !plot.textBoardMesh.visible
+            }
+        })
+        inputHandler?.addKeyBinding("toggle_genes_forwards", "M")
 
 
         hmd.addBehaviour("toggle_genes_backwards", ClickBehaviour { _, _ ->
@@ -194,36 +215,45 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
 
         inputHandler?.addKeyBinding("toggleTextBoards", "X")
 
-
-        hmd.addBehaviour("toggleDataSets", ClickBehaviour { _, _ ->
-            plot.dotMesh.children.firstOrNull()?.instances?.forEach{
-                it.needsUpdate = true
-                it.needsUpdateWorld = true
-            }
-            plot.currentDatasetIndex = (plot.currentDatasetIndex + 1) % plot.dataSet.size
-        })
-        hmd.addKeyBinding("toggleDataSets", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Side) //Y
-        // currently has no function as datasetIndex is not used
-
         hmd.addBehaviour("deletePoints", ClickBehaviour { _, _ ->
-            plot.v.instances.forEach {
-                if(plot.laser2.intersects(it)){
-                    //if(plot.laser2.intersects(it, parent = plot.v)){
-                    it.visible = false
+            for(i in 0..plot.globalMasterMap.size){
+                plot.globalMasterMap[i]?.instances?.forEach {
+                    if(plot.laser2.intersects(it)){
+                        //if(plot.laser2.intersects(it, parent = plot.v)){
+                        it.visible = false
+                    }
                 }
             }
+
+//            plot.v.instances.forEach {
+//                if(plot.laser2.intersects(it)){
+//                    //if(plot.laser2.intersects(it, parent = plot.v)){
+//                    it.visible = false
+//                }
+//            }
         })
         hmd.addKeyBinding("deletePoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger) // T
 
         hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
-            plot.v.instances.forEach {
-                if(plot.laser.intersects(it)){
-                    //if(plot.laser.intersects(it, parent = plot.v)){
-                    it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f)
-                    //it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f, 1.0f)
-                    it.metadata["selected"] = true//!(it.metadata["selected"] as? Boolean ?: false)
+            for(i in 0..plot.globalMasterMap.size){
+                plot.globalMasterMap[i]?.instances?.forEach {
+                    if(plot.laser.intersects(it)){
+                        //if(plot.laser.intersects(it, parent = plot.v)){
+                        it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f)
+                        //it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f, 1.0f)
+                        it.metadata["selected"] = true//!(it.metadata["selected"] as? Boolean ?: false)
+                    }
                 }
             }
+
+//            plot.v.instances.forEach {
+//                if(plot.laser.intersects(it)){
+//                    //if(plot.laser.intersects(it, parent = plot.v)){
+//                    it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f)
+//                    //it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f, 1.0f)
+//                    it.metadata["selected"] = true//!(it.metadata["selected"] as? Boolean ?: false)
+//                }
+//            }
         })
         hmd.addKeyBinding("markPoints", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
 
@@ -264,7 +294,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
         @JvmStatic
         fun main(args: Array<String>) {
             System.setProperty("scenery.Renderer.Device", "3070")
-            System.setProperty("spirvcrossj.useContextClassLoader", "true")
+            System.setProperty("spirvcrossj.useContextClassLoader", "false")
             System.setProperty("scenery.Renderer", "VulkanRenderer")
             XVisualization().main()
             if(args.isNotEmpty()){

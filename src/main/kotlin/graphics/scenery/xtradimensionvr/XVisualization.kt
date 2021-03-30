@@ -17,7 +17,7 @@ import org.joml.Vector3f
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
 class XVisualization constructor(val resource: Array<String> = emptyArray()): SceneryBase("XVisualization", 2560, 1440, wantREPL = false) {
-    //2560 1440
+
     private lateinit var hmd: OpenVRHMD
     lateinit var plot: XPlot
 
@@ -29,7 +29,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
         }
 
 //        val filename = resource[0]
-        val filename = "datasets/GMB_cellAtlas_data.csv"
 
         plot = XPlot()
 
@@ -47,7 +46,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
             scene.addChild(this)
         }
 //        cam.addChild(plot.geneBoard)
-        cam.addChild(plot.cameraLight)
+//        cam.addChild(plot.cameraLight)
 
         thread {
             while(!running) {
@@ -294,8 +293,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
         @JvmStatic
         fun main(args: Array<String>) {
             System.setProperty("scenery.Renderer.Device", "3070")
-            System.setProperty("spirvcrossj.useContextClassLoader", "false")
+//            System.setProperty("spirvcrossj.useContextClassLoader", "false")
             System.setProperty("scenery.Renderer", "VulkanRenderer")
+//            System.setProperty("log4j.configurationFile", "log.config")
             XVisualization().main()
             if(args.isNotEmpty()){
                 println(args[0])

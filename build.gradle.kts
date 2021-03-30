@@ -29,14 +29,14 @@ repositories {
     maven("https://jitpack.io")
     maven("http://nexus.senbox.net/nexus/content/groups/public/")
 //    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1194/")
-    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1195/")
+    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1197/")
 //    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1196/")
 
 }
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("graphics.scenery:scenery:eeb7210e2a")
+    implementation("graphics.scenery:scenery:63eb65e")
     implementation("junit:junit:4.12")
     implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when(current()) {
@@ -62,7 +62,7 @@ dependencies {
     implementation("org.janelia.saalfeldlab:n5-zarr:0.0.6")
     implementation("cisd:jhdf5:19.04.0")
     runtimeOnly("net.java.jinput", "jinput", version="2.0.9", classifier="natives-all")
-    runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.0-1.1.106.0", classifier = lwjglNative)
+    runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.1-1.1.106.0", classifier = lwjglNative)
     testImplementation ("org.junit.jupiter:junit-jupiter:5.6.0")
 
     implementation("org.apache.logging.log4j:log4j-api:2.13.3")

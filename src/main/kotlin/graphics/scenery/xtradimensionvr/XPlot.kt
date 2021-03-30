@@ -14,8 +14,12 @@ import kotlin.collections.set
 import kotlin.math.ceil
 import kotlin.properties.Delegates
 
+
 /**.
  *
+ * cellxgene interactivity - start building under the hood tools needed
+ * jar python interaction (qt applet?)
+ * selection and read of new genes from thread
  *
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
@@ -25,8 +29,6 @@ class XPlot: Node() {
     val laser = Cylinder(0.01f, 2.0f, 20)
     val laser2 = Cylinder(0.01f, 2.0f, 20)
 
-    //private var cellCount by Delegates.notNull<Int>()
-
     // define meshes that make up the scene
     var dotMesh = Mesh()
     var textBoardMesh = Mesh()
@@ -34,9 +36,6 @@ class XPlot: Node() {
     // set type of shape data is represented as + a scaling factor for better scale relative to user
     var positionScaling = 0.2f
     var globalMasterMap = hashMapOf<Int, Icosphere>()
-
-    // variables that need to be accessed globally, but are defined in a limited namespace
-    private var globalGeneCount by Delegates.notNull<Int>()
 
     // global as it is required by Visualization class
     var genePicker = 0
@@ -51,7 +50,7 @@ class XPlot: Node() {
 
     private fun loadDataset() {
 
-        val (spatialCoordinates, cellNames, geneIndexList) = AnnotationsIngest().fetchTriple(geneNames, listOf("Alg12", "Asf1b", "Cd3e", "Fbxo21", "Gm15800"))
+        val (spatialCoordinates, cellNames, geneIndexList) = AnnotationsIngest().fetchTriple(geneNames)
 
         val geneReader = SparseReader()
         val geneExpression = ArrayList<FloatArray>()
@@ -64,11 +63,11 @@ class XPlot: Node() {
         // generate random color vector for each cell ontology
         val tabulaColorMap = HashMap<String, Vector3f>()
         for (i in uniqueCellNames) {
-            tabulaColorMap[i] = Random.random3DVectorFromRange(0f, 1.0f)
+            tabulaColorMap[i] = Random.random3DVectorFromRange(0.2f, 1.0f)
         }
 
         // initialize gene color map from scenery.Colormap
-        val colormap = Colormap.get("viridis")
+        val colormap = Colormap.get("hot")
         // "grays", "hot", "jet", "plasma", "viridis"
 
         /*
@@ -94,8 +93,7 @@ class XPlot: Node() {
             val masterTemp = Icosphere(0.05f * positionScaling, 2)
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
-        logger.info("hashmap looks like: $masterMap")
-
+        println("hashmap looks like: $masterMap")
         // give access to hashmap of master objects to functions outside of init and to XVisualization class
         globalMasterMap = masterMap
 
@@ -107,7 +105,7 @@ class XPlot: Node() {
         var parentIterator = 1
 
         cellNames.zip(spatialCoordinates) { cell, coord ->
-
+//        println(zipCounter)
             if(resettingZipCounter >= 10000){
                 parentIterator += 1
                 logger.info("parentIterator: $parentIterator")
@@ -215,7 +213,7 @@ class XPlot: Node() {
             t.fontColor = Vector3f(0.05f, 0.05f, 0.05f).xyzw()
             t.backgroundColor = tabulaColorMap[i]!!.xyzw()
             t.position = massMap[i]!!
-            t.scale = Vector3f(0.8f, 0.8f, 0.8f)*positionScaling
+            t.scale = Vector3f(0.3f, 0.3f, 0.3f)*positionScaling
             textBoardMesh.addChild(t)
         }
 

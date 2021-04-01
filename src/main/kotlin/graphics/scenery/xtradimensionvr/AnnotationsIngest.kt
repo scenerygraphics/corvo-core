@@ -7,7 +7,7 @@ import java.util.*
 import kotlin.collections.ArrayList
 
 class AnnotationsIngest {
-    private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/mammary_gland_vr_processed.h5ad"
+    private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
 
     fun fetchTriple(nameOutput:ArrayList<String>, geneNames: List<String> = listOf("Alg12", "Asf1b", "Cd3e", "Fbxo21", "Gm15800")): Triple<ArrayList<ArrayList<Float>>, ArrayList<Any>, ArrayList<Int>>{
         val nameReader = h5adAnnotationReader("/var/index")
@@ -38,9 +38,10 @@ class AnnotationsIngest {
         val geneIndexList = ArrayList<Int>()
 
         val randGeneList = ArrayList<String>()
-        for(i in 0..3){
-            randGeneList.add(nameReader[Random.randomFromRange(0f, nameReader.size.toFloat()).toInt()] as String)
-        }
+//        for(i in 0..1){
+//            randGeneList.add(nameReader[Random.randomFromRange(0f, nameReader.size.toFloat()).toInt()] as String)
+        randGeneList.add(nameReader[0] as String)
+//        }
 
         for(i in randGeneList){
             nameOutput.add(i)

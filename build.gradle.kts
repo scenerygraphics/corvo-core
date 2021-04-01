@@ -29,7 +29,7 @@ repositories {
     maven("https://jitpack.io")
     maven("http://nexus.senbox.net/nexus/content/groups/public/")
 //    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1194/")
-    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1201/")
+    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1207/")
 //    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1196/")
 
 }

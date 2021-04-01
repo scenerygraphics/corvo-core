@@ -7,8 +7,8 @@ import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.extensions.toFloatArray
 import graphics.scenery.utils.extensions.xyzw
 import graphics.scenery.volumes.Colormap
-import org.apache.commons.io.filefilter.TrueFileFilter
 import org.joml.Vector3f
+import org.joml.Vector4f
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.collections.set
@@ -49,6 +49,7 @@ class XPlot : Node() {
 //        val (spatialCoords, cellNames, geneIndexList) = annotationFetcher.fetchTriple(geneNames)
 
     var geneExpr = annotationFetcher.fetchGeneExpression(geneNames)
+
     val spatialCoords = annotationFetcher.UMAPReader3D()
     val cellNames = annotationFetcher.h5adAnnotationReader("/obs/cell_ontology_class") as ArrayList<String>
 
@@ -59,6 +60,11 @@ class XPlot : Node() {
         if (masterCount == 0) {
             throw java.lang.IndexOutOfBoundsException("no cells could be found")
         }
+//        for(i in geneExpr){
+//            print(geneExpr)
+//        }
+//        println(geneExpr)
+
     }
 
     val tabulaColorMap = HashMap<String, Vector3f>()
@@ -73,7 +79,7 @@ class XPlot : Node() {
     }
 
     // initialize gene color map from scenery.Colormap
-    val colormap = Colormap.get("hot")
+//    val colormap = Colormap.get("hot")
 
     val indexedGeneExpression = ArrayList<Float>()
 
@@ -82,7 +88,15 @@ class XPlot : Node() {
     init {
         loadEnvironment()
         loadDataset()
+//        repeat(100) {
+//            print("[$it]=${geneExpr[0][it]} ")
+//        }
+//        println()
         updateInstancingColor()
+//        repeat(100) {
+//            print("[$it]=${geneExpr[0][it]} ")
+//        }
+//        println()
     }
 
     private fun loadDataset() {
@@ -155,7 +169,8 @@ class XPlot : Node() {
     }
 
     fun updateInstancingColor() {
-        var zipCounter = 0
+        val colormap = Colormap.get("hot")
+        var counter = 0
         var resettingZipCounter = 0
         var parentIterator = 1
         for (cell in cellNames) {
@@ -171,19 +186,23 @@ class XPlot : Node() {
             indexedGeneExpression.clear()
             // index element zipCounter of every array of gene expressions and add to new ArrayList
             for (gene in geneExpr) {
-                indexedGeneExpression.add(gene[zipCounter])
+                indexedGeneExpression.add(gene[counter])
 
             }
 //            println(genePicker)
 //            println(indexedGeneExpression[1] / 10f)
 //            println(colormap.sample(indexedGeneExpression[1] / 10f))
-            s.instancedProperties["Color"] = {
+//            print(indexedGeneExpression[genePicker] / 10f)
+            print(indexedGeneExpression[genePicker])
+            s.instancedProperties ["Color"] = {
                 var color = if (textBoardPicker) {
                     // cell type encoded as color
                     tabulaColorMap.getOrDefault(cell, Vector3f(1.0f, 0f, 0f)).xyzw()
 
                 } else {
-                    colormap.sample(indexedGeneExpression[genePicker] / 10f)
+                    colormap.sample(indexedGeneExpression[genePicker]/10f)
+                    colormap.sample(1f)
+                    Vector4f(1f, 1f, 1f, 0f)
                 }
 
                 // metadata "selected" stores whether point has been marked by laser. Colors marked cells red.
@@ -194,7 +213,8 @@ class XPlot : Node() {
                 }
                 color
             }
-            zipCounter += 1
+
+            counter += 1
             resettingZipCounter += 1
         }
     }
@@ -361,15 +381,16 @@ class XPlot : Node() {
 //            val cellNames = annotationFetcher.h5adAnnotationReader("/obs/cell_ontology_class")
 
 
-//            removeChild(dotMesh)
-//            removeChild(textBoardMesh)
-//
-//            dotMesh = Mesh()
-//            textBoardMesh = Mesh()
+            removeChild(dotMesh)
+            removeChild(textBoardMesh)
+
+            dotMesh = Mesh()
+            textBoardMesh = Mesh()
 
 //            textBoardPicker = true
 //            textBoardMesh.visible = true
 //            loadDataset()
+            loadDataset()
             updateInstancingColor()
 
             geneBoard.text = "Gene: " + geneNames[genePicker]

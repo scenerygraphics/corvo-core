@@ -3,7 +3,7 @@ import ch.systemsx.cisd.hdf5.*
 
 
 class SparseReader {
-    val pathName = "/home/luke/PycharmProjects/VRCaller/file_conversion/mammary_gland_vr_processed.h5ad"
+    val pathName = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
 
     fun csrReader(row: Cell = 0): FloatArray {
         val reader = HDF5Factory.openForReading(pathName)

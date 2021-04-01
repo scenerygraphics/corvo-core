@@ -131,12 +131,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
         hmd.addKeyBinding("toggle_genes_forwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
 
         inputHandler?.addBehaviour("toggle_genes_forwards", ClickBehaviour{ _, _ ->
-            if(plot.genePicker < plot.geneNames.size - 1){
-                plot.genePicker += 1
-            }
-            else{
-                plot.genePicker = 0
-            }
+            plot.genePicker += 1
+            plot.genePicker %= plot.geneNames.size
+
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
             if(plot.textBoardPicker){
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
@@ -280,8 +277,12 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
         inputHandler?.addKeyBinding("resetVisibility", "R")
 
         inputHandler?.addBehaviour("reloadFile", ClickBehaviour { _, _ -> plot.reload()  })
-        inputHandler?.addKeyBinding("reloadFilea -Xmx8ge", "shift R")
+        inputHandler?.addKeyBinding("reloadFile", "shift R")
 
+        inputHandler?.addBehaviour("toggle_dataset", ClickBehaviour{ _, _ ->
+
+        })
+        inputHandler?.addKeyBinding("toggle_dataset", "M")
     }
 
 //    @Test
@@ -303,11 +304,3 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
         }
     }
 }
-
-
-//fun main(args: Array<String>) {
-//    XVisualization().main()
-//}
-
-
-

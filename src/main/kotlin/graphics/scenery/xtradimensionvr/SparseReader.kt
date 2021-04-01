@@ -4,9 +4,9 @@ import ch.systemsx.cisd.hdf5.*
 
 class SparseReader {
     val pathName = "/home/luke/PycharmProjects/VRCaller/file_conversion/mammary_gland_vr_processed.h5ad"
-    val reader = HDF5Factory.openForReading(pathName)
 
-    fun csrReader(row: Int = 0): FloatArray {
+    fun csrReader(row: Cell = 0): FloatArray {
+        val reader = HDF5Factory.openForReading(pathName)
         // return dense row of gene expression values for a chosen row / cell
 
         val data = reader.float32().readMDArray("/X/data")
@@ -24,11 +24,12 @@ class SparseReader {
         for(i in start until end){
             exprArray[indices[i]] = data[i]
         }
-
+        reader.close()
         return exprArray
     }
 
-    fun cscReader(col: Int = 0): FloatArray {
+    fun cscReader(col: Gene = 0): FloatArray {
+        val reader = HDF5Factory.openForReading(pathName)
         // return dense column of gene expression values for a chosen column / gene
 
         val data = reader.float32().readMDArray("/layers/X_csc/data")
@@ -43,7 +44,7 @@ class SparseReader {
         for(i in start until end){
             exprArray[indices[i]] = data[i]
         }
-
+        reader.close()
         return exprArray
     }
 }

@@ -192,6 +192,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
             }
             plot.geneBoard.visible = !plot.geneBoard.visible
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
+
         })
         hmd.addKeyBinding("toggleTextBoards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Side) //X
 
@@ -207,6 +208,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
             }
             plot.geneBoard.visible = !plot.geneBoard.visible
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
+            plot.minTick.visible = !plot.minTick.visible
+            plot.maxTick.visible = !plot.maxTick.visible
+            plot.colorMapScale.visible = !plot.colorMapScale.visible
+
         })
 
         inputHandler?.addKeyBinding("toggleTextBoards", "X")

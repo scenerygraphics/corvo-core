@@ -7,7 +7,7 @@ import java.util.*
 import kotlin.collections.ArrayList
 
 class AnnotationsIngest {
-    private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
+    private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/mammary_gland_vr_processed.h5ad"
 
     fun fetchTriple(nameOutput:ArrayList<String>, geneNames: List<String> = listOf("Alg12", "Asf1b", "Cd3e", "Fbxo21", "Gm15800")): Triple<ArrayList<ArrayList<Float>>, ArrayList<Any>, ArrayList<Int>>{
         val nameReader = h5adAnnotationReader("/var/index")

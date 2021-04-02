@@ -3,6 +3,8 @@ package graphics.scenery.xtradimensionvr
 import graphics.scenery.*
 import graphics.scenery.backends.Shaders
 import graphics.scenery.numerics.Random
+import graphics.scenery.textures.Texture
+import graphics.scenery.utils.Image
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.extensions.toFloatArray
 import graphics.scenery.utils.extensions.xyzw
@@ -14,6 +16,7 @@ import kotlin.collections.HashMap
 import kotlin.collections.set
 import kotlin.concurrent.thread
 import kotlin.math.ceil
+import kotlin.math.min
 
 
 /**.
@@ -45,6 +48,13 @@ class XPlot : Node() {
     lateinit var cameraLight: PointLight
     val geneNames = ArrayList<String>()
 
+    val colorMapScale = Box(Vector3f(5.0f, 1.0f, 0f))
+    val maxTick = TextBoard()
+    val minTick = TextBoard()
+    init{
+
+    }
+
     val annotationFetcher = AnnotationsIngest()
 //        val (spatialCoords, cellNames, geneIndexList) = annotationFetcher.fetchTriple(geneNames)
 
@@ -60,11 +70,6 @@ class XPlot : Node() {
         if (masterCount == 0) {
             throw java.lang.IndexOutOfBoundsException("no cells could be found")
         }
-//        for(i in geneExpr){
-//            print(geneExpr)
-//        }
-//        println(geneExpr)
-
     }
 
     val tabulaColorMap = HashMap<String, Vector3f>()
@@ -79,7 +84,8 @@ class XPlot : Node() {
     }
 
     // initialize gene color map from scenery.Colormap
-//    val colormap = Colormap.get("hot")
+    val encoding = "viridis"
+    val colormap = Colormap.get(encoding)
 
     val indexedGeneExpression = ArrayList<Float>()
 
@@ -169,7 +175,6 @@ class XPlot : Node() {
     }
 
     fun updateInstancingColor() {
-        val colormap = Colormap.get("hot")
         var counter = 0
         var resettingZipCounter = 0
         var parentIterator = 1
@@ -189,11 +194,6 @@ class XPlot : Node() {
                 indexedGeneExpression.add(gene[counter])
 
             }
-//            println(genePicker)
-//            println(indexedGeneExpression[1] / 10f)
-//            println(colormap.sample(indexedGeneExpression[1] / 10f))
-//            print(indexedGeneExpression[genePicker] / 10f)
-            print(indexedGeneExpression[genePicker])
             s.instancedProperties ["Color"] = {
                 var color = if (textBoardPicker) {
                     // cell type encoded as color
@@ -201,8 +201,7 @@ class XPlot : Node() {
 
                 } else {
                     colormap.sample(indexedGeneExpression[genePicker]/10f)
-                    colormap.sample(1f)
-                    Vector4f(1f, 1f, 1f, 0f)
+
                 }
 
                 // metadata "selected" stores whether point has been marked by laser. Colors marked cells red.
@@ -221,7 +220,8 @@ class XPlot : Node() {
 
     private fun loadEnvironment() {
         // add box to scene for sense of bound
-        val lightbox = Box(Vector3f(25.0f, 25.0f, 25.0f), insideNormals = true)
+        val boxSize = 25.0f
+        val lightbox = Box(Vector3f(boxSize, boxSize, boxSize), insideNormals = true)
         lightbox.name = "Lightbox"
         lightbox.material.diffuse = Vector3f(0.4f, 0.4f, 0.4f)
         lightbox.material.roughness = 1.0f
@@ -255,12 +255,11 @@ class XPlot : Node() {
         //text board displaying name of gene currently encoded as colormap. Disappears if color encodes cell type
         geneBoard.transparent = 1
         geneBoard.fontColor = Vector3f(0f, 0f, 0f).xyzw()
-        geneBoard.position = Vector3f(-5f, 0f, -9f) // on far wall
+        geneBoard.position = Vector3f(-2.5f, 1.5f, -12.4f) // on far wall
         geneBoard.visible = false
 //        geneBoard.position = Vector3f(0f, 0f, -0.2f)
 //        geneBoard.scale = Vector3f(0.05f, 0.05f, 0.05f)
         geneBoard.scale = Vector3f(1f, 1f, 1f)
-
         addChild(geneBoard)
 
         // create cylinders orthogonal to each other, representing axes centered around 0,0,0 and add them to the scene
@@ -276,6 +275,34 @@ class XPlot : Node() {
         // give lasers texture and set them to be visible (could use to have different lasers/colors/styles and switch between them)
         initializeLaser(laser)
         initializeLaser(laser2)
+
+
+
+
+
+        colorMapScale.material.textures["diffuse"] = Texture.fromImage(Image.fromResource("volumes/colormap-$encoding.png", this::class.java))
+        colorMapScale.material.metallic = 0.3f
+        colorMapScale.material.roughness = 0.9f
+        colorMapScale.position = Vector3f(0f, 3f, -12.4f)
+        colorMapScale.visible = false
+        addChild(colorMapScale)
+
+        minTick.text = "0"
+        minTick.transparent = 1
+        minTick.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
+        minTick.position = Vector3f(-2.5f, 3.5f, -12.4f)
+        minTick.visible = false
+        addChild(minTick)
+
+        maxTick.text = "10"
+        maxTick.transparent = 1
+        maxTick.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
+        maxTick.position = Vector3f(2.1f, 3.5f, -boxSize/2+0.1f)
+        maxTick.visible = false
+        addChild(maxTick)
+
+
+
     }
 
     // for a given cell type, find the average position for all of its instances. Used to place label in sensible position, given that the data is clustered
@@ -371,7 +398,7 @@ class XPlot : Node() {
     }
 
     fun reload() {
-        thread {
+//        thread {
             geneNames.clear()
             geneBoard.text = " "
             genePicker = 0
@@ -380,21 +407,21 @@ class XPlot : Node() {
 //            val spatialCoords = annotationFetcher.UMAPReader3D()
 //            val cellNames = annotationFetcher.h5adAnnotationReader("/obs/cell_ontology_class")
 
-
-            removeChild(dotMesh)
-            removeChild(textBoardMesh)
-
-            dotMesh = Mesh()
-            textBoardMesh = Mesh()
+//
+//            removeChild(dotMesh)
+//            removeChild(textBoardMesh)
+//
+//            dotMesh = Mesh()
+//            textBoardMesh = Mesh()
 
 //            textBoardPicker = true
 //            textBoardMesh.visible = true
 //            loadDataset()
-            loadDataset()
+//            loadDataset()
             updateInstancingColor()
 
             geneBoard.text = "Gene: " + geneNames[genePicker]
-        }
+//        }
 
     }
 }

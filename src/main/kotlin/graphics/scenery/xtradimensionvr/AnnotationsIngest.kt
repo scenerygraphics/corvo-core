@@ -7,41 +7,17 @@ import java.util.*
 import kotlin.collections.ArrayList
 
 class AnnotationsIngest {
-    private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/mammary_gland_vr_processed.h5ad"
-
-    fun fetchTriple(nameOutput:ArrayList<String>, geneNames: List<String> = listOf("Alg12", "Asf1b", "Cd3e", "Fbxo21", "Gm15800")): Triple<ArrayList<ArrayList<Float>>, ArrayList<Any>, ArrayList<Int>>{
-        val nameReader = h5adAnnotationReader("/var/index")
-        val geneIndexList = ArrayList<Int>()
-
-//        for(i in geneNames){
-//            nameOutput.add(i)
-//            geneIndexList.add(nameReader.indexOf(i))
-//        }
-
-        val randGeneList = ArrayList<String>()
-        for(i in 0..3){
-            randGeneList.add(nameReader[Random.randomFromRange(0f, nameReader.size.toFloat()).toInt()] as String)
-        }
-        for(i in randGeneList){
-            nameOutput.add(i)
-            geneIndexList.add(nameReader.indexOf(i))
-        }
-        return Triple(UMAPReader3D(), h5adAnnotationReader("/obs/cell_ontology_class"), geneIndexList)
-    }
-
-//    fun fetchAnnotations(): ArrayList<ArrayList<Any>> {
-//
-//    }
+    private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
 
     fun fetchGeneExpression(nameOutput:ArrayList<String>): ArrayList<FloatArray> {
         val nameReader = h5adAnnotationReader("/var/index")
         val geneIndexList = ArrayList<Int>()
 
         val randGeneList = ArrayList<String>()
-//        for(i in 0..1){
-//            randGeneList.add(nameReader[Random.randomFromRange(0f, nameReader.size.toFloat()).toInt()] as String)
-        randGeneList.add(nameReader[0] as String)
-//        }
+        for(i in 0..12){
+            randGeneList.add(nameReader[Random.randomFromRange(0f, nameReader.size.toFloat()).toInt()] as String)
+//        randGeneList.add(nameReader[24] as String)
+        }
 
         for(i in randGeneList){
             nameOutput.add(i)
@@ -96,7 +72,7 @@ class AnnotationsIngest {
         val annotation = hdfPath.substring(5) // returns just the annotation requested
 
         when {
-            reader.getDataSetInformation(hdfPath).toString().contains("STRING") ->
+            reader.getDataSetInformation(hdfPath).toString().contains("STRING") -> // String
                 for(i in reader.string().readArray(hdfPath)) { data.add(i) }
 
             reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(1)") && asString ->
@@ -114,25 +90,25 @@ class AnnotationsIngest {
                     for(i in reader.int8().readArray(hdfPath)) { categoryMap[i.toInt()]?.let { data.add(it) } }
                 }
 
-            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(1)") && !asString ->
-                for(i in reader.int8().readArray(hdfPath)) { categoryMap[i.toInt()]?.let { data.add(it) } }
+            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(1)") && !asString -> // Byte
+                for(i in reader.int8().readArray(hdfPath)) { data.add(i) }
 
-            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(2)") ->
+            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(2)") -> // Short
                     for(i in reader.int16().readArray(hdfPath)) { data.add(i) }
 
-            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(4)") ->
+            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(4)") -> // Int
                 for(i in reader.int32().readArray(hdfPath)) { data.add(i) }
 
-            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(8)") ->
+            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(8)") -> // Long
                 for(i in reader.int64().readArray(hdfPath)) { data.add(i) }
 
-            reader.getDataSetInformation(hdfPath).toString().contains("FLOAT(4)") ->
+            reader.getDataSetInformation(hdfPath).toString().contains("FLOAT(4)") -> // Float
                 for(i in reader.float32().readArray(hdfPath)) { data.add(i) }
 
-            reader.getDataSetInformation(hdfPath).toString().contains("FLOAT(8)") ->
+            reader.getDataSetInformation(hdfPath).toString().contains("FLOAT(8)") -> // Double
                 for(i in reader.float64().readArray(hdfPath)) { data.add(i) }
 
-            reader.getDataSetInformation(hdfPath).toString().contains("BOOLEAN") ->
+            reader.getDataSetInformation(hdfPath).toString().contains("BOOLEAN") -> // Boolean
                 for(i in reader.int8().readArray(hdfPath)) { data.add(i) }
         }
         reader.close()

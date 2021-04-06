@@ -3,7 +3,14 @@ import ch.systemsx.cisd.hdf5.*
 
 
 class SparseReader {
-    val pathName = "/home/luke/PycharmProjects/VRCaller/file_conversion/mammary_gland_vr_processed.h5ad"
+    val pathName = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
+
+    init {
+        val reader = HDF5Factory.openForReading(pathName)
+
+        val notCat = reader.getDataSetInformation("/obs/cell_ontology_class")
+        println(notCat)
+    }
 
     fun csrReader(row: Cell = 0): FloatArray {
         val reader = HDF5Factory.openForReading(pathName)
@@ -51,6 +58,5 @@ class SparseReader {
 
 
 fun main(){
-//    SparseReader().csrReader(2858) // final row is size(index)-1. Note size(indptr) = size(index) + 1 -> final row = size(index) -2
-//    SparseReader().cscReader(22965)  //22965 is final column = obs index - 1
+    SparseReader()
 }

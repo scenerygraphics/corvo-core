@@ -16,7 +16,8 @@ import org.joml.Vector3f
  *
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
-class XVisualization constructor(val resource: Array<String> = emptyArray()): SceneryBase("XVisualization", 2560, 1440, wantREPL = false) {
+class XVisualization constructor(val resource: Array<String> = emptyArray()) :
+    SceneryBase("XVisualization", 2560, 1440, wantREPL = false) {
 
     private lateinit var hmd: OpenVRHMD
     lateinit var plot: XPlot
@@ -24,7 +25,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
     override fun init() {
         hmd = OpenVRHMD(useCompositor = true)
 
-        if(!hmd.initializedAndWorking()) {
+        if (!hmd.initializedAndWorking()) {
             logger.info("Visualization is running without a hmd and may have limited interactivity")
         }
 
@@ -46,20 +47,20 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
             scene.addChild(this)
         }
 //        cam.addChild(plot.geneBoard)
-//        cam.addChild(plot.cameraLight)
 
         thread {
-            while(!running) {
+            while (!running) {
                 Thread.sleep(200)
             }
             hmd.events.onDeviceConnect.add { hmd, device, timestamp ->
-                if(device.type == TrackedDeviceType.Controller) {
+                if (device.type == TrackedDeviceType.Controller) {
                     logger.info("Got device ${device.name} at $timestamp")
-                     device.model?.let { hmd.attachToNode(device, it, cam)
-                        if(device.role == TrackerRole.RightHand) {
+                    device.model?.let {
+                        hmd.attachToNode(device, it, cam)
+                        if (device.role == TrackerRole.RightHand) {
                             it.addChild(plot.laser)
                         }
-                        if(device.role == TrackerRole.LeftHand) {
+                        if (device.role == TrackerRole.LeftHand) {
                             it.addChild(plot.laser2)
                         }
                     }
@@ -76,10 +77,11 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
 
         inputHandler?.let { handler ->
             hashMapOf(
-                    "move_forward" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Up),
-                    "move_back" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Down),
-                    "move_left" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Left),
-                    "move_right" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Right)).forEach { (name, key) ->
+                "move_forward" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Up),
+                "move_back" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Down),
+                "move_left" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Left),
+                "move_right" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Right)
+            ).forEach { (name, key) ->
                 handler.getBehaviour(name)?.let { b ->
                     logger.info("Adding behaviour $name bound to $key to HMD")
                     hmd.addBehaviour(name, b)
@@ -88,13 +90,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
             }
         }
 
-        hmd.addBehaviour("increase_size", ClickBehaviour{ _, _->
-            plot.dotMesh.children.firstOrNull()?.instances?.forEach{
+        hmd.addBehaviour("increase_size", ClickBehaviour { _, _ ->
+            plot.dotMesh.children.firstOrNull()?.instances?.forEach {
                 it.needsUpdate = true
                 it.needsUpdateWorld = true
             }
-            for(i in 0..plot.globalMasterMap.size){
-                plot.globalMasterMap[i]?.scale = plot.globalMasterMap[i]?.scale?.times(1.02f)!!
+            for (i in 0..plot.masterMap.size) {
+                plot.masterMap[i]?.scale = plot.masterMap[i]?.scale?.times(1.02f)!!
             }
 //            plot.v.scale = plot.v.scale * 1.02f
             plot.textBoardMesh.scale = plot.textBoardMesh.scale * 1.02f
@@ -102,55 +104,56 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
         hmd.addKeyBinding("increase_size", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Right) //L
 
 
-        hmd.addBehaviour("decrease_size", ClickBehaviour{ _, _ ->
-            plot.dotMesh.children.firstOrNull()?.instances?.forEach{
+        hmd.addBehaviour("decrease_size", ClickBehaviour { _, _ ->
+            plot.dotMesh.children.firstOrNull()?.instances?.forEach {
                 it.needsUpdate = true
                 it.needsUpdateWorld = true
             }
-            for(i in 0..plot.globalMasterMap.size){
-                plot.globalMasterMap[i]?.scale = plot.globalMasterMap[i]?.scale?.times(1.0f/1.02f)!!
+            for (i in 0..plot.masterMap.size) {
+                plot.masterMap[i]?.scale = plot.masterMap[i]?.scale?.times(1.0f / 1.02f)!!
             }
 //            plot.v.scale = plot.v.scale * (1.0f/1.02f)
-            plot.textBoardMesh.scale = plot.textBoardMesh.scale * (1.0f/1.02f)
+            plot.textBoardMesh.scale = plot.textBoardMesh.scale * (1.0f / 1.02f)
         })
         hmd.addKeyBinding("decrease_size", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Left) //H
 
 
-        hmd.addBehaviour("toggle_genes_forwards", ClickBehaviour{ _, _ ->
-            if(plot.genePicker < plot.geneNames.size - 1){
+        hmd.addBehaviour("toggle_genes_forwards", ClickBehaviour { _, _ ->
+            if (plot.genePicker < plot.geneNames.size - 1) {
                 plot.genePicker += 1
-            }
-            else{
+            } else {
                 plot.genePicker = 0
             }
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-            if(plot.textBoardPicker){
+            if (plot.textBoardPicker) {
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
         })
         hmd.addKeyBinding("toggle_genes_forwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
 
-        inputHandler?.addBehaviour("toggle_genes_forwards", ClickBehaviour{ _, _ ->
+        inputHandler?.addBehaviour("toggle_genes_forwards", ClickBehaviour { _, _ ->
             plot.genePicker += 1
             plot.genePicker %= plot.geneNames.size
 
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-            if(plot.textBoardPicker){
+            if (plot.textBoardPicker) {
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
+            }
+            thread {
+                plot.updateInstancingColor()
             }
         })
         inputHandler?.addKeyBinding("toggle_genes_forwards", "M")
 
 
         hmd.addBehaviour("toggle_genes_backwards", ClickBehaviour { _, _ ->
-            if(plot.genePicker > 0){
+            if (plot.genePicker > 0) {
                 plot.genePicker -= 1
-            }
-            else{
+            } else {
                 plot.genePicker = plot.geneNames.size - 1
             }
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-            if(plot.textBoardPicker){
+            if (plot.textBoardPicker) {
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
         })
@@ -160,13 +163,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
         //http://wiki.lwjgl.org/wiki/OpenAL_Tutorial_1_-_Single_Static_Source.html
 
         //adding a pointing laser for interacting with objects
-      hmd.addBehaviour("toggle_laser", object: ClickBehaviour {
-           val timeout = 500*1000*1000
-           var last = 0L
+        hmd.addBehaviour("toggle_laser", object : ClickBehaviour {
+            val timeout = 500 * 1000 * 1000
+            var last = 0L
 
             override fun click(p0: Int, p1: Int) {
                 logger.info("Toggling laser")
-                if(System.nanoTime() - last < timeout) return
+                if (System.nanoTime() - last < timeout) return
                 plot.laser.visible = !plot.laser.visible
                 plot.laser2.visible = !plot.laser2.visible
                 last = System.nanoTime()
@@ -180,29 +183,28 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
         in gene name view: makes cell name boards visible (even if made invisible by toggle_genes behaviour)
         note from Ulrik: "when textBoards are shown transparent, the rendering order matters"
          */
-        hmd.addBehaviour("toggleTextBoards", ClickBehaviour {_, _ ->
-            if(plot.textBoardPicker && plot.textBoardMesh.visible){
+        hmd.addBehaviour("toggleTextBoards", ClickBehaviour { _, _ ->
+            if (plot.textBoardPicker && plot.textBoardMesh.visible) {
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
                 plot.textBoardPicker = !plot.textBoardPicker
-            } else if(plot.textBoardPicker && !plot.textBoardMesh.visible){
+            } else if (plot.textBoardPicker && !plot.textBoardMesh.visible) {
                 plot.textBoardPicker = !plot.textBoardPicker
-            } else if(!plot.textBoardPicker && !plot.textBoardMesh.visible){
+            } else if (!plot.textBoardPicker && !plot.textBoardMesh.visible) {
                 plot.textBoardPicker = !plot.textBoardPicker
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
             plot.geneBoard.visible = !plot.geneBoard.visible
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-
         })
         hmd.addKeyBinding("toggleTextBoards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Side) //X
 
-        inputHandler?.addBehaviour("toggleTextBoards", ClickBehaviour {_, _ ->
-            if(plot.textBoardPicker && plot.textBoardMesh.visible){
+        inputHandler?.addBehaviour("toggleTextBoards", ClickBehaviour { _, _ ->
+            if (plot.textBoardPicker && plot.textBoardMesh.visible) {
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
                 plot.textBoardPicker = !plot.textBoardPicker
-            } else if(plot.textBoardPicker && !plot.textBoardMesh.visible){
+            } else if (plot.textBoardPicker && !plot.textBoardMesh.visible) {
                 plot.textBoardPicker = !plot.textBoardPicker
-            } else if(!plot.textBoardPicker && !plot.textBoardMesh.visible){
+            } else if (!plot.textBoardPicker && !plot.textBoardMesh.visible) {
                 plot.textBoardPicker = !plot.textBoardPicker
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
@@ -211,15 +213,17 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
             plot.minTick.visible = !plot.minTick.visible
             plot.maxTick.visible = !plot.maxTick.visible
             plot.colorMapScale.visible = !plot.colorMapScale.visible
-
+            thread {
+                plot.updateInstancingColor()
+            }
         })
 
         inputHandler?.addKeyBinding("toggleTextBoards", "X")
 
         hmd.addBehaviour("deletePoints", ClickBehaviour { _, _ ->
-            for(i in 0..plot.globalMasterMap.size){
-                plot.globalMasterMap[i]?.instances?.forEach {
-                    if(plot.laser2.intersects(it)){
+            for (i in 0..plot.masterMap.size) {
+                plot.masterMap[i]?.instances?.forEach {
+                    if (plot.laser2.intersects(it)) {
                         //if(plot.laser2.intersects(it, parent = plot.v)){
                         it.visible = false
                     }
@@ -236,9 +240,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
         hmd.addKeyBinding("deletePoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger) // T
 
         hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
-            for(i in 0..plot.globalMasterMap.size){
-                plot.globalMasterMap[i]?.instances?.forEach {
-                    if(plot.laser.intersects(it)){
+            for (i in 0..plot.masterMap.size) {
+                plot.masterMap[i]?.instances?.forEach {
+                    if (plot.laser.intersects(it)) {
                         //if(plot.laser.intersects(it, parent = plot.v)){
                         it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f)
                         //it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f, 1.0f)
@@ -277,23 +281,17 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
         hmd.addKeyBinding("shrinkLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
 
 
-
         inputHandler?.addBehaviour("resetVisibility", ClickBehaviour { _, _ -> plot.resetVisibility() })
         inputHandler?.addKeyBinding("resetVisibility", "R")
 
-        inputHandler?.addBehaviour("reloadFile", ClickBehaviour { _, _ -> plot.reload()  })
+        inputHandler?.addBehaviour("reloadFile", ClickBehaviour { _, _ -> plot.reload() })
         inputHandler?.addKeyBinding("reloadFile", "shift R")
 
-        inputHandler?.addBehaviour("toggle_dataset", ClickBehaviour{ _, _ ->
+        inputHandler?.addBehaviour("toggle_dataset", ClickBehaviour { _, _ ->
 
         })
         inputHandler?.addKeyBinding("toggle_dataset", "M")
     }
-
-//    @Test
-//    override fun main() {
-//        super.main()
-//    }
 
     companion object {
         @JvmStatic
@@ -303,7 +301,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()): Sc
             System.setProperty("scenery.Renderer", "VulkanRenderer")
 //            System.setProperty("log4j.configurationFile", "log.config")
             XVisualization().main()
-            if(args.isNotEmpty()){
+            if (args.isNotEmpty()) {
                 println(args[0])
             }
         }

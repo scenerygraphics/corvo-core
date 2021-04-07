@@ -21,6 +21,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
     private lateinit var hmd: OpenVRHMD
     lateinit var plot: XPlot
+    var previousAnnotation = 0
 
     override fun init() {
         hmd = OpenVRHMD(useCompositor = true)
@@ -119,45 +120,76 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
 
         hmd.addBehaviour("toggle_genes_forwards", ClickBehaviour { _, _ ->
-            if (plot.genePicker < plot.geneNames.size - 1) {
+            if (!plot.annotationMode) {
                 plot.genePicker += 1
-            } else {
-                plot.genePicker = 0
-            }
-            plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-            if (plot.textBoardPicker) {
-                plot.textBoardMesh.visible = !plot.textBoardMesh.visible
-            }
-        })
-        hmd.addKeyBinding("toggle_genes_forwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
+                plot.genePicker %= plot.geneNames.size
 
-        inputHandler?.addBehaviour("toggle_genes_forwards", ClickBehaviour { _, _ ->
-            plot.genePicker += 1
-            plot.genePicker %= plot.geneNames.size
-
-            plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-            if (plot.textBoardPicker) {
-                plot.textBoardMesh.visible = !plot.textBoardMesh.visible
+                plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
+                if (plot.annotationMode) {
+                    plot.textBoardMesh.visible = !plot.textBoardMesh.visible
+                }
             }
             thread {
                 plot.updateInstancingColor()
             }
         })
-        inputHandler?.addKeyBinding("toggle_genes_forwards", "M")
+        hmd.addKeyBinding("toggle_genes_forwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
 
+        inputHandler?.addBehaviour("toggle_genes_forward", ClickBehaviour { _, _ ->
+            if (!plot.annotationMode) {
+                plot.genePicker += 1
+                plot.genePicker %= plot.geneNames.size
+                plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
+            }
+            thread {
+                plot.updateInstancingColor()
+            }
+        })
+        inputHandler?.addKeyBinding("toggle_genes_forward", "M")
 
-        hmd.addBehaviour("toggle_genes_backwards", ClickBehaviour { _, _ ->
+        inputHandler?.addBehaviour("toggle_annotations_forward", ClickBehaviour { _, _ ->
+            if (plot.annotationMode) { // freeze current annotation selection if in gene mode
+                previousAnnotation = plot.annotationPicker
+                plot.annotationPicker += 1
+                plot.annotationPicker %= plot.annotationList.size
+
+                plot.annKeyMap[previousAnnotation].visible = false
+                plot.annKeyMap[plot.annotationPicker].visible = true
+            }
+            thread {
+                plot.updateInstancingColor()
+            }
+        })
+        inputHandler?.addKeyBinding("toggle_annotations_forward", "L")
+
+        hmd.addBehaviour("toggle_genes_backward", ClickBehaviour { _, _ ->
             if (plot.genePicker > 0) {
                 plot.genePicker -= 1
             } else {
                 plot.genePicker = plot.geneNames.size - 1
             }
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-            if (plot.textBoardPicker) {
-                plot.textBoardMesh.visible = !plot.textBoardMesh.visible
+
+            thread {
+                plot.updateInstancingColor()
             }
         })
-        hmd.addKeyBinding("toggle_genes_backwards", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //N
+        hmd.addKeyBinding("toggle_genes_backward", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //N
+
+        inputHandler?.addBehaviour("toggle_annotations_backward", ClickBehaviour { _, _ ->
+            previousAnnotation = plot.annotationPicker
+            if (plot.annotationPicker > 0) {
+                plot.annotationPicker -= 1
+            } else {
+                plot.annotationPicker = plot.annotationList.size - 1
+            }
+            plot.annKeyMap[previousAnnotation].visible = false
+            plot.annKeyMap[plot.annotationPicker].visible = true
+            thread {
+                plot.updateInstancingColor()
+            }
+        })
+        inputHandler?.addKeyBinding("toggle_annotations_backward", "O")
 
         //try openAL for audio - spatial audio - sound sources that move around - connect to a node? See link to tutorial:
         //http://wiki.lwjgl.org/wiki/OpenAL_Tutorial_1_-_Single_Static_Source.html
@@ -177,48 +209,40 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         hmd.addKeyBinding("toggle_laser", "Y")
 
-        /*
-        toggles between cell name and gene name view by triggering if statement in instancing zip
-        in cell name view: makes cell name boards invisible and activates gene name label in fov
-        in gene name view: makes cell name boards visible (even if made invisible by toggle_genes behaviour)
-        note from Ulrik: "when textBoards are shown transparent, the rendering order matters"
-         */
-        hmd.addBehaviour("toggleTextBoards", ClickBehaviour { _, _ ->
-            if (plot.textBoardPicker && plot.textBoardMesh.visible) {
+        hmd.addBehaviour("toggleMode", ClickBehaviour { _, _ ->
+            if (plot.annotationMode && plot.textBoardMesh.visible) {
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
-                plot.textBoardPicker = !plot.textBoardPicker
-            } else if (plot.textBoardPicker && !plot.textBoardMesh.visible) {
-                plot.textBoardPicker = !plot.textBoardPicker
-            } else if (!plot.textBoardPicker && !plot.textBoardMesh.visible) {
-                plot.textBoardPicker = !plot.textBoardPicker
+                plot.annotationMode = !plot.annotationMode
+            } else if (plot.annotationMode && !plot.textBoardMesh.visible) {
+                plot.annotationMode = !plot.annotationMode
+            } else if (!plot.annotationMode && !plot.textBoardMesh.visible) {
+                plot.annotationMode = !plot.annotationMode
                 plot.textBoardMesh.visible = !plot.textBoardMesh.visible
             }
             plot.geneBoard.visible = !plot.geneBoard.visible
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
         })
-        hmd.addKeyBinding("toggleTextBoards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Side) //X
+        hmd.addKeyBinding("toggleMode", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Side) //X
 
-        inputHandler?.addBehaviour("toggleTextBoards", ClickBehaviour { _, _ ->
-            if (plot.textBoardPicker && plot.textBoardMesh.visible) {
-                plot.textBoardMesh.visible = !plot.textBoardMesh.visible
-                plot.textBoardPicker = !plot.textBoardPicker
-            } else if (plot.textBoardPicker && !plot.textBoardMesh.visible) {
-                plot.textBoardPicker = !plot.textBoardPicker
-            } else if (!plot.textBoardPicker && !plot.textBoardMesh.visible) {
-                plot.textBoardPicker = !plot.textBoardPicker
-                plot.textBoardMesh.visible = !plot.textBoardMesh.visible
+        inputHandler?.addBehaviour("toggleMode", ClickBehaviour { _, _ ->
+            if (plot.annotationMode) { // true -> annotation encoded as color
+                plot.annotationMode = !plot.annotationMode
+                plot.annKeyMap.forEach { it.visible = false }
             }
-            plot.geneBoard.visible = !plot.geneBoard.visible
+            else { // false -> gene expression encoded as color
+                plot.annotationMode = !plot.annotationMode
+                plot.annKeyMap[plot.annotationPicker].visible = true
+            }
+
             plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-            plot.minTick.visible = !plot.minTick.visible
-            plot.maxTick.visible = !plot.maxTick.visible
-            plot.colorMapScale.visible = !plot.colorMapScale.visible
+            plot.geneScaleMesh.visible = !plot.geneScaleMesh.visible
+
             thread {
                 plot.updateInstancingColor()
             }
         })
 
-        inputHandler?.addKeyBinding("toggleTextBoards", "X")
+        inputHandler?.addKeyBinding("toggleMode", "X")
 
         hmd.addBehaviour("deletePoints", ClickBehaviour { _, _ ->
             for (i in 0..plot.masterMap.size) {
@@ -287,19 +311,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         inputHandler?.addBehaviour("reloadFile", ClickBehaviour { _, _ -> plot.reload() })
         inputHandler?.addKeyBinding("reloadFile", "shift R")
 
-        inputHandler?.addBehaviour("toggle_dataset", ClickBehaviour { _, _ ->
-
-        })
-        inputHandler?.addKeyBinding("toggle_dataset", "M")
     }
 
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
             System.setProperty("scenery.Renderer.Device", "3070")
-//            System.setProperty("spirvcrossj.useContextClassLoader", "false")
             System.setProperty("scenery.Renderer", "VulkanRenderer")
-//            System.setProperty("log4j.configurationFile", "log.config")
             XVisualization().main()
             if (args.isNotEmpty()) {
                 println(args[0])

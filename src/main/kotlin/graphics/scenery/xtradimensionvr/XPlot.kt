@@ -7,9 +7,11 @@ import graphics.scenery.textures.Texture
 import graphics.scenery.utils.Image
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.extensions.toFloatArray
+import graphics.scenery.utils.extensions.xyz
 import graphics.scenery.utils.extensions.xyzw
 import graphics.scenery.volumes.Colormap
 import org.joml.Vector3f
+import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.collections.HashMap
 import kotlin.collections.set
@@ -34,66 +36,72 @@ class XPlot : Node() {
     // define meshes that make up the scene
     var dotMesh = Mesh()
     var textBoardMesh = Mesh()
+    val geneScaleMesh = Mesh()
 
     // a scaling factor for better scale relative to user
     var positionScaling = 0.2f
 
     // global as it is required by Visualization class
     var genePicker = 0
-    var textBoardPicker = true
+    var annotationPicker = 0
+    var annotationMode = true
     val geneBoard = TextBoard()
-    val geneNames = ArrayList<String>()
-
-    val colorMapScale = Box(Vector3f(5.0f, 1.0f, 0f))
-    val maxTick = TextBoard()
-    val minTick = TextBoard()
-
-    val annotationFetcher = AnnotationsIngest()
+    val geneNames = ArrayList<String>() // stores ordered gene names for gene board
 
     // give annotations you would like (maybe with checkboxes, allow to enter the names of their annotations)
     // list of annotations
+    private val annFetcher = AnnotationsIngest()
+    private val spatialCoords = annFetcher.UMAPReader3D()
+    private var geneExpr = annFetcher.fetchGeneExpression(geneNames)
+    private val cellNames = annFetcher.h5adAnnotationReader("/obs/cell_ontology_class") as ArrayList<String>
+
     var annotationList =
         arrayOf("cell_ontology_class", "method", "mouse.id", "sex", "subtissue", "tissue", "louvain", "leiden")
-    var annotationArray = ArrayList<FloatArray>()
+    private var annotationArray = ArrayList<FloatArray>()
+    private var normMap = HashMap<String, FloatArray>()
 
-    val spatialCoords = annotationFetcher.UMAPReader3D()
-    val cellNames = annotationFetcher.h5adAnnotationReader("/obs/cell_ontology_class") as ArrayList<String>
-    var geneExpr = annotationFetcher.fetchGeneExpression(geneNames)
+    val annKeyMap = ArrayList<Mesh>()
+    private val rgbColorSpectrum = Colormap.get("jet")
 
     init {
         for (ann in annotationList) {
             annotationArray.add(run {
-                val raw = annotationFetcher.h5adAnnotationReader("/obs/$ann", false) as ArrayList<Byte>
+                val raw = annFetcher.h5adAnnotationReader("/obs/$ann", false) as ArrayList<Byte>
                 val norm = FloatArray(raw.size) // array of zeros if annotation entries are all the same
                 val max: Byte? = raw.maxOrNull()
-                if (max != null && max > 0f) {
-                    for (i in raw.indices)
-                        norm[i] = raw[i].toFloat() / max
+                when {
+                    max != null && max > 0f -> {
+                        for (i in raw.indices)
+                            norm[i] = raw[i].toFloat() / max
+                        normMap[ann] = norm.toSet().toFloatArray().sortedArray()
+                    }
+                    max != null && max == 0.toByte() ->
+                        normMap[ann] = floatArrayOf(0f)
                 }
                 norm
             })
+            annKeyMap.add(createSphereKey(ann))
         }
     }
 
     //generate master spheres for every 10k cells for performance
-    val masterCount = ceil(spatialCoords.size.toFloat() / 10000).toInt()
+    private val masterCount = ceil(spatialCoords.size.toFloat() / 10000).toInt()
     val masterMap = hashMapOf<Int, Icosphere>()
 
-    val uniqueCellNames = cellNames.toSet()
+    private val uniqueCellNames = cellNames.toSet()
 
     // initialize gene color map from scenery.Colormap
-    val encoding = "hot"
-    val colormap = Colormap.get(encoding)
+    private val encoding = "hot"
+    private val colormap = Colormap.get(encoding)
 
-    val annotationColors = Colormap.get("jet")
-
-    val indexedGeneExpression = ArrayList<Float>()
-    val indexedAnnotations = ArrayList<Float>()
+    private val indexedGeneExpression = ArrayList<Float>()
+    private val indexedAnnotations = ArrayList<Float>()
 
     init {
         loadEnvironment()
         loadDataset()
         updateInstancingColor()
+        annKeyMap[0].visible = true
     }
 
     private fun loadDataset() {
@@ -107,27 +115,27 @@ class XPlot : Node() {
         // give access to hashmap of master objects to functions outside of init and to XVisualization class
 
         //create and add instances using their UMAP coordinates as position
-        var cellCounter = 0
-        var resettingCellCounter = 0
+        var resettingCounter = 0
         var parentIterator = 1
+        var counter = 0
 
         for (coord in spatialCoords) {
-            if (resettingCellCounter >= 10000) {
+            if (resettingCounter >= 10000) {
                 parentIterator += 1
                 logger.info("parentIterator: $parentIterator")
-                resettingCellCounter = 0
+                resettingCounter = 0
             }
 
             val s = Mesh()
-
+            s.name = cellNames[counter]
             s.parent = masterMap[parentIterator]
             s.position = Vector3f(coord[0], coord[1], coord[2]) * positionScaling
 
             s.instancedProperties["ModelMatrix"] = { s.world }
 
             masterMap[parentIterator]?.instances?.add(s)
-            cellCounter += 1
-            resettingCellCounter += 1
+            counter += 1
+            resettingCounter += 1
         }
 
         // fetch center of mass for each cell type and attach TextBoard with cell type at that location
@@ -146,22 +154,21 @@ class XPlot : Node() {
         }
 
         // add all data points and their labels (if color encodes cell type) to the scene
-        addChild(textBoardMesh)
+//        addChild(textBoardMesh)
         addChild(dotMesh)
     }
 
     fun updateInstancingColor() {
-        var counter = 0
-        var resettingZipCounter = 0
+        var resettingCounter = 0
         var parentIterator = 1
-        for (cell in cellNames) {
-            if (resettingZipCounter >= 10_000) {
+        for (i in spatialCoords.indices) {
+            if (resettingCounter >= 10_000) {
                 parentIterator += 1
                 logger.info("parentIterator: $parentIterator")
-                resettingZipCounter = 0
+                resettingCounter = 0
             }
 
-            val s = masterMap[parentIterator]!!.instances[resettingZipCounter]
+            val s = masterMap[parentIterator]!!.instances[resettingCounter]
             s.dirty = true  //update on gpu
 
             indexedGeneExpression.clear()
@@ -169,13 +176,13 @@ class XPlot : Node() {
 
             // index element counter of every array of gene expressions and add to new ArrayList
             for (gene in geneExpr)
-                indexedGeneExpression += gene[counter]
+                indexedGeneExpression += gene[i]
 
             for (annotation in annotationArray)
-                indexedAnnotations += annotation[counter]
+                indexedAnnotations += annotation[i]
 
-            var color = if (textBoardPicker) {
-                annotationColors.sample(indexedAnnotations[genePicker])
+            var color = if (annotationMode) {
+                rgbColorSpectrum.sample(indexedAnnotations[annotationPicker])
 
             } else {
                 colormap.sample(indexedGeneExpression[genePicker] / 10f)
@@ -186,8 +193,7 @@ class XPlot : Node() {
 
             s.instancedProperties["Color"] = { color }
 
-            counter += 1
-            resettingZipCounter += 1
+            resettingCounter += 1
         }
     }
 
@@ -211,7 +217,7 @@ class XPlot : Node() {
                 Random.randomFromRange(-lightStretch, lightStretch)
             )
 //            l.emissionColor = Random.random3DVectorFromRange(0.2f, 0.8f)
-            l.emissionColor = Vector3f(0.4f, 0.4f, 0.4f)
+            l.emissionColor = Vector3f(0.5f, 0.5f, 0.5f)
             l.intensity = Random.randomFromRange(0.7f, 1.0f)
 
             l
@@ -223,11 +229,10 @@ class XPlot : Node() {
         geneBoard.transparent = 1
         geneBoard.fontColor = Vector3f(0f, 0f, 0f).xyzw()
         geneBoard.position = Vector3f(-2.5f, 1.5f, -12.4f) // on far wall
-        geneBoard.visible = false
 //        geneBoard.position = Vector3f(0f, 0f, -0.2f)
 //        geneBoard.scale = Vector3f(0.05f, 0.05f, 0.05f)
         geneBoard.scale = Vector3f(1f, 1f, 1f)
-        addChild(geneBoard)
+        geneScaleMesh.addChild(geneBoard)
 
         // create cylinders orthogonal to each other, representing axes centered around 0,0,0 and add them to the scene
         val x = generateAxis("X", 5.00f)
@@ -243,27 +248,33 @@ class XPlot : Node() {
         initializeLaser(laser)
         initializeLaser(laser2)
 
+        val colorMapScale = Box(Vector3f(5.0f, 1.0f, 0f))
+        val maxTick = TextBoard()
+        val minTick = TextBoard()
+
         colorMapScale.material.textures["diffuse"] =
             Texture.fromImage(Image.fromResource("volumes/colormap-$encoding.png", this::class.java))
         colorMapScale.material.metallic = 0.3f
         colorMapScale.material.roughness = 0.9f
         colorMapScale.position = Vector3f(0f, 3f, -12.4f)
-        colorMapScale.visible = false
-        addChild(colorMapScale)
+        geneScaleMesh.addChild(colorMapScale)
 
         minTick.text = "0"
         minTick.transparent = 1
         minTick.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
         minTick.position = Vector3f(-2.5f, 3.5f, -12.4f)
-        minTick.visible = false
-        addChild(minTick)
+        geneScaleMesh.addChild(minTick)
 
         maxTick.text = "10"
         maxTick.transparent = 1
         maxTick.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
         maxTick.position = Vector3f(2.1f, 3.5f, -boxSize / 2 + 0.1f)
-        maxTick.visible = false
-        addChild(maxTick)
+        geneScaleMesh.addChild(maxTick)
+
+        geneScaleMesh.visible = false
+        addChild(geneScaleMesh)
+
+
     }
 
     // for a given cell type, find the average position for all of its instances. Used to place label in sensible position, given that the data is clustered
@@ -339,14 +350,90 @@ class XPlot : Node() {
         ) //overrides the shader
         master.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
         master.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
-        master.material.roughness = 0.18f
-        master.material.metallic = 0.001f
+        master.material.roughness = 0.19f
+        master.material.metallic = 0.0001f
         master.instancedProperties["ModelMatrix"] = { master.world }
         master.instancedProperties["Color"] = { master.material.diffuse.xyzw() }
 
         dotMesh.addChild(master)
 
         return master
+    }
+
+    private fun createTextboardKey(annotation: String): Mesh {
+        val rootPosY = 5f
+        val rootPosX = -2.5f
+        val scale = 0.5f
+
+        val m = Mesh()
+        val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical")
+
+        val title = TextBoard()
+        title.text = annotation
+        title.scale = Vector3f(scale)
+        title.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
+        title.position = Vector3f(rootPosX, rootPosY, -12.4f)
+        m.addChild(title)
+
+        var positionCounter = 0
+        for (cat in mapping) {
+            val key = TextBoard()
+            key.text = cat as String
+            key.backgroundColor = rgbColorSpectrum.sample(normMap[annotation]?.get(positionCounter) ?: 0f)
+            key.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
+            key.scale = Vector3f(scale)
+            key.position = Vector3f(rootPosX, rootPosY - (positionCounter + 1) * scale, -12.4f)
+            key.transparent = 0
+
+            m.addChild(key)
+            positionCounter += 1
+        }
+        m.visible = false
+        addChild(m)
+        return m
+    }
+
+    private fun createSphereKey(annotation: String): Mesh {
+        val rootPosY = 5f
+        val rootPosX = -2.5f
+        val scale = 1f
+
+        val m = Mesh()
+        val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical")
+
+        val title = TextBoard()
+        title.transparent = 1
+        title.text = annotation
+        title.scale = Vector3f(scale)
+        title.fontColor = Vector3f(0f, 0f, 0f).xyzw()
+        title.position = Vector3f(rootPosX + 1, rootPosY, -11f)
+        m.addChild(title)
+
+        var positionCounter = 0
+        for (cat in mapping) {
+            val key = TextBoard()
+
+            key.text = cat as String
+            key.transparent = 1
+            key.scale = Vector3f(scale)
+            key.position = Vector3f(rootPosX + 1, rootPosY - (positionCounter + 1) * scale, -11f)
+
+            val sphere = Icosphere(0.5f, 3)
+            sphere.material.diffuse = rgbColorSpectrum.sample(normMap[annotation]?.get(positionCounter) ?: 0f).xyz()
+            sphere.position = Vector3f(rootPosX, (rootPosY - (positionCounter + 1) * scale) + 0.5f, -11f)
+            sphere.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
+            sphere.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
+            sphere.material.roughness = 0.19f
+            sphere.material.metallic = 0.0001f
+
+            m.addChild(sphere)
+            m.addChild(key)
+            positionCounter += 1
+        }
+
+        m.visible = false
+        addChild(m)
+        return m
     }
 
     fun resetVisibility() {
@@ -364,14 +451,9 @@ class XPlot : Node() {
             geneBoard.text = " "
             genePicker = 0
 
+
             geneExpr.clear()
-            geneExpr = annotationFetcher.fetchGeneExpression(geneNames)
-
-            textBoardPicker = false
-
-            colorMapScale.visible = true
-            maxTick.visible = true
-            minTick.visible = true
+            geneExpr = annFetcher.fetchGeneExpression(geneNames)
 
             updateInstancingColor()
             geneBoard.text = "Gene: " + geneNames[genePicker]

@@ -3,7 +3,7 @@ import ch.systemsx.cisd.hdf5.*
 
 
 class SparseReader {
-    val pathName = "/home/luke/PycharmProjects/VRCaller/file_conversion/marrow_vr_processed.h5ad"
+    val pathName = "/home/luke/PycharmProjects/VRCaller/file_conversion/tabula_vr_processed.h5ad"
 
     init {
         val reader = HDF5Factory.openForReading(pathName)

@@ -17,6 +17,7 @@ import kotlin.collections.set
 import kotlin.concurrent.thread
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlin.math.ceil
 
 
@@ -24,15 +25,16 @@ import kotlin.math.ceil
  *
  * cellxgene interactivity - start fixing selection and marking tools
  * jar python interaction (qt applet?)
- * look into other concurrency options
  * get imgui working
  * get dependence on instancing branch working
- *
+ * make annotation key scaling smart
  *
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
 
 class XPlot : Node() {
+
+    val locker = Mutex()
 
     val laser = Cylinder(0.01f, 2.0f, 20)
     val laser2 = Cylinder(0.01f, 2.0f, 20)
@@ -50,7 +52,7 @@ class XPlot : Node() {
     var annotationPicker = 0
     var annotationMode = true
     val geneBoard = TextBoard()
-    val geneNames = ArrayList<String>() // stores ordered gene names for gene board
+    var geneNames = ArrayList<String>() // stores ordered gene names for gene board
 
     private val annFetcher = AnnotationsIngest()
     private val spatialCoords = annFetcher.UMAPReader3D()
@@ -405,7 +407,7 @@ class XPlot : Node() {
         val scale = 0.5f
 
         val sizeList = arrayListOf<Int>()
-        val overflowLim = 42
+        val overflowLim = (22 / scale).toInt()
         var overflow = 0
         var maxString = 0
 
@@ -415,8 +417,7 @@ class XPlot : Node() {
                 if (len > maxString)
                     maxString = len
                 overflow += 1
-            }
-            else {
+            } else {
                 sizeList.add(maxString)
                 maxString = 0
                 overflow = 0
@@ -428,7 +429,7 @@ class XPlot : Node() {
         title.text = annotation
         title.scale = Vector3f(scale)
         title.fontColor = Vector3f(0f, 0f, 0f).xyzw()
-        title.position = Vector3f(rootPosX + 1, rootPosY, -11f)
+        title.position = Vector3f(rootPosX + scale, rootPosY, -11f)
         m.addChild(title)
 
         var lenIndex = -1
@@ -437,34 +438,37 @@ class XPlot : Node() {
         var charSum = 0
 
         for (cat in mapping) {
-            if (overflow < overflowLim) {
-                val key = TextBoard()
-                key.text = cat as String
-                key.transparent = 1
-                key.scale = Vector3f(scale)
+            val key = TextBoard()
+            key.text = cat as String
+            key.transparent = 1
+            key.scale = Vector3f(scale)
 
-                val sphere = Icosphere(scale / 2, 3)
-                sphere.material.diffuse = rgbColorSpectrum.sample(normMap[annotation]?.get(colorIncrement) ?: 0f).xyz()
-                sphere.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
-                sphere.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
-                sphere.material.roughness = 0.19f
-                sphere.material.metallic = 0.0001f
+            val sphere = Icosphere(scale / 2, 3)
+            sphere.material.diffuse = rgbColorSpectrum.sample(normMap[annotation]?.get(colorIncrement) ?: 0f).xyz()
+            sphere.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
+            sphere.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
+            sphere.material.roughness = 0.19f
+            sphere.material.metallic = 0.0001f
 
-                if (lenIndex == -1){
-                    key.position = Vector3f(rootPosX + 1, rootPosY - (overflow + 1) * scale, -11f)
-                    sphere.position = Vector3f(rootPosX, (rootPosY - (overflow + 1) * scale) + scale / 2, -11f)
-                }
-                else {
-                    key.position = Vector3f(rootPosX + 1 + (charSum * 0.16f), rootPosY - (overflow + 1) * scale, -11f)
-                    sphere.position = Vector3f(rootPosX + (charSum * 0.16f), (rootPosY - (overflow + 1) * scale) + scale / 2, -11f)
-                }
-
-                m.addChild(sphere)
-                m.addChild(key)
-                overflow += 1
-                colorIncrement += 1
+            if (lenIndex == -1) {
+                key.position = Vector3f(rootPosX + scale, rootPosY - (overflow + 1) * scale, -11f)
+                sphere.position = Vector3f(rootPosX, (rootPosY - (overflow + 1) * scale) + scale / 2, -11f)
+            } else {
+                key.position =
+                    Vector3f(rootPosX + scale + (charSum * 0.31f * scale), rootPosY - (overflow + 1) * scale, -11f)
+                sphere.position = Vector3f(
+                    rootPosX + (charSum * 0.31f * scale),
+                    (rootPosY - (overflow + 1) * scale) + scale / 2,
+                    -11f
+                )
             }
-            else {
+
+            m.addChild(sphere)
+            m.addChild(key)
+            overflow += 1
+            colorIncrement += 1
+
+            if (overflow == overflowLim) {
                 lenIndex += 1
                 overflow = 0
                 charSum += if (sizeList[lenIndex] < 5) 18
@@ -504,14 +508,17 @@ class XPlot : Node() {
     }
 
     fun reloadCo() {
-        geneNames.clear()
-        geneBoard.text = "fetching..."
-        genePicker = 0
-        geneExpr.clear()
+        GlobalScope.launch(Dispatchers.IO) {
+            locker.withLock {
+                geneBoard.text = "fetching..."
+                geneNames.clear()
+                geneExpr.clear()
+                geneExpr = annFetcher.fetchGeneExpression(geneNames)
 
-        geneExpr = annFetcher.fetchGeneExpression(geneNames)
-        geneBoard.text = "Gene: " + geneNames[genePicker]
-        updateInstancingColor()
-
+                genePicker = 0
+                updateInstancingColor()
+                geneBoard.text = "Gene: " + geneNames[genePicker]
+            }
+        }
     }
 }

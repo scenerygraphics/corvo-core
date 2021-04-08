@@ -7,9 +7,9 @@ import java.util.*
 import kotlin.collections.ArrayList
 
 class AnnotationsIngest {
-    private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/marrow_vr_processed.h5ad"
+    private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/tabula_vr_processed.h5ad"
 
-    fun fetchGeneExpression(nameOutput:ArrayList<String>): ArrayList<FloatArray> {
+    fun fetchGeneExpression(nameOutput:ArrayList<String>, lazyNameOutput: ArrayList<String> = arrayListOf(), lazy: Boolean = false): ArrayList<FloatArray> {
         val nameReader = h5adAnnotationReader("/var/index")
         val geneIndexList = ArrayList<Int>()
 
@@ -18,10 +18,17 @@ class AnnotationsIngest {
             randGeneList.add(nameReader[Random.randomFromRange(0f, nameReader.size.toFloat()).toInt()] as String)
 //        randGeneList.add(nameReader[24] as String)
         }
-
-        for(i in randGeneList){
-            nameOutput.add(i)
-            geneIndexList.add(nameReader.indexOf(i))
+        if (!lazy) {
+            for (i in randGeneList) {
+                nameOutput.add(i)
+                geneIndexList.add(nameReader.indexOf(i))
+            }
+        }
+        else {
+            for (i in randGeneList) {
+                lazyNameOutput.add(i)
+                geneIndexList.add(nameReader.indexOf(i))
+            }
         }
 
         val geneReader = SparseReader()

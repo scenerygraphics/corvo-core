@@ -36,7 +36,8 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("graphics.scenery:scenery:63eb65e")
+//    implementation("graphics.scenery:scenery:8ed735b")
+    implementation("com.github.scenerygraphics:scenery:8ed735b611")
     implementation("junit:junit:4.12")
     implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when(current()) {
@@ -69,8 +70,8 @@ dependencies {
     implementation("org.apache.logging.log4j:log4j-core:2.13.3")
     implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.13.3")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.5")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.0-M1")
+//    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.5")
 }
 
 application {

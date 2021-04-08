@@ -318,11 +318,12 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         inputHandler?.addKeyBinding("resetVisibility", "R")
 
         inputHandler?.addBehaviour("reloadFile", ClickBehaviour { _, _ ->
-            GlobalScope.launch(Dispatchers.IO) {
-                lock.withLock {
-                    plot.reloadCo()
-                }
-            }
+//            GlobalScope.launch(Dispatchers.IO) {
+//                lock.withLock {
+//                    plot.reloadCo()
+//                }
+//            }
+            plot.reloadCo()
         })
         inputHandler?.addKeyBinding("reloadFile", "shift R")
 

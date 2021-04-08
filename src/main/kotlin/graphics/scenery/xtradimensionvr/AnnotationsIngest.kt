@@ -7,7 +7,7 @@ import java.util.*
 import kotlin.collections.ArrayList
 
 class AnnotationsIngest {
-    private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad"
+    private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/marrow_vr_processed.h5ad"
 
     fun fetchGeneExpression(nameOutput:ArrayList<String>): ArrayList<FloatArray> {
         val nameReader = h5adAnnotationReader("/var/index")

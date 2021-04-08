@@ -68,6 +68,9 @@ dependencies {
     implementation("org.apache.logging.log4j:log4j-api:2.13.3")
     implementation("org.apache.logging.log4j:log4j-core:2.13.3")
     implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.13.3")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.3.5")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.5")
 }
 
 application {
@@ -96,5 +99,3 @@ tasks {
         }
     }
 }
-
-

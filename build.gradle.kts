@@ -12,7 +12,7 @@ plugins {
 group = "graphics.scenery"
 version = "0.1.0-SNAPSHOT"
 
-description = "scenery-dimensional-reduction"
+description = "xtra-dimension_vr"
 
 //sourceCompatibility = 1.8
 //targetCompatibility = 1.8
@@ -28,16 +28,13 @@ repositories {
     maven("https://maven.scijava.org/content/groups/public")
     maven("https://jitpack.io")
     maven("http://nexus.senbox.net/nexus/content/groups/public/")
-//    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1194/")
     maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1207/")
-//    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1196/")
-
 }
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
 //    implementation("graphics.scenery:scenery:8ed735b")
-    implementation("com.github.scenerygraphics:scenery:8ed735b611")
+    implementation("com.github.scenerygraphics:scenery:157cd58d0d")
     implementation("junit:junit:4.12")
     implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when(current()) {

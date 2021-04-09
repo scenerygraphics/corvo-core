@@ -22,7 +22,6 @@ import kotlin.math.ceil
 
 
 /**.
- *
  * cellxgene interactivity - start fixing selection and marking tools
  * jar python interaction (qt applet?)
  * get imgui working

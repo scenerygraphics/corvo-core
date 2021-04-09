@@ -74,4 +74,11 @@ References to v:
 
 - figure out naming. Might want to first figure out how many masters I will need and then create them all in a for loop
 - should be reusable for different sized datasets of course
-- 
+-
+
+
+@ljjh20 so coroutines are a great idea and i'd very much encourage their use. there are a few caveats however: 1) coroutines are not threads, they are merely a form a green threading, where you have a single thread executing multiple pieces of work sequentially. you can e.g. make you own scope or coroutine context, and assign worker threads to it. this way, you can easily run 100000 coroutines, but you couldn't run 100k threads. 2) along the lines of 1, coroutines provide concurrency, not parallelism. they are cooperative, while threads are preemptive, so you need to be a bit more careful what you're doing.
+
+in your concrete case with the IO dispatchers, I don't have an immediate idea why it would slow things down, as the IO dispatchers should have their own thread. but it might also be that i am doing something wrong with my coroutine use.
+also @ljjh20 whats the zip file? cryptotrojan? bitcoin miner?
+and there's actually excellent docs and tutorials and videos from jetbrains about coroutines, those might be interesting for @/all, actually: https://github.com/Kotlin/kotlinx.coroutines#documentation

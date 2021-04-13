@@ -491,6 +491,7 @@ class XPlot : Node() {
     }
 
     fun reload() {
+        println("reload")
         thread {
             currentlyLoading = true
 

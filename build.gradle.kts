@@ -3,9 +3,9 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     java
-    maven
+//    maven
     application
-    kotlin("jvm") version "1.4.20"
+    kotlin("jvm") version "1.4.30"
     id("com.github.johnrengelman.shadow") version "6.0.0"
 }
 
@@ -26,8 +26,9 @@ description = "scenery-dimensional-reduction"
 repositories {
     mavenCentral()
     maven("https://maven.scijava.org/content/groups/public")
+    maven("https://nexus.senbox.net/nexus/content/groups/public/")
+    maven("https://raw.githubusercontent.com/kotlin-graphics/mary/master")
     maven("https://jitpack.io")
-    maven("http://nexus.senbox.net/nexus/content/groups/public/")
 //    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1194/")
     maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1207/")
 //    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1196/")
@@ -38,7 +39,8 @@ dependencies {
     implementation(kotlin("stdlib-jdk8"))
 //    implementation("graphics.scenery:scenery:8ed735b")
     implementation("com.github.scenerygraphics:scenery:8ed735b611")
-    implementation("junit:junit:4.12")
+    implementation("graphics.scenery:scenery:886a7492")
+//    implementation("graphics.scenery:scenery:0.7.0-beta-8-SNAPSHOT-001")
     implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when(current()) {
         WINDOWS -> "windows"
@@ -72,6 +74,11 @@ dependencies {
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.0-M1")
 //    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.5")
+
+    listOf("core", "glfw", "gl").forEach {
+        implementation("kotlin.graphics:imgui-$it:1.79+04")
+    }
+    implementation("kotlin.graphics:uno-core:0.7.9+35")
 }
 
 application {

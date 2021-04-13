@@ -13,6 +13,9 @@ import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+
+val imgui = Imgui()
+
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
  * VM options in Run Configurations

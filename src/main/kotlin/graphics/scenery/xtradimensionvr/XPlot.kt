@@ -18,6 +18,8 @@ import kotlin.concurrent.thread
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import org.apache.commons.math3.stat.descriptive.moment.VectorialCovariance
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.ceil
 
 
@@ -44,7 +46,7 @@ class XPlot : Node() {
     val geneScaleMesh = Mesh()
 
     // a scaling factor for better scale relative to user
-    var positionScaling = 0.6f
+    var positionScaling = 0.3f
 
     // global as it is required by Visualization class
     var genePicker = 0
@@ -90,10 +92,9 @@ class XPlot : Node() {
     }
 
     //generate master spheres for every 10k cells for performance
-    private val masterCount = ceil(spatialCoords.size.toFloat() / 10000).toInt()
+    val masterSplit = 10_000
+    private val masterCount = ceil(spatialCoords.size.toFloat() / masterSplit).toInt()
     val masterMap = hashMapOf<Int, Icosphere>()
-
-    private val uniqueCellNames = cellNames.toSet()
 
     // initialize gene color map from scenery.Colormap
     private val encoding = "hot"
@@ -115,7 +116,7 @@ class XPlot : Node() {
         // hashmap to emulate at run time variable declaration
         // allows for dynamically growing number of master spheres with size of dataset
         for (i in 1..masterCount) {
-            val masterTemp = Icosphere(0.025f * positionScaling, 2)
+            val masterTemp = Icosphere(0.02f * positionScaling, 2) // sphere properties
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
         println("hashmap looks like: $masterMap")
@@ -126,8 +127,10 @@ class XPlot : Node() {
         var parentIterator = 1
         var counter = 0
 
+        val center = fetchCenterOfMass(spatialCoords)
+
         for (coord in spatialCoords) {
-            if (resettingCounter >= 10000) {
+            if (resettingCounter >= masterSplit) {
                 parentIterator += 1
                 logger.info("parentIterator: $parentIterator")
                 resettingCounter = 0
@@ -136,32 +139,35 @@ class XPlot : Node() {
             val s = Mesh()
             s.name = cellNames[counter]
             s.parent = masterMap[parentIterator]
-            s.position = Vector3f(coord[0], coord[1], coord[2]) * positionScaling
-
+            s.position =
+                (Vector3f((coord[0] - center[0]), (coord[1] - center[1]), (coord[2] - center[2]))) * positionScaling
             s.instancedProperties["ModelMatrix"] = { s.world }
-
             masterMap[parentIterator]?.instances?.add(s)
             counter += 1
             resettingCounter += 1
         }
 
         // fetch center of mass for each cell type and attach TextBoard with cell type at that location
+        val uniqueCellNames = cellNames.toSet()
+
         val massMap = textBoardPositions(uniqueCellNames)
+        var colorAssignCounter = 0f
         for (i in uniqueCellNames) {
-            val t = TextBoard(isBillboard = true)
+            val t = TextBoard()
             t.text = i
             t.name = i
             t.transparent = 0
-            t.fontColor = Vector3f(0.05f, 0.05f, 0.05f).xyzw()
-//            t.backgroundColor = tabulaColorMap[i]!!.xyzw()
-
+            t.fontColor = Vector3f(0f, 0f, 0f).xyzw()
+//            t.backgroundColor = rgbColorSpectrum.sample(colorAssignCounter / uniqueCellNames.size)
             t.position = massMap[i]!!
-            t.scale = Vector3f(0.3f, 0.3f, 0.3f) * positionScaling
+            t.scale = Vector3f(0.2f, 0.2f, 0.2f) * positionScaling
             textBoardMesh.addChild(t)
+
+            colorAssignCounter += 1f
         }
 
         // add all data points and their labels (if color encodes cell type) to the scene
-//        addChild(textBoardMesh)
+        addChild(textBoardMesh)
         addChild(dotMesh)
     }
 
@@ -169,7 +175,7 @@ class XPlot : Node() {
         var resettingCounter = 0
         var parentIterator = 1
         for (i in spatialCoords.indices) {
-            if (resettingCounter >= 10_000) {
+            if (resettingCounter >= masterSplit) {
                 parentIterator += 1
                 logger.info("parentIterator: $parentIterator")
                 resettingCounter = 0
@@ -202,6 +208,10 @@ class XPlot : Node() {
 
             resettingCounter += 1
         }
+        for (master in 1..masterCount) {
+//            masterMap[master].(metadata["MaxInstanceUpdateCount"] as? AtomicInteger)?.getAndIncrement()
+            (masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+        }
     }
 
     private fun loadEnvironment() {
@@ -224,7 +234,7 @@ class XPlot : Node() {
                 Random.randomFromRange(-lightStretch, lightStretch)
             )
 //            l.emissionColor = Random.random3DVectorFromRange(0.2f, 0.8f)
-            l.emissionColor = Vector3f(0.5f, 0.5f, 0.5f)
+            l.emissionColor = Vector3f(0.7f, 0.7f, 0.7f)
             l.intensity = Random.randomFromRange(0.7f, 1.0f)
 
             l
@@ -239,6 +249,7 @@ class XPlot : Node() {
 //        geneBoard.scale = Vector3f(0.05f, 0.05f, 0.05f)
         geneBoard.scale = Vector3f(1f, 1f, 1f)
         geneScaleMesh.addChild(geneBoard)
+
 
         // create cylinders orthogonal to each other, representing axes centered around 0,0,0 and add them to the scene
         val x = generateAxis("X", 5.00f)
@@ -282,17 +293,38 @@ class XPlot : Node() {
     }
 
     // for a given cell type, find the average position for all of its instances. Used to place label in sensible position, given that the data is clustered
-    private fun fetchCenterOfMass(type: String): Vector3f {
+    private fun fetchCellLabelPosition(type: String): Vector3f {
         val additiveMass = FloatArray(3)
         var filteredLength = 0f
 
-        for (i in masterMap[1]!!.instances.filter { it.name == type }) {
-            additiveMass[0] += i.position.toFloatArray()[0]
-            additiveMass[1] += i.position.toFloatArray()[1]
-            additiveMass[2] += i.position.toFloatArray()[2]
+        for (master in 1..masterCount) {
+            for (instance in masterMap[master]!!.instances.filter { it.name == type }) {
+                additiveMass[0] += instance.position.toFloatArray()[0]
+                additiveMass[1] += instance.position.toFloatArray()[1]
+                additiveMass[2] += instance.position.toFloatArray()[2]
 
+                filteredLength += 1
+            }
+        }
+
+        return Vector3f(
+            (additiveMass[0] / filteredLength),
+            (additiveMass[1] / filteredLength),
+            (additiveMass[2] / filteredLength)
+        )
+    }
+
+    private fun fetchCenterOfMass(coordArray: ArrayList<ArrayList<Float>>): Vector3f {
+        val additiveMass = FloatArray(3)
+        var filteredLength = 0
+
+        for (entry in coordArray) {
+            for (axis in 0..2) {
+                additiveMass[axis] += entry[axis]
+            }
             filteredLength += 1
         }
+
         return Vector3f(
             (additiveMass[0] / filteredLength),
             (additiveMass[1] / filteredLength),
@@ -304,8 +336,7 @@ class XPlot : Node() {
     private fun textBoardPositions(cellNameSet: Set<String>): HashMap<String, Vector3f> {
         val massMap = HashMap<String, Vector3f>()
         for (i in cellNameSet) {
-            massMap[i] = fetchCenterOfMass(i)
-            logger.info("center of mass for $i is: ${fetchCenterOfMass(i)}")
+            massMap[i] = fetchCellLabelPosition(i)
         }
         return massMap
     }
@@ -342,7 +373,8 @@ class XPlot : Node() {
        Generate an Icosphere used as Master for 10k instances.
        Override shader to allow for varied color on instancing and makes color an instanced property.
         */
-
+        master.metadata["MaxInstanceUpdateCount"] = AtomicInteger(1)
+//        (metadata["MaxInstanceUpdateCount"] as? AtomicInteger)?.getAndIncrement()
         master.name = "master$masterNumber"
         master.material = ShaderMaterial(
             Shaders.ShadersFromFiles(
@@ -362,39 +394,6 @@ class XPlot : Node() {
         dotMesh.addChild(master)
 
         return master
-    }
-
-    private fun createTextboardKey(annotation: String): Mesh {
-        val rootPosY = 5f
-        val rootPosX = -2.5f
-        val scale = 0.5f
-
-        val m = Mesh()
-        val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical")
-
-        val title = TextBoard()
-        title.text = annotation
-        title.scale = Vector3f(scale)
-        title.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
-        title.position = Vector3f(rootPosX, rootPosY, -12.4f)
-        m.addChild(title)
-
-        var positionCounter = 0
-        for (cat in mapping) {
-            val key = TextBoard()
-            key.text = cat as String
-            key.backgroundColor = rgbColorSpectrum.sample(normMap[annotation]?.get(positionCounter) ?: 0f)
-            key.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
-            key.scale = Vector3f(scale)
-            key.position = Vector3f(rootPosX, rootPosY - (positionCounter + 1) * scale, -12.4f)
-            key.transparent = 0
-
-            m.addChild(key)
-            positionCounter += 1
-        }
-        m.visible = false
-        addChild(m)
-        return m
     }
 
     private fun createSphereKey(annotation: String): Mesh {
@@ -426,7 +425,7 @@ class XPlot : Node() {
         val title = TextBoard()
         title.transparent = 1
         title.text = annotation
-        title.scale = Vector3f(scale)
+        title.scale = Vector3f(scale*2)
         title.fontColor = Vector3f(0f, 0f, 0f).xyzw()
         title.position = Vector3f(rootPosX + scale, rootPosY, -11f)
         m.addChild(title)
@@ -439,6 +438,7 @@ class XPlot : Node() {
         for (cat in mapping) {
             val key = TextBoard()
             key.text = cat as String
+            key.fontColor = Vector3f(0f, 0f, 0f).xyzw()
             key.transparent = 1
             key.scale = Vector3f(scale)
 

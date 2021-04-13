@@ -49,7 +49,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         val cam: Camera = DetachedHeadCamera(hmd)
         with(cam) {
             position = Vector3f(0.0f, 0.0f, 3.5f)
-            perspectiveCamera(50.0f, windowWidth, windowHeight)
+            perspectiveCamera(60.0f, windowWidth, windowHeight)
             scene.addChild(this)
         }
 //        cam.addChild(plot.geneBoard)
@@ -97,32 +97,26 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
         hmd.addBehaviour("increase_size", ClickBehaviour { _, _ ->
-            plot.dotMesh.children.firstOrNull()?.instances?.forEach {
-                it.needsUpdate = true
-                it.needsUpdateWorld = true
+            plot.dotMesh.children.forEach { it ->
+                it.instances.forEach {
+                    it.needsUpdate = true
+                    it.needsUpdateWorld = true
+                }
+                it.scale *= 1.02f
             }
-            for (i in 0..plot.masterMap.size) {
-                plot.masterMap[i]?.scale = plot.masterMap[i]?.scale?.times(1.02f)!!
-            }
-//            plot.v.scale = plot.v.scale * 1.02f
-            plot.textBoardMesh.scale = plot.textBoardMesh.scale * 1.02f
         })
         hmd.addKeyBinding("increase_size", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Right) //L
 
-
         hmd.addBehaviour("decrease_size", ClickBehaviour { _, _ ->
-            plot.dotMesh.children.firstOrNull()?.instances?.forEach {
-                it.needsUpdate = true
-                it.needsUpdateWorld = true
+            plot.dotMesh.children.forEach { it ->
+                it.instances.forEach {
+                    it.needsUpdate = true
+                    it.needsUpdateWorld = true
+                }
+                it.scale /= 1.02f
             }
-            for (i in 0..plot.masterMap.size) {
-                plot.masterMap[i]?.scale = plot.masterMap[i]?.scale?.times(1.0f / 1.02f)!!
-            }
-//            plot.v.scale = plot.v.scale * (1.0f/1.02f)
-            plot.textBoardMesh.scale = plot.textBoardMesh.scale * (1.0f / 1.02f)
         })
         hmd.addKeyBinding("decrease_size", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Left) //H
-
 
         hmd.addBehaviour("toggle_genes_forwards", ClickBehaviour { _, _ ->
             if (!plot.annotationMode) {
@@ -163,7 +157,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 plot.annKeyMap[previousAnnotation].visible = false
                 plot.annKeyMap[plot.annotationPicker].visible = true
             }
-            GlobalScope.launch(Dispatchers.Default){
+            GlobalScope.launch(Dispatchers.Default) {
                 plot.updateInstancingColor()
             }
         })
@@ -193,7 +187,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             }
             plot.annKeyMap[previousAnnotation].visible = false
             plot.annKeyMap[plot.annotationPicker].visible = true
-            GlobalScope.launch(Dispatchers.Default){
+            GlobalScope.launch(Dispatchers.Default) {
                 plot.updateInstancingColor()
             }
         })
@@ -243,10 +237,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         plot.annotationMode = !plot.annotationMode
                         plot.annKeyMap[plot.annotationPicker].visible = true
                     }
-
+                    plot.updateInstancingColor()
                     plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
                     plot.geneScaleMesh.visible = !plot.geneScaleMesh.visible
-                    plot.updateInstancingColor()
                 }
             }
         })

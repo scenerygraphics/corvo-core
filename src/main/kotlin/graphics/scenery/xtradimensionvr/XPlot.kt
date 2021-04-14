@@ -18,7 +18,6 @@ import kotlin.concurrent.thread
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import org.apache.commons.math3.stat.descriptive.moment.VectorialCovariance
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.ceil
 
@@ -29,6 +28,8 @@ import kotlin.math.ceil
  * get imgui working
  * get dependence on instancing branch working
  * make annotation key scaling smart
+ *
+ * serious performance hit from so many textboards? I observe around -5-7 fps
  *
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
@@ -58,22 +59,24 @@ class XPlot : Node() {
     private val annFetcher = AnnotationsIngest()
     private val spatialCoords = annFetcher.UMAPReader3D()
     private var geneExpr = annFetcher.fetchGeneExpression(geneNames)
-    private val cellNames = annFetcher.h5adAnnotationReader("/obs/cell_ontology_class") as ArrayList<String>
 
     // give annotations you would like (maybe with checkboxes, allow to enter the names of their annotations)
     // list of annotations
     var annotationList =
         arrayOf("cell_ontology_class", "method", "mouse.id", "sex", "subtissue", "tissue", "louvain", "leiden")
-    private var annotationArray = ArrayList<FloatArray>()
-    private var normMap = HashMap<String, FloatArray>()
+    private var annotationArray = ArrayList<FloatArray>() //used to color spheres, normalized
+    private var normMap = HashMap<String, FloatArray>() //used for color maps, normalized
+    private val rawAnnotations = ArrayList<ArrayList<Byte>>()
 
-    val annKeyMap = ArrayList<Mesh>()
+    val annKeyList = ArrayList<Mesh>()
+    val labelList = ArrayList<Mesh>()
     private val rgbColorSpectrum = Colormap.get("jet")
 
     init {
         for (ann in annotationList) {
             annotationArray.add(run {
                 val raw = annFetcher.h5adAnnotationReader("/obs/$ann", false) as ArrayList<Byte>
+                rawAnnotations.add(raw)
                 val norm = FloatArray(raw.size) // array of zeros if annotation entries are all the same
                 val max: Byte? = raw.maxOrNull()
                 when {
@@ -87,12 +90,12 @@ class XPlot : Node() {
                 }
                 norm
             })
-            annKeyMap.add(createSphereKey(ann))
+            annKeyList.add(createSphereKey(ann))
         }
     }
 
     //generate master spheres for every 10k cells for performance
-    val masterSplit = 10_000
+    private val masterSplit = 10_000
     private val masterCount = ceil(spatialCoords.size.toFloat() / masterSplit).toInt()
     val masterMap = hashMapOf<Int, Icosphere>()
 
@@ -109,7 +112,8 @@ class XPlot : Node() {
         loadEnvironment()
         loadDataset()
         updateInstancingColor()
-        annKeyMap[0].visible = true
+        annKeyList[0].visible = true
+        labelList[0].visible = true
     }
 
     private fun loadDataset() {
@@ -120,7 +124,6 @@ class XPlot : Node() {
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
         println("hashmap looks like: $masterMap")
-        // give access to hashmap of master objects to functions outside of init and to XVisualization class
 
         //create and add instances using their UMAP coordinates as position
         var resettingCounter = 0
@@ -131,44 +134,33 @@ class XPlot : Node() {
 
         for (coord in spatialCoords) {
             if (resettingCounter >= masterSplit) {
-                parentIterator += 1
+                parentIterator ++
                 logger.info("parentIterator: $parentIterator")
                 resettingCounter = 0
             }
 
             val s = Mesh()
-            s.name = cellNames[counter]
+
+            var annCount = 0
+            for (annotation in annotationList) { //add all annotations as metadata (for label center of mass)
+                s.metadata[annotation] = rawAnnotations[annCount][counter]
+                annCount ++
+            }
+
             s.parent = masterMap[parentIterator]
             s.position =
                 (Vector3f((coord[0] - center[0]), (coord[1] - center[1]), (coord[2] - center[2]))) * positionScaling
             s.instancedProperties["ModelMatrix"] = { s.world }
             masterMap[parentIterator]?.instances?.add(s)
-            counter += 1
-            resettingCounter += 1
+            counter ++
+            resettingCounter ++
         }
-
-        // fetch center of mass for each cell type and attach TextBoard with cell type at that location
-        val uniqueCellNames = cellNames.toSet()
-
-        val massMap = textBoardPositions(uniqueCellNames)
-        var colorAssignCounter = 0f
-        for (i in uniqueCellNames) {
-            val t = TextBoard()
-            t.text = i
-            t.name = i
-            t.transparent = 0
-            t.fontColor = Vector3f(0f, 0f, 0f).xyzw()
-//            t.backgroundColor = rgbColorSpectrum.sample(colorAssignCounter / uniqueCellNames.size)
-            t.position = massMap[i]!!
-            t.scale = Vector3f(0.2f, 0.2f, 0.2f) * positionScaling
-            textBoardMesh.addChild(t)
-
-            colorAssignCounter += 1f
-        }
-
-        // add all data points and their labels (if color encodes cell type) to the scene
-        addChild(textBoardMesh)
         addChild(dotMesh)
+
+        // create labels for each annotation
+        for (annotation in annotationList) {
+            labelList.add(generateLabels(annotation))
+        }
     }
 
     fun updateInstancingColor() {
@@ -176,7 +168,7 @@ class XPlot : Node() {
         var parentIterator = 1
         for (i in spatialCoords.indices) {
             if (resettingCounter >= masterSplit) {
-                parentIterator += 1
+                parentIterator ++
                 logger.info("parentIterator: $parentIterator")
                 resettingCounter = 0
             }
@@ -206,10 +198,9 @@ class XPlot : Node() {
 
             s.instancedProperties["Color"] = { color }
 
-            resettingCounter += 1
+            resettingCounter ++
         }
         for (master in 1..masterCount) {
-//            masterMap[master].(metadata["MaxInstanceUpdateCount"] as? AtomicInteger)?.getAndIncrement()
             (masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
         }
     }
@@ -222,7 +213,7 @@ class XPlot : Node() {
         lightbox.material.diffuse = Vector3f(0.4f, 0.4f, 0.4f)
         lightbox.material.roughness = 1.0f
         lightbox.material.metallic = 0.0f
-        lightbox.material.cullingMode = Material.CullingMode.None
+        lightbox.material.cullingMode = Material.CullingMode.Front
         addChild(lightbox)
 
         val lightStretch = 12.4f
@@ -245,11 +236,8 @@ class XPlot : Node() {
         geneBoard.transparent = 1
         geneBoard.fontColor = Vector3f(0f, 0f, 0f).xyzw()
         geneBoard.position = Vector3f(-2.5f, 1.5f, -12.4f) // on far wall
-//        geneBoard.position = Vector3f(0f, 0f, -0.2f)
-//        geneBoard.scale = Vector3f(0.05f, 0.05f, 0.05f)
         geneBoard.scale = Vector3f(1f, 1f, 1f)
         geneScaleMesh.addChild(geneBoard)
-
 
         // create cylinders orthogonal to each other, representing axes centered around 0,0,0 and add them to the scene
         val x = generateAxis("X", 5.00f)
@@ -292,18 +280,41 @@ class XPlot : Node() {
         addChild(geneScaleMesh)
     }
 
+    private fun generateLabels(annotation: String): Mesh {
+        val m = Mesh()
+        val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical") as ArrayList<String>
+
+        var labelCounter = 0.toByte()
+        for (i in mapping) {
+            val t = TextBoard()
+            t.text = i
+            t.transparent = 0
+            t.fontColor = Vector3f(0f, 0f, 0f).xyzw()
+            t.backgroundColor = rgbColorSpectrum.sample(labelCounter.toFloat() / mapping.size)
+            t.position = fetchCellLabelPosition(annotation, labelCounter)
+            t.scale = Vector3f(0.2f, 0.2f, 0.2f) * positionScaling
+            m.addChild(t)
+
+            labelCounter ++
+        }
+
+        m.visible = false
+        addChild(m)
+        return m
+    }
+
     // for a given cell type, find the average position for all of its instances. Used to place label in sensible position, given that the data is clustered
-    private fun fetchCellLabelPosition(type: String): Vector3f {
+    private fun fetchCellLabelPosition(annotation: String, type: Byte): Vector3f {
         val additiveMass = FloatArray(3)
         var filteredLength = 0f
 
         for (master in 1..masterCount) {
-            for (instance in masterMap[master]!!.instances.filter { it.name == type }) {
+            for (instance in masterMap[master]!!.instances.filter { it.metadata[annotation] == type }) {
                 additiveMass[0] += instance.position.toFloatArray()[0]
                 additiveMass[1] += instance.position.toFloatArray()[1]
                 additiveMass[2] += instance.position.toFloatArray()[2]
 
-                filteredLength += 1
+                filteredLength ++
             }
         }
 
@@ -322,7 +333,7 @@ class XPlot : Node() {
             for (axis in 0..2) {
                 additiveMass[axis] += entry[axis]
             }
-            filteredLength += 1
+            filteredLength ++
         }
 
         return Vector3f(
@@ -330,70 +341,6 @@ class XPlot : Node() {
             (additiveMass[1] / filteredLength),
             (additiveMass[2] / filteredLength)
         )
-    }
-
-    // for each unique cell type in the dataset, calculate the average position of all of its instances
-    private fun textBoardPositions(cellNameSet: Set<String>): HashMap<String, Vector3f> {
-        val massMap = HashMap<String, Vector3f>()
-        for (i in cellNameSet) {
-            massMap[i] = fetchCellLabelPosition(i)
-        }
-        return massMap
-    }
-
-    private fun initializeLaser(laserName: Cylinder) {
-        laserName.material.diffuse = Vector3f(0.9f, 0.0f, 0.0f)
-        laserName.material.metallic = 0.001f
-        laserName.material.roughness = 0.18f
-        laserName.rotation.rotateX(-Math.PI.toFloat() / 1.5f) // point laser forwards
-        laserName.visible = true
-    }
-
-    private fun generateAxis(dimension: String = "x", length: Float = 5.00f): Cylinder {
-        val cyl: Cylinder = when (dimension.capitalize()) {
-            "X" -> {
-                Cylinder.betweenPoints(Vector3f(-length, 0f, 0f), Vector3f(length, 0f, 0f), radius = 0.01f)
-            }
-            "Y" -> {
-                Cylinder.betweenPoints(Vector3f(0f, -length, 0f), Vector3f(0f, length, 0f), radius = 0.01f)
-            }
-            "Z" -> {
-                Cylinder.betweenPoints(Vector3f(0f, 0f, -length), Vector3f(0f, 0f, length), radius = 0.01f)
-            }
-            else -> throw IllegalArgumentException("$dimension is not a valid dimension")
-        }
-        cyl.material.roughness = 0.18f
-        cyl.material.metallic = 0.001f
-        cyl.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
-        return cyl
-    }
-
-    private fun addMasterProperties(master: Icosphere, masterNumber: Int): Icosphere {
-        /*
-       Generate an Icosphere used as Master for 10k instances.
-       Override shader to allow for varied color on instancing and makes color an instanced property.
-        */
-        master.metadata["MaxInstanceUpdateCount"] = AtomicInteger(1)
-//        (metadata["MaxInstanceUpdateCount"] as? AtomicInteger)?.getAndIncrement()
-        master.name = "master$masterNumber"
-        master.material = ShaderMaterial(
-            Shaders.ShadersFromFiles(
-                arrayOf(
-                    "DefaultDeferredInstanced.frag",
-                    "DefaultDeferredInstancedColor.vert"
-                ), XPlot::class.java
-            )
-        ) //overrides the shader
-        master.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
-        master.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
-        master.material.roughness = 0.19f
-        master.material.metallic = 0.0001f
-        master.instancedProperties["ModelMatrix"] = { master.world }
-        master.instancedProperties["Color"] = { master.material.diffuse.xyzw() }
-
-        dotMesh.addChild(master)
-
-        return master
     }
 
     private fun createSphereKey(annotation: String): Mesh {
@@ -414,7 +361,7 @@ class XPlot : Node() {
                 val len = cat.toString().toCharArray().size
                 if (len > maxString)
                     maxString = len
-                overflow += 1
+                overflow ++
             } else {
                 sizeList.add(maxString)
                 maxString = 0
@@ -425,7 +372,7 @@ class XPlot : Node() {
         val title = TextBoard()
         title.transparent = 1
         title.text = annotation
-        title.scale = Vector3f(scale*2)
+        title.scale = Vector3f(scale * 2)
         title.fontColor = Vector3f(0f, 0f, 0f).xyzw()
         title.position = Vector3f(rootPosX + scale, rootPosY, -11f)
         m.addChild(title)
@@ -464,11 +411,11 @@ class XPlot : Node() {
 
             m.addChild(sphere)
             m.addChild(key)
-            overflow += 1
-            colorIncrement += 1
+            overflow ++
+            colorIncrement ++
 
             if (overflow == overflowLim) {
-                lenIndex += 1
+                lenIndex ++
                 overflow = 0
                 charSum += if (sizeList[lenIndex] < 5) 18
                 else sizeList[lenIndex]
@@ -478,6 +425,61 @@ class XPlot : Node() {
         m.visible = false
         addChild(m)
         return m
+    }
+
+    private fun addMasterProperties(master: Icosphere, masterNumber: Int): Icosphere {
+        /*
+       Generate an Icosphere used as Master for 10k instances.
+       Override shader to allow for varied color on instancing and makes color an instanced property.
+        */
+        master.metadata["MaxInstanceUpdateCount"] = AtomicInteger(1)
+//        (metadata["MaxInstanceUpdateCount"] as? AtomicInteger)?.getAndIncrement()
+        master.name = "master$masterNumber"
+        master.material = ShaderMaterial(
+            Shaders.ShadersFromFiles(
+                arrayOf(
+                    "DefaultDeferredInstanced.frag",
+                    "DefaultDeferredInstancedColor.vert"
+                ), XPlot::class.java
+            )
+        ) //overrides the shader
+        master.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
+        master.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
+        master.material.roughness = 0.19f
+        master.material.metallic = 0.0001f
+        master.instancedProperties["ModelMatrix"] = { master.world }
+        master.instancedProperties["Color"] = { master.material.diffuse.xyzw() }
+
+        dotMesh.addChild(master)
+
+        return master
+    }
+
+    private fun initializeLaser(laserName: Cylinder) {
+        laserName.material.diffuse = Vector3f(0.9f, 0.0f, 0.0f)
+        laserName.material.metallic = 0.001f
+        laserName.material.roughness = 0.18f
+        laserName.rotation.rotateX(-Math.PI.toFloat() / 1.5f) // point laser forwards
+        laserName.visible = true
+    }
+
+    private fun generateAxis(dimension: String = "x", length: Float = 5.00f): Cylinder {
+        val cyl: Cylinder = when (dimension.capitalize()) {
+            "X" -> {
+                Cylinder.betweenPoints(Vector3f(-length, 0f, 0f), Vector3f(length, 0f, 0f), radius = 0.01f)
+            }
+            "Y" -> {
+                Cylinder.betweenPoints(Vector3f(0f, -length, 0f), Vector3f(0f, length, 0f), radius = 0.01f)
+            }
+            "Z" -> {
+                Cylinder.betweenPoints(Vector3f(0f, 0f, -length), Vector3f(0f, 0f, length), radius = 0.01f)
+            }
+            else -> throw IllegalArgumentException("$dimension is not a valid dimension")
+        }
+        cyl.material.roughness = 0.18f
+        cyl.material.metallic = 0.001f
+        cyl.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+        return cyl
     }
 
     fun resetVisibility() {

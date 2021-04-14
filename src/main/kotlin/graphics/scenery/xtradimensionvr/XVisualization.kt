@@ -154,8 +154,11 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 plot.annotationPicker += 1
                 plot.annotationPicker %= plot.annotationList.size
 
-                plot.annKeyMap[previousAnnotation].visible = false
-                plot.annKeyMap[plot.annotationPicker].visible = true
+                plot.annKeyList[previousAnnotation].visible = false
+                plot.annKeyList[plot.annotationPicker].visible = true
+
+                plot.labelList[previousAnnotation].visible = false
+                plot.labelList[plot.annotationPicker].visible = true
             }
             GlobalScope.launch(Dispatchers.Default) {
                 plot.updateInstancingColor()
@@ -185,8 +188,11 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             } else {
                 plot.annotationPicker = plot.annotationList.size - 1
             }
-            plot.annKeyMap[previousAnnotation].visible = false
-            plot.annKeyMap[plot.annotationPicker].visible = true
+            plot.annKeyList[previousAnnotation].visible = false
+            plot.annKeyList[plot.annotationPicker].visible = true
+
+            plot.labelList[previousAnnotation].visible = false
+            plot.labelList[plot.annotationPicker].visible = true
             GlobalScope.launch(Dispatchers.Default) {
                 plot.updateInstancingColor()
             }
@@ -232,10 +238,12 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 lock.withLock {
                     if (plot.annotationMode) { // true -> annotation encoded as color
                         plot.annotationMode = !plot.annotationMode
-                        plot.annKeyMap.forEach { it.visible = false }
+                        plot.annKeyList.forEach { it.visible = false }
+                        plot.labelList.forEach { it.visible = false }
                     } else { // false -> gene expression encoded as color
                         plot.annotationMode = !plot.annotationMode
-                        plot.annKeyMap[plot.annotationPicker].visible = true
+                        plot.annKeyList[plot.annotationPicker].visible = true
+                        plot.labelList[plot.annotationPicker].visible = true
                     }
                     plot.updateInstancingColor()
                     plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]

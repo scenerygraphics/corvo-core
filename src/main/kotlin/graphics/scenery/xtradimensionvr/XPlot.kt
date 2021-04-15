@@ -26,10 +26,14 @@ import kotlin.math.ceil
  * cellxgene interactivity - start fixing selection and marking tools
  * jar python interaction (qt applet?)
  * get imgui working
- * get dependence on instancing branch working
- * make annotation key scaling smart
+ * billboard
  *
  * serious performance hit from so many textboards? I observe around -5-7 fps
+ * performance hit from toggling visibility of keys? many intersections and non-instanced nodes
+ * instance key spheres? Instance textboards?
+ * Textboard color off
+ * hanging in vr every second or so
+ * must catch and be able to encode annotations that are not categoricals! Then will work for any dataset!
  *
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
@@ -53,6 +57,7 @@ class XPlot : Node() {
     var genePicker = 0
     var annotationPicker = 0
     var annotationMode = true
+
     val geneBoard = TextBoard()
     var geneNames = ArrayList<String>() // stores ordered gene names for gene board
 
@@ -63,9 +68,20 @@ class XPlot : Node() {
     // give annotations you would like (maybe with checkboxes, allow to enter the names of their annotations)
     // list of annotations
     var annotationList =
-        arrayOf("cell_ontology_class", "method", "mouse.id", "sex", "subtissue", "tissue", "louvain", "leiden")
+        arrayOf(
+            "free_annotation",
+            "cell_ontology_class",
+            "method",
+            "mouse.id",
+            "sex",
+            "subtissue",
+            "tissue",
+            "louvain",
+            "leiden",
+            "cell_ontology_id",
+
+        )
     private var annotationArray = ArrayList<FloatArray>() //used to color spheres, normalized
-    private var normMap = HashMap<String, FloatArray>() //used for color maps, normalized
     private val rawAnnotations = ArrayList<ArrayList<Byte>>()
 
     val annKeyList = ArrayList<Mesh>()
@@ -76,23 +92,20 @@ class XPlot : Node() {
         for (ann in annotationList) {
             annotationArray.add(run {
                 val raw = annFetcher.h5adAnnotationReader("/obs/$ann", false) as ArrayList<Byte>
-                rawAnnotations.add(raw)
+                rawAnnotations.add(raw) // used to attach metadata spheres
                 val norm = FloatArray(raw.size) // array of zeros if annotation entries are all the same
                 val max: Byte? = raw.maxOrNull()
-                when {
-                    max != null && max > 0f -> {
-                        for (i in raw.indices)
-                            norm[i] = raw[i].toFloat() / max
-                        normMap[ann] = norm.toSet().toFloatArray().sortedArray()
-                    }
-                    max != null && max == 0.toByte() ->
-                        normMap[ann] = floatArrayOf(0f)
+                if (max != null && max > 0f) {
+                    for (i in raw.indices)
+                        norm[i] = raw[i].toFloat() / max
                 }
                 norm
             })
             annKeyList.add(createSphereKey(ann))
         }
+//        createSphereKey("free_annotation")
     }
+
 
     //generate master spheres for every 10k cells for performance
     private val masterSplit = 10_000
@@ -128,23 +141,20 @@ class XPlot : Node() {
         //create and add instances using their UMAP coordinates as position
         var resettingCounter = 0
         var parentIterator = 1
-        var counter = 0
 
         val center = fetchCenterOfMass(spatialCoords)
 
-        for (coord in spatialCoords) {
+        for ((counter, coord) in spatialCoords.withIndex()) {
             if (resettingCounter >= masterSplit) {
-                parentIterator ++
+                parentIterator++
                 logger.info("parentIterator: $parentIterator")
                 resettingCounter = 0
             }
 
             val s = Mesh()
 
-            var annCount = 0
-            for (annotation in annotationList) { //add all annotations as metadata (for label center of mass)
+            for ((annCount, annotation) in annotationList.withIndex()) { //add all annotations as metadata (for label center of mass)
                 s.metadata[annotation] = rawAnnotations[annCount][counter]
-                annCount ++
             }
 
             s.parent = masterMap[parentIterator]
@@ -152,8 +162,7 @@ class XPlot : Node() {
                 (Vector3f((coord[0] - center[0]), (coord[1] - center[1]), (coord[2] - center[2]))) * positionScaling
             s.instancedProperties["ModelMatrix"] = { s.world }
             masterMap[parentIterator]?.instances?.add(s)
-            counter ++
-            resettingCounter ++
+            resettingCounter++
         }
         addChild(dotMesh)
 
@@ -168,7 +177,7 @@ class XPlot : Node() {
         var parentIterator = 1
         for (i in spatialCoords.indices) {
             if (resettingCounter >= masterSplit) {
-                parentIterator ++
+                parentIterator++
                 logger.info("parentIterator: $parentIterator")
                 resettingCounter = 0
             }
@@ -198,7 +207,7 @@ class XPlot : Node() {
 
             s.instancedProperties["Color"] = { color }
 
-            resettingCounter ++
+            resettingCounter++
         }
         for (master in 1..masterCount) {
             (masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
@@ -284,18 +293,16 @@ class XPlot : Node() {
         val m = Mesh()
         val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical") as ArrayList<String>
 
-        var labelCounter = 0.toByte()
-        for (i in mapping) {
+        val mapSize = if (mapping.size > 1) mapping.size - 1 else 1
+        for ((count, type) in mapping.withIndex()) {
             val t = TextBoard()
-            t.text = i
+            t.text = type.replace("ï", "i")
             t.transparent = 0
             t.fontColor = Vector3f(0f, 0f, 0f).xyzw()
-            t.backgroundColor = rgbColorSpectrum.sample(labelCounter.toFloat() / mapping.size)
-            t.position = fetchCellLabelPosition(annotation, labelCounter)
+            t.backgroundColor = rgbColorSpectrum.sample(count.toFloat() / mapSize)
+            t.position = fetchCellLabelPosition(annotation, count.toByte())
             t.scale = Vector3f(0.2f, 0.2f, 0.2f) * positionScaling
             m.addChild(t)
-
-            labelCounter ++
         }
 
         m.visible = false
@@ -314,10 +321,9 @@ class XPlot : Node() {
                 additiveMass[1] += instance.position.toFloatArray()[1]
                 additiveMass[2] += instance.position.toFloatArray()[2]
 
-                filteredLength ++
+                filteredLength++
             }
         }
-
         return Vector3f(
             (additiveMass[0] / filteredLength),
             (additiveMass[1] / filteredLength),
@@ -333,9 +339,8 @@ class XPlot : Node() {
             for (axis in 0..2) {
                 additiveMass[axis] += entry[axis]
             }
-            filteredLength ++
+            filteredLength++
         }
-
         return Vector3f(
             (additiveMass[0] / filteredLength),
             (additiveMass[1] / filteredLength),
@@ -361,14 +366,13 @@ class XPlot : Node() {
                 val len = cat.toString().toCharArray().size
                 if (len > maxString)
                     maxString = len
-                overflow ++
+                overflow++
             } else {
                 sizeList.add(maxString)
                 maxString = 0
                 overflow = 0
             }
         }
-
         val title = TextBoard()
         title.transparent = 1
         title.text = annotation
@@ -377,20 +381,23 @@ class XPlot : Node() {
         title.position = Vector3f(rootPosX + scale, rootPosY, -11f)
         m.addChild(title)
 
-        var lenIndex = -1
         overflow = 0
-        var colorIncrement = 0
+        var lenIndex = -1 // -1 so first column isn't shifted
         var charSum = 0
+        val mapSize = if (mapping.size > 1) mapping.size - 1 else 1
 
-        for (cat in mapping) {
+        for ((colorIncrement, cat) in mapping.withIndex()) {
             val key = TextBoard()
-            key.text = cat as String
+
+            val interCat = cat.toString().replace("ï", "i")
+            key.text = interCat
+
             key.fontColor = Vector3f(0f, 0f, 0f).xyzw()
             key.transparent = 1
             key.scale = Vector3f(scale)
 
             val sphere = Icosphere(scale / 2, 3)
-            sphere.material.diffuse = rgbColorSpectrum.sample(normMap[annotation]?.get(colorIncrement) ?: 0f).xyz()
+            sphere.material.diffuse = rgbColorSpectrum.sample(colorIncrement.toFloat() / mapSize).xyz()
             sphere.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
             sphere.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
             sphere.material.roughness = 0.19f
@@ -408,20 +415,17 @@ class XPlot : Node() {
                     -11f
                 )
             }
-
             m.addChild(sphere)
             m.addChild(key)
-            overflow ++
-            colorIncrement ++
+            overflow++
 
             if (overflow == overflowLim) {
-                lenIndex ++
+                lenIndex++
                 overflow = 0
                 charSum += if (sizeList[lenIndex] < 5) 18
                 else sizeList[lenIndex]
             }
         }
-
         m.visible = false
         addChild(m)
         return m

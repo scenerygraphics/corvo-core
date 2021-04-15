@@ -7,5 +7,5 @@ pluginManagement {
 }
 
 rootProject.name = "xtra-dimension_vr"
-//includeBuild("../scenery")
+includeBuild("../scenery")
 

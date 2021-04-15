@@ -18,6 +18,7 @@ import kotlin.concurrent.thread
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import ui.Imgui
 import kotlin.math.ceil
 
 
@@ -488,6 +489,11 @@ class XPlot : Node() {
                 it.metadata.remove("selected")
             }
         }
+    }
+
+    override fun preDraw(): Boolean {
+
+        return true
     }
 
     fun reload() {

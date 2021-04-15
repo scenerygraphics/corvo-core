@@ -12,9 +12,7 @@ import org.joml.Vector3f
 import kotlinx.coroutines.*
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-
-
-val imgui = Imgui()
+import ui.Imgui
 
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
@@ -31,6 +29,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
     private val lock = Mutex()
 
+    val imgui = Imgui(hub)
+
     override fun init() {
         hmd = OpenVRHMD(useCompositor = true)
 
@@ -46,7 +46,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
         settings.set("Renderer.DisableVsync", true)
         renderer = hub.add(Renderer.createRenderer(hub, applicationName, scene, windowWidth, windowHeight))
-        renderer?.toggleVR()
+//        renderer?.toggleVR()
 
         // add parameter hmd to DetachedHeadCamera for VR
         val cam: Camera = DetachedHeadCamera(hmd)

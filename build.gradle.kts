@@ -37,9 +37,9 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-//    implementation("graphics.scenery:scenery:8ed735b")
-    implementation("com.github.scenerygraphics:scenery:8ed735b611")
-    implementation("graphics.scenery:scenery:886a7492")
+    implementation("graphics.scenery:scenery:7ab67ae6")
+//    implementation("com.github.scenerygraphics:scenery:8ed735b611")
+//    implementation("graphics.scenery:scenery:886a7492")
 //    implementation("graphics.scenery:scenery:0.7.0-beta-8-SNAPSHOT-001")
     implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when(current()) {
@@ -78,6 +78,8 @@ dependencies {
     listOf("core", "glfw", "gl").forEach {
         implementation("kotlin.graphics:imgui-$it:1.79+04")
     }
+    implementation("kotlin.graphics:glm:0.9.9.1-3+23")
+    implementation("kotlin.graphics:kool:0.9.0+23")
     implementation("kotlin.graphics:uno-core:0.7.9+35")
 }
 

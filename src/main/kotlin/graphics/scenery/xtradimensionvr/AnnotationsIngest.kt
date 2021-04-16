@@ -9,37 +9,56 @@ import kotlin.collections.ArrayList
 class AnnotationsIngest {
     private val h5adPath = "/home/luke/PycharmProjects/VRCaller/file_conversion/tabula_vr_processed.h5ad"
 
-    fun fetchGeneExpression(
-        nameOutput: ArrayList<String>,
-        lazyNameOutput: ArrayList<String> = arrayListOf(),
-        lazy: Boolean = false
-    ): ArrayList<FloatArray> {
-        val nameReader = h5adAnnotationReader("/var/index")
-        val geneIndexList = ArrayList<Int>()
+//    fun fetchGeneExpression(
+//        nameOutput: ArrayList<String>,
+//        lazyNameOutput: ArrayList<String> = arrayListOf(),
+//        lazy: Boolean = false
+//    ): ArrayList<FloatArray> {
+//        val nameReader = h5adAnnotationReader("/var/index")
+//        val geneIndexList = ArrayList<Int>()
+//
+//        val randGeneList = ArrayList<String>()
+//        for (i in 0..12) {
+//            randGeneList.add(nameReader[Random.randomFromRange(0f, nameReader.size.toFloat()).toInt()] as String)
+////        randGeneList.add(nameReader[24] as String)
+//        }
+//        if (!lazy) {
+//            for (i in randGeneList) {
+//                nameOutput.add(i)
+//                geneIndexList.add(nameReader.indexOf(i))
+//            }
+//        } else {
+//            for (i in randGeneList) {
+//                lazyNameOutput.add(i)
+//                geneIndexList.add(nameReader.indexOf(i))
+//            }
+//        }
+//
+//        val geneReader = SparseReader()
+//        val geneExpression = ArrayList<FloatArray>()
+//        for (i in geneIndexList) {
+//            geneExpression.add(geneReader.cscReader(i))
+//        }
+//        return geneExpression
+//    }
 
-        val randGeneList = ArrayList<String>()
+    fun fetchGeneExpression(): Pair<ArrayList<String>, ArrayList<FloatArray>> {
+        val nameReader = h5adAnnotationReader("/var/index")
+        val randGenesIndices = ArrayList<Int>()
+        val randGenesNames = arrayListOf<String>()
+
         for (i in 0..12) {
-            randGeneList.add(nameReader[Random.randomFromRange(0f, nameReader.size.toFloat()).toInt()] as String)
-//        randGeneList.add(nameReader[24] as String)
+            randGenesNames.add(nameReader[Random.randomFromRange(0f, nameReader.size.toFloat()).toInt()] as String)
         }
-        if (!lazy) {
-            for (i in randGeneList) {
-                nameOutput.add(i)
-                geneIndexList.add(nameReader.indexOf(i))
-            }
-        } else {
-            for (i in randGeneList) {
-                lazyNameOutput.add(i)
-                geneIndexList.add(nameReader.indexOf(i))
-            }
-        }
+        for (i in randGenesNames)
+            randGenesIndices.add(nameReader.indexOf(i))
 
         val geneReader = SparseReader()
         val geneExpression = ArrayList<FloatArray>()
-        for (i in geneIndexList) {
+        for (i in randGenesIndices) {
             geneExpression.add(geneReader.cscReader(i))
         }
-        return geneExpression
+        return Pair(randGenesNames, geneExpression)
     }
 
     fun UMAPReader3D(): ArrayList<ArrayList<Float>> {

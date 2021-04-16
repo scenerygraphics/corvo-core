@@ -5,13 +5,6 @@ import ch.systemsx.cisd.hdf5.*
 class SparseReader {
     val pathName = "/home/luke/PycharmProjects/VRCaller/file_conversion/tabula_vr_processed.h5ad"
 
-    init {
-        val reader = HDF5Factory.openForReading(pathName)
-
-        val notCat = reader.getDataSetInformation("/obs/cell_ontology_class")
-        println(notCat)
-    }
-
     fun csrReader(row: Cell = 0): FloatArray {
         val reader = HDF5Factory.openForReading(pathName)
         // return dense row of gene expression values for a chosen row / cell

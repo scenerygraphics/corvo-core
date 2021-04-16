@@ -1,5 +1,6 @@
 package graphics.scenery.xtradimensionvr
 
+import ch.systemsx.cisd.hdf5.HDF5Factory
 import graphics.scenery.*
 import graphics.scenery.backends.Shaders
 import graphics.scenery.numerics.Random
@@ -35,12 +36,14 @@ import kotlin.math.ceil
  * hanging in vr every second or so
  * must catch and be able to encode annotations that are not categoricals! Then will work for any dataset!
  *
+ * proximity with invisible sphere .Intersect then show
+ * VR controller example
+ * camera show information
+ *
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
 
 class XPlot : Node() {
-
-    val locker = Mutex()
 
     val laser = Cylinder(0.01f, 2.0f, 20)
     val laser2 = Cylinder(0.01f, 2.0f, 20)
@@ -59,11 +62,11 @@ class XPlot : Node() {
     var annotationMode = true
 
     val geneBoard = TextBoard()
-    var geneNames = ArrayList<String>() // stores ordered gene names for gene board
+//    var geneNames = ArrayList<String>() // stores ordered gene names for gene board
+//    var geneExpr = ArrayList<FloatArray>()
 
     private val annFetcher = AnnotationsIngest()
     private val spatialCoords = annFetcher.UMAPReader3D()
-    private var geneExpr = annFetcher.fetchGeneExpression(geneNames)
 
     // give annotations you would like (maybe with checkboxes, allow to enter the names of their annotations)
     // list of annotations
@@ -121,7 +124,14 @@ class XPlot : Node() {
 
     var currentlyLoading = false
 
+    var geneNames = ArrayList<String>()
+    var geneExpr = ArrayList<FloatArray>()
+
     init {
+        val (geneNameBuffer, geneExprBuffer) = annFetcher.fetchGeneExpression()
+        geneNames = geneNameBuffer
+        geneExpr = geneExprBuffer
+
         loadEnvironment()
         loadDataset()
         updateInstancingColor()
@@ -130,10 +140,11 @@ class XPlot : Node() {
     }
 
     private fun loadDataset() {
+
         // hashmap to emulate at run time variable declaration
         // allows for dynamically growing number of master spheres with size of dataset
         for (i in 1..masterCount) {
-            val masterTemp = Icosphere(0.02f * positionScaling, 2) // sphere properties
+            val masterTemp = Icosphere(0.02f * positionScaling, 1) // sphere properties
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
         println("hashmap looks like: $masterMap")
@@ -504,7 +515,10 @@ class XPlot : Node() {
             genePicker = 0
             geneExpr.clear()
 
-            geneExpr = annFetcher.fetchGeneExpression(geneNames)
+            val (geneNameBuffer, geneExprBuffer) = annFetcher.fetchGeneExpression()
+            geneNames = geneNameBuffer
+            geneExpr = geneExprBuffer
+
             geneBoard.text = "Gene: " + geneNames[genePicker]
             updateInstancingColor()
 
@@ -513,17 +527,29 @@ class XPlot : Node() {
     }
 
     fun reloadCo() {
-        GlobalScope.launch(Dispatchers.IO) {
-            locker.withLock {
-                geneBoard.text = "fetching..."
-                geneNames.clear()
-                geneExpr.clear()
-                geneExpr = annFetcher.fetchGeneExpression(geneNames)
+        thread {
+            Thread.currentThread().priority=Thread.MIN_PRIORITY
+//            while(true) {
+//                val reader =
+//                    HDF5Factory.openForReading("/home/luke/PycharmProjects/VRCaller/file_conversion/tabula_vr_processed.h5ad")
+//                // return dense row of gene expression values for a chosen row / cell
+//
+//                val data = reader.float32().readMDArray("/X/data")
+//                val indices = reader.int32().readMDArray("/X/indices")
+//                val indptr = reader.int32().readMDArray("/X/indptr")
+//            }
 
-                genePicker = 0
-                updateInstancingColor()
-                geneBoard.text = "Gene: " + geneNames[genePicker]
-            }
+            geneBoard.text = "fetching..."
+
+            val (geneNameBuffer, geneExprBuffer) = annFetcher.fetchGeneExpression()
+            genePicker = 0
+            geneNames.clear()
+            geneExpr.clear()
+            geneNames = geneNameBuffer
+            geneExpr = geneExprBuffer
+
+            updateInstancingColor()
+            geneBoard.text = "Gene: " + geneNames[genePicker]
         }
     }
 }

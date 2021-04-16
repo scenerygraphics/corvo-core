@@ -26,8 +26,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     lateinit var plot: XPlot
     var previousAnnotation = 0
 
-    private val lock = Mutex()
-
     override fun init() {
         hmd = OpenVRHMD(useCompositor = true)
 
@@ -135,15 +133,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         hmd.addKeyBinding("toggle_genes_forwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
 
         inputHandler?.addBehaviour("toggle_genes_forward", ClickBehaviour { _, _ ->
-            GlobalScope.launch(Dispatchers.IO) {
-                lock.withLock {
-                    if (!plot.annotationMode) {
-                        plot.genePicker += 1
-                        plot.genePicker %= plot.geneNames.size
-                        plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-                    }
-                    plot.updateInstancingColor()
+            GlobalScope.launch(Dispatchers.Default) {
+                if (!plot.annotationMode) {
+                    plot.genePicker += 1
+                    plot.genePicker %= plot.geneNames.size
+                    plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
                 }
+                plot.updateInstancingColor()
             }
         })
         inputHandler?.addKeyBinding("toggle_genes_forward", "M")
@@ -167,16 +163,14 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         inputHandler?.addKeyBinding("toggle_annotations_forward", "L")
 
         hmd.addBehaviour("toggle_genes_backward", ClickBehaviour { _, _ ->
-            GlobalScope.launch(Dispatchers.IO) {
-                lock.withLock {
-                    if (plot.genePicker > 0) {
-                        plot.genePicker -= 1
-                    } else {
-                        plot.genePicker = plot.geneNames.size - 1
-                    }
-                    plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-                    plot.updateInstancingColor()
+            GlobalScope.launch(Dispatchers.Default) {
+                if (plot.genePicker > 0) {
+                    plot.genePicker -= 1
+                } else {
+                    plot.genePicker = plot.geneNames.size - 1
                 }
+                plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
+                plot.updateInstancingColor()
             }
         })
         hmd.addKeyBinding("toggle_genes_backward", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //N
@@ -234,21 +228,19 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
         inputHandler?.addBehaviour("toggleMode", ClickBehaviour { _, _ ->
 
-            GlobalScope.launch(Dispatchers.IO) {
-                lock.withLock {
-                    if (plot.annotationMode) { // true -> annotation encoded as color
-                        plot.annotationMode = !plot.annotationMode
-                        plot.annKeyList.forEach { it.visible = false }
-                        plot.labelList.forEach { it.visible = false }
-                    } else { // false -> gene expression encoded as color
-                        plot.annotationMode = !plot.annotationMode
-                        plot.annKeyList[plot.annotationPicker].visible = true
-                        plot.labelList[plot.annotationPicker].visible = true
-                    }
-                    plot.updateInstancingColor()
-                    plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
-                    plot.geneScaleMesh.visible = !plot.geneScaleMesh.visible
+            GlobalScope.launch(Dispatchers.Default) {
+                if (plot.annotationMode) { // true -> annotation encoded as color
+                    plot.annotationMode = !plot.annotationMode
+                    plot.annKeyList.forEach { it.visible = false }
+                    plot.labelList.forEach { it.visible = false }
+                } else { // false -> gene expression encoded as color
+                    plot.annotationMode = !plot.annotationMode
+                    plot.annKeyList[plot.annotationPicker].visible = true
+                    plot.labelList[plot.annotationPicker].visible = true
                 }
+                plot.updateInstancingColor()
+                plot.geneBoard.text = "Gene: " + plot.geneNames[plot.genePicker]
+                plot.geneScaleMesh.visible = !plot.geneScaleMesh.visible
             }
         })
 
@@ -319,11 +311,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         inputHandler?.addKeyBinding("resetVisibility", "R")
 
         inputHandler?.addBehaviour("reloadFile", ClickBehaviour { _, _ ->
-//            GlobalScope.launch(Dispatchers.IO) {
-//                lock.withLock {
-//                    plot.reloadCo()
-//                }
-//            }
             plot.reloadCo()
         })
         inputHandler?.addKeyBinding("reloadFile", "shift R")

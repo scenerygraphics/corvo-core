@@ -1,6 +1,5 @@
 package graphics.scenery.xtradimensionvr
 
-import ch.systemsx.cisd.hdf5.HDF5Factory
 import graphics.scenery.*
 import graphics.scenery.backends.Shaders
 import graphics.scenery.numerics.Random
@@ -13,12 +12,8 @@ import graphics.scenery.utils.extensions.xyzw
 import graphics.scenery.volumes.Colormap
 import org.joml.Vector3f
 import kotlin.collections.ArrayList
-import kotlin.collections.HashMap
 import kotlin.collections.set
 import kotlin.concurrent.thread
-import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.ceil
 
@@ -54,7 +49,7 @@ class XPlot : Node() {
     val geneScaleMesh = Mesh()
 
     // a scaling factor for better scale relative to user
-    var positionScaling = 0.3f
+    private var positionScaling = 0.3f
 
     // global as it is required by Visualization class
     var genePicker = 0
@@ -65,8 +60,8 @@ class XPlot : Node() {
 //    var geneNames = ArrayList<String>() // stores ordered gene names for gene board
 //    var geneExpr = ArrayList<FloatArray>()
 
-    private val annFetcher = AnnotationsIngest()
-    private val spatialCoords = annFetcher.UMAPReader3D()
+    private val annFetcher = AnnotationsIngest("/home/luke/PycharmProjects/VRCaller/file_conversion/tabula_vr_processed.h5ad")
+    private val spatialCoords = annFetcher.umapReader3D()
 
     // give annotations you would like (maybe with checkboxes, allow to enter the names of their annotations)
     // list of annotations
@@ -506,27 +501,7 @@ class XPlot : Node() {
         }
     }
 
-    fun reload() {
-        thread {
-            currentlyLoading = true
-
-            geneNames.clear()
-            geneBoard.text = "fetching..."
-            genePicker = 0
-            geneExpr.clear()
-
-            val (geneNameBuffer, geneExprBuffer) = annFetcher.fetchGeneExpression()
-            geneNames = geneNameBuffer
-            geneExpr = geneExprBuffer
-
-            geneBoard.text = "Gene: " + geneNames[genePicker]
-            updateInstancingColor()
-
-            currentlyLoading = false
-        }
-    }
-
-    fun reloadCo() {
+    fun loadNewGenes() {
         thread {
             Thread.currentThread().priority=Thread.MIN_PRIORITY
 //            while(true) {

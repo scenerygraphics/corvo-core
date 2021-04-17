@@ -311,7 +311,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         inputHandler?.addKeyBinding("resetVisibility", "R")
 
         inputHandler?.addBehaviour("reloadFile", ClickBehaviour { _, _ ->
-            plot.reloadCo()
+            plot.loadNewGenes()
         })
         inputHandler?.addKeyBinding("reloadFile", "shift R")
 

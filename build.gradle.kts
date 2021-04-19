@@ -64,13 +64,12 @@ dependencies {
     implementation("org.janelia.saalfeldlab:n5:2.3.0")
     implementation("org.janelia.saalfeldlab:n5-zarr:0.0.6")
     implementation("cisd:jhdf5:19.04.0")
+    implementation("net.java.jinput:jinput:2.0.9")
     runtimeOnly("net.java.jinput", "jinput", version="2.0.9", classifier="natives-all")
     runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.1-1.1.106.0", classifier = lwjglNative)
     testImplementation ("org.junit.jupiter:junit-jupiter:5.6.0")
 
-    implementation("org.apache.logging.log4j:log4j-api:2.13.3")
-    implementation("org.apache.logging.log4j:log4j-core:2.13.3")
-    implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.13.3")
+    implementation("org.slf4j:slf4j-simple:1.7.30")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.0-M1")
 //    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.5")

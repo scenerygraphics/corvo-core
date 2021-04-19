@@ -58,7 +58,7 @@ class XPlot : Node() {
     private val annFetcher = AnnotationsIngest()
     private val spatialCoords = annFetcher.UMAPReader3D()
     private var geneExpr = annFetcher.fetchGeneExpression(geneNames)
-    private val cellNames = annFetcher.h5adAnnotationReader("/obs/cell_ontology_class") as ArrayList<String>
+    val cellNames = annFetcher.h5adAnnotationReader("/obs/cell_ontology_class") as ArrayList<String>
 
     // give annotations you would like (maybe with checkboxes, allow to enter the names of their annotations)
     // list of annotations

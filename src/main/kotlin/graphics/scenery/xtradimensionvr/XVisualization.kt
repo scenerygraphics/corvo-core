@@ -29,9 +29,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
     private val lock = Mutex()
 
-    val imgui = Imgui(hub)
-
     override fun init() {
+
         hmd = OpenVRHMD(useCompositor = true)
 
         if (!hmd.initializedAndWorking()) {
@@ -47,6 +46,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         settings.set("Renderer.DisableVsync", true)
         renderer = hub.add(Renderer.createRenderer(hub, applicationName, scene, windowWidth, windowHeight))
 //        renderer?.toggleVR()
+
+
+        val imgui = Imgui(hub, plot)
+        scene.addChild(imgui)
 
         // add parameter hmd to DetachedHeadCamera for VR
         val cam: Camera = DetachedHeadCamera(hmd)

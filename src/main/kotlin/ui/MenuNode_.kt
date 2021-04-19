@@ -6,7 +6,7 @@ import graphics.scenery.ShaderProperty
 import org.joml.Vector2f
 import org.joml.Vector2i
 
-class MenuNode(name: String) : Mesh(name), RenderScissored {
+class MenuNode_(name: String) : Mesh(name), RenderScissored {
     override var offset: Vector2i = Vector2i(0)
     override var extent: Vector2i = Vector2i(0)
 

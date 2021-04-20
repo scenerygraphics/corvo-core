@@ -14,20 +14,11 @@ version = "0.1.0-SNAPSHOT"
 
 description = "xtra-dimension_vr"
 
-//sourceCompatibility = 1.8
-//targetCompatibility = 1.8
-//tasks.withType(JavaCompile) {
-//	options.encoding = 'UTF-8'
-//}
-//
-//configurations.all {
-//}
-//
 repositories {
     mavenCentral()
     maven("https://maven.scijava.org/content/groups/public")
     maven("https://jitpack.io")
-    maven("http://nexus.senbox.net/nexus/content/groups/public/")
+    maven("https://nexus.senbox.net/nexus/content/groups/public/")
 }
 
 dependencies {
@@ -61,10 +52,10 @@ dependencies {
     runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.1-1.1.106.0", classifier = lwjglNative)
     testImplementation ("org.junit.jupiter:junit-jupiter:5.6.0")
 
-    // needed for logging to work correctly
+    // needed for logging to work correctly, don't use log4j, it's overkill in this case.
     runtimeOnly("org.slf4j:slf4j-simple:1.7.30")
 
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.0-M1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
 }
 
 application {

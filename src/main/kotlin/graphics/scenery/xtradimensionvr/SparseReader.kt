@@ -1,62 +1,59 @@
 package graphics.scenery.xtradimensionvr
+
+import ch.systemsx.cisd.base.mdarray.MDFloatArray
+import ch.systemsx.cisd.base.mdarray.MDIntArray
 import ch.systemsx.cisd.hdf5.*
 
 
-class SparseReader {
-    val pathName = "liver_vr_processed_2.h5ad"
+class SparseReader(pathName: String) {
+    private val reader: IHDF5Reader = HDF5Factory.openForReading(pathName)
 
-    init {
-        val reader = HDF5Factory.openForReading(pathName)
+    private val csrData: MDFloatArray = reader.float32().readMDArray("/X/data")
+    private val csrIndices: MDIntArray = reader.int32().readMDArray("/X/indices")
+    private val csrIndptr: MDIntArray = reader.int32().readMDArray("/X/indptr")
 
-        val notCat = reader.getDataSetInformation("/obs/cell_ontology_class")
-        println(notCat)
-    }
+    private val cscData: MDFloatArray = reader.float32().readMDArray("/layers/X_csc/data")
+    private val cscIndices: MDIntArray = reader.int32().readMDArray("/layers/X_csc/indices")
+    private val cscIndptr: MDIntArray = reader.int32().readMDArray("/layers/X_csc/indptr")
 
-    fun csrReader(row: Cell = 0): FloatArray {
-        val reader = HDF5Factory.openForReading(pathName)
-        // return dense row of gene expression values for a chosen row / cell
+    private val numGenes = reader.string().readArrayRaw("/var/index").size
+    private val numCells = reader.string().readArrayRaw("/obs/index").size
 
-        val data = reader.float32().readMDArray("/X/data")
-        val indices = reader.int32().readMDArray("/X/indices")
-        val indptr = reader.int32().readMDArray("/X/indptr")
-
-        // init float array of zeros the length of the number of cells
-        val exprArray = FloatArray(reader.string().readArrayRaw("/var/index").size)
+    /**
+     * return dense row of gene expression values for a chosen row / cell
+     */
+    fun csrReader(row: CellIndex = 0): FloatArray {
+        // init float array of zeros the length of the number of genes
+        val exprArray = FloatArray(numGenes)
 
         // slice pointer array to give the number of non-zeros in the row
-        val start = indptr[row]
-        val end = indptr[row+1]
+        val start = csrIndptr[row]
+        val end = csrIndptr[row+1]
 
-        // from stat index until (but excluding) end index, substitute non-zero values into empty array
+        // from start index until (excluding) end index, substitute non-zero values into empty array
         for(i in start until end){
-            exprArray[indices[i]] = data[i]
+            exprArray[csrIndices[i]] = csrData[i]
         }
-        reader.close()
         return exprArray
     }
 
-    fun cscReader(col: Gene = 0): FloatArray {
-        val reader = HDF5Factory.openForReading(pathName)
-        // return dense column of gene expression values for a chosen column / gene
+    /**
+     * return dense column of gene expression values for a chosen column / gene
+     */
+    fun cscReader(col: GeneIndex = 0): FloatArray {
+        val exprArray = FloatArray(numCells)
 
-        val data = reader.float32().readMDArray("/layers/X_csc/data")
-        val indices = reader.int32().readMDArray("/layers/X_csc/indices")
-        val indptr = reader.int32().readMDArray("/layers/X_csc/indptr")
-
-        val exprArray = FloatArray(reader.string().readArrayRaw("/obs/index").size)
-
-        val start = indptr[col]
-        val end = indptr[col+1]
+        val start = cscIndptr[col]
+        val end = cscIndptr[col+1]
 
         for(i in start until end){
-            exprArray[indices[i]] = data[i]
+            exprArray[cscIndices[i]] = cscData[i]
         }
-        reader.close()
         return exprArray
     }
 }
 
 
 fun main(){
-    SparseReader()
+    SparseReader("/home/luke/PycharmProjects/VRCaller/file_conversion/tabula_vr_processed.h5ad")
 }

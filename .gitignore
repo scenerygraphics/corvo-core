@@ -18,6 +18,7 @@ gradle.properties
 *.iws
 *.iml
 *.class
+out
 
 # Vulkan Validation Layers
 VkLayer_*.json
@@ -41,7 +42,7 @@ log.txt
 ExampleRunner-*/
 
 core
-
+ToDo_Scenery_dimensionalR
 *.hdf5
 *.h5ad
-datasets
+

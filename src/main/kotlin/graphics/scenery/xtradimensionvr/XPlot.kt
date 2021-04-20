@@ -2,456 +2,469 @@ package graphics.scenery.xtradimensionvr
 
 import graphics.scenery.*
 import graphics.scenery.backends.Shaders
-import graphics.scenery.utils.extensions.times
-import graphics.scenery.utils.extensions.toFloatArray
-import graphics.scenery.utils.extensions.xyzw
+import graphics.scenery.numerics.Random
+import graphics.scenery.textures.Texture
+import graphics.scenery.utils.Image
+import graphics.scenery.utils.extensions.*
+import graphics.scenery.volumes.Colormap
 import org.joml.Vector3f
-import org.joml.Vector4f
-import java.io.File
-import java.util.*
-import kotlin.collections.HashMap
-import kotlin.collections.HashSet
+import kotlin.collections.ArrayList
 import kotlin.collections.set
+import kotlin.concurrent.thread
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.ceil
-import kotlin.math.round
-import kotlin.properties.Delegates
+import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 
 /**.
+ * cellxgene interactivity - start fixing selection and marking tools
+ * jar python interaction (qt applet?)
+ * get imgui working
+ * billboard
  *
+ * serious performance hit from so many textboards? I observe around -5-7 fps
+ * performance hit from toggling visibility of keys? many intersections and non-instanced nodes
+ * instance key spheres? Instance textboards?
+ * Textboard color off
+ * hanging in vr every second or so
+ * must catch and be able to encode annotations that are not categoricals! Then will work for any dataset!
+ *
+ * proximity with invisible sphere .Intersect then show
+ * VR controller example
+ * camera show information
  *
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
 
-class XPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
+class XPlot : Node() {
+
     val laser = Cylinder(0.01f, 2.0f, 20)
     val laser2 = Cylinder(0.01f, 2.0f, 20)
-
-    //private var cellCount by Delegates.notNull<Int>()
 
     // define meshes that make up the scene
     var dotMesh = Mesh()
     var textBoardMesh = Mesh()
+    val geneScaleMesh = Mesh()
 
-    // set type of shape data is represented as + a scaling factor for better scale relative to user
-    var positionScaling = 0.2f
-
-
-
-    var v = Icosphere(0.1f * positionScaling, 1) // default r: 0.2f
-
-
-
-    lateinit var globalMasterMap: HashMap<Int, Icosphere>
-
-
-
-    // variables that need to be accessed globally, but are defined in a limited namespace
-    private lateinit var globalGeneExpression: ArrayList<ArrayList<Float>>
-    private var globalGeneCount by Delegates.notNull<Int>()
-    private lateinit var uniqueCellNames: Set<String>
+    // a scaling factor for better scale relative to user
+    private var positionScaling = 0.3f
 
     // global as it is required by Visualization class
     var genePicker = 0
-    var textBoardPicker = true
+    var annotationPicker = 0
+    var annotationMode = true
+
     val geneBoard = TextBoard()
-    val geneNames = ArrayList<String>()
-    var currentDatasetIndex = 0
-    var dataSet = HashSet<String>()
+//    var geneNames = ArrayList<String>() // stores ordered gene names for gene board
+//    var geneExpr = ArrayList<FloatArray>()
+
+    private val annFetcher =
+        AnnotationsIngest("/home/luke/PycharmProjects/VRCaller/file_conversion/bbknn_processed.h5ad")
+    private val spatialCoords = annFetcher.umapReader3D()
+
+    var annotationList = ArrayList<String>()
+    var metaOnlyAnnList = ArrayList<String>()
+
+    // give annotations you would like (maybe with checkboxes, allow to enter the names of their annotations)
+    // list of annotations
+    init{
+        for (ann in annFetcher.reader.getGroupMembers("/obs")){
+            try {
+                val info = annFetcher.reader.getDataSetInformation("/uns/" + ann + "_categorical")
+                if (info.toString().toCharArray().size < 17)
+                    annotationList.add(ann)
+                else
+                    metaOnlyAnnList.add(ann)
+            } catch (e: HDF5SymbolTableException) {
+                metaOnlyAnnList.add(ann)
+                println("$ann is not color encodable and will exist only as metadata")
+            }
+        }
+        println(annotationList)
+
+    }
+    //[age, batch, cell, cell_ontology_class, cell_ontology_id, free_annotation, leiden, louvain, method, mouse.id, sex, subtissue, tissue, tissue_FACS_droplet, tissue_free_annotation]
+
+    private var annotationArray = ArrayList<FloatArray>() //used to color spheres, normalized
+    private val rawAnnotations = ArrayList<ArrayList<*>>()
+    private val typeList = ArrayList<String>()
+
+    val annKeyList = ArrayList<Mesh>()
+    val labelList = ArrayList<Mesh>()
+    private val rgbColorSpectrum = Colormap.get("jet")
 
     init {
+        for (ann in annotationList) {
+
+            annotationArray.add( run {
+                val raw = annFetcher.h5adAnnotationReader("/obs/$ann", false)
+
+                rawAnnotations.add(raw.second) // used to attach metadata spheres
+                typeList.add(raw.first) // grow list of annotation datatypes (used currently for metadata check for labels)
+                val norm = FloatArray(raw.second.size) // array of zeros if annotation entries are all the same
+
+                when (raw.first) {
+                    "Byte" -> {
+                        val max: Byte? = (raw.second as ArrayList<Byte>).maxOrNull()
+                        if (max != null && max > 0f) {
+                            for (i in raw.second.indices)
+                                norm[i] = (raw.second[i] as Byte).toFloat() / max
+                        }
+                    }
+                    "Short" -> {
+                        val max: Short? = (raw.second as ArrayList<Short>).maxOrNull()
+                        if (max != null && max > 0f) {
+                            for (i in raw.second.indices)
+                                norm[i] = (raw.second[i] as Short).toFloat() / max
+                        }
+                    }
+                }
+                norm
+            })
+            annKeyList.add(createSphereKey(ann))
+        }
+    }
+
+    //generate master spheres for every 10k cells for performance
+    private val masterSplit = 10_000
+    private val masterCount = ceil(spatialCoords.size.toFloat() / masterSplit).toInt()
+    val masterMap = hashMapOf<Int, Icosphere>()
+
+    // initialize gene color map from scenery.Colormap
+    private val encoding = "hot"
+    private val colormap = Colormap.get(encoding)
+
+    private val indexedGeneExpression = ArrayList<Float>()
+    private val indexedAnnotations = ArrayList<Float>()
+
+    var geneNames = ArrayList<String>()
+    var geneExpr = ArrayList<FloatArray>()
+
+    init {
+        val (geneNameBuffer, geneExprBuffer) = annFetcher.fetchGeneExpression()
+        geneNames = geneNameBuffer
+        geneExpr = geneExprBuffer
+
+        loadEnvironment()
         loadDataset()
+        updateInstancingColor()
+        annKeyList[0].visible = true
+        labelList[0].visible = true
     }
 
     private fun loadDataset() {
-        /**
-         * main function to
-         *
-         */
-
-        // calls csvReader function on chosen dataset and outputs cell names (+ its dataset name), gene expression data, and its coordinates in UMAP space to three arrays
-        val (cellNames, geneExpressions, tsneCoordinates) = csvReader(fileName)
-
-        //cellCount = cellNames.size
-        //logger.info("master count = :$masterCount")
-
-        // creates a set including each cell type once
-        uniqueCellNames = cellNames.map { it.split("//")[1] }.toSet()
-
-        // initializes global variable used in some functions and in TSNEVisualization class
-        globalGeneExpression = geneExpressions
-
-        // Choose colormap
-        val colorMaps = getColorMaps()
-        val defaultColor = "pancreaticCellMap"
-        val colorMap = colorMaps[defaultColor]//deprecated - for old data set
-        val tabulaColorMap = colorMaps["tabulaCells"]
-        if (colorMap == null || tabulaColorMap == null) {
-            throw IllegalStateException("colorMap not found") }
-
-        // calls function that normalizes all gene expression values between 0 and 1
-        val normGeneExp = normalizeGeneExpressions()
-
-        val roundedColorMap = hashMapOf<Int, Vector3f>(
-
-//                0 to Vector3f(62f/255f, 20f/255f, 81f/255f),
-//                1 to Vector3f(66f/255f, 27f/255f, 100f/255f),
-//                2 to Vector3f(64f/255f, 72f/255f, 132f/255f),
-//                3 to Vector3f(62f/255f, 99f/255f, 138f/255f),
-//                4 to Vector3f(63f/255f, 112f/255f, 139f/255f),
-//                5 to Vector3f(68f/255f, 136f/255f, 140f/255f),
-//                6 to Vector3f(78f/255f, 160f/255f, 135f/255f),
-//                7 to Vector3f(117f/255f,195f/255f, 113f/255f),
-//                8 to Vector3f(139f/255f, 205f/255f, 102f/255f),
-//                9 to Vector3f(192f/255f, 220f/255f, 80f/255f),
-//                10 to Vector3f(250f/255f, 231f/255f, 85f/255f)
-            0 to Vector3f(247f/255f, 252f/255f, 253f/255f),
-            1 to Vector3f(229f/255f, 245f/255f, 249f/255f),
-            2 to Vector3f(204f/255f, 236f/255f, 230f/255f),
-            3 to Vector3f(153f/255f,216f/255f, 201f/255f),
-            4 to Vector3f(102f/255f, 194f/255f, 164f/255f),
-            5 to Vector3f(65f/255f, 174f/255f, 118f/255f),
-            6 to Vector3f(35f/255f, 139f/255f, 69f/255f),
-            7 to Vector3f(0f/255f, 109f/255f, 44f/255f),
-            8 to Vector3f(0f/255f, 68f/255f, 27f/255f),
-            9 to Vector3f(0f/255f, 34f/255f, 13f/255f),
-            10 to Vector3f(0f/255f, 17f/255f, 6f/255f)
-        )
-
-        /*
-        Instancing
-        - Create parent sphere that instances inherit from.
-        - Instanced properties are position and color.
-        - All instances and parent exist in dotMesh.
-         */
-
-        val numCells = cellNames.size.toFloat()
-        val masterCount = ceil(numCells/10000).toInt()
-
-        if(masterCount==0){
-            throw java.lang.IllegalStateException("no cells could be found")
-        }
-
-        val masterMap = hashMapOf<Int, Icosphere>()
 
         // hashmap to emulate at run time variable declaration
         // allows for dynamically growing number of master spheres with size of dataset
-        for (i in 1..masterCount){
-            val masterTemp = Icosphere(0.1f * positionScaling, 1)
+        for (i in 1..masterCount) {
+            val masterTemp = Icosphere(0.007f * positionScaling, 1) // sphere properties
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
+        println("hashmap looks like: $masterMap")
 
-        logger.info("hashmap looks like: $masterMap")
-
-        // give access to hashmap of master objects to functions outside of init and to TSNEViz. class.
-        globalMasterMap = masterMap
-
-        var zipCounter = 0
-        var resettingZipCounter = 0
+        //create and add instances using their UMAP coordinates as position
+        var resettingCounter = 0
         var parentIterator = 1
 
-        cellNames.zip(tsneCoordinates) {cell, coord ->
+        val center = fetchCenterOfMass(spatialCoords)
 
-            if(resettingZipCounter >= 10000){
-                parentIterator += 1
+        for ((counter, coord) in spatialCoords.withIndex()) {
+            if (resettingCounter >= masterSplit) {
+                parentIterator++
                 logger.info("parentIterator: $parentIterator")
-                resettingZipCounter = 0
+                resettingCounter = 0
             }
 
             val s = Mesh()
 
-            // cell name and data set index returned as single list delimited by //. Is split into separate lists
-            val cellName = cell.split("//").getOrNull(1) ?: ""
-            val cellSource = cell.split("//").getOrNull(0)?.toInt() ?: -1
-
-            val normParsedGeneExp = normGeneExp[zipCounter]
-
-            s.parent = masterMap[parentIterator]
-            s.name = cellName
-            s.metadata["source"] = cellSource
-            // gene expression has been normalized between 0 and 1. Expressions less than 0.2f is set constant for aesthetics
-            s.scale = Vector3f(
-                ((if ((normParsedGeneExp[2]) < 0.2f) {
-                    0.2f
-                } else normParsedGeneExp[2])), ((if ((normParsedGeneExp[3]) < 0.2f) {
-                    0.2f
-                } else (normParsedGeneExp[3]))), ((if ((normParsedGeneExp[4]) < 0.2f) {
-                    0.2f
-                } else (normParsedGeneExp[4])))
-            )
-            s.position = Vector3f(coord[0], coord[1], coord[2]) * positionScaling
-
-            s.instancedProperties["ModelMatrix"] = { s.world }
-            s.instancedProperties ["Color"] = {
-            var color = if (textBoardPicker) {
-                tabulaColorMap.getOrDefault(cellName, Vector3f(1.0f, 0f, 0f)).xyzw()
-                // cel type encoded as color
-            } else {
-                roundedColorMap[(normParsedGeneExp[genePicker] * 10).toInt()]?.xyzw() ?: Vector4f(
-                    250f / 255f,
-                    231f / 255f,
-                    85f / 255f,
-                    1.0f
-                    )
-                    // gene expression encoded as color
-                }
-                // metadata "selected" stores whether point has been marked by laser. Colors marked cells red.
-                (s.metadata["selected"] as? Boolean)?.let {
-                    if (it) {
-                        color = s.material.diffuse.xyzw()
-                    }
-                }
-                color
+            for ((annCount, annotation) in annotationList.withIndex()) { //add all annotations as metadata (for label center of mass)
+                s.metadata[annotation] = rawAnnotations[annCount][counter]
             }
 
+            s.parent = masterMap[parentIterator]
+            s.position =
+                (Vector3f((coord[0] - center[0]), (coord[1] - center[1]), (coord[2] - center[2]))) * positionScaling
+            s.instancedProperties["ModelMatrix"] = { s.world }
             masterMap[parentIterator]?.instances?.add(s)
-            zipCounter += 1
-            resettingZipCounter += 1
+            resettingCounter++
         }
+        addChild(dotMesh)
 
-        logger.info("master 1 instances:${masterMap[1]?.instances?.size}")
-        logger.info("master 2 instances:${masterMap[2]?.instances?.size}")
-        logger.info("master 3 instances:${masterMap[3]?.instances?.size}")
-        logger.info("master 4 instances:${masterMap[4]?.instances?.size}")
-        logger.info("master 5 instances:${masterMap[5]?.instances?.size}")
+        // create labels for each annotation
+        for ((typeCount, annotation) in annotationList.withIndex())
+            labelList.add(generateLabels(annotation, typeList[typeCount]))
+
+    }
+
+    fun updateInstancingColor() {
+        var resettingCounter = 0
+        var parentIterator = 1
+        for (i in spatialCoords.indices) {
+            if (resettingCounter >= masterSplit) {
+                parentIterator++
+                logger.info("ntparentIterator: $parentIterator")
+                resettingCounter = 0
+            }
+
+            val s = masterMap[parentIterator]!!.instances[resettingCounter]
+            s.dirty = true  //update on gpu
+
+            indexedGeneExpression.clear()
+            indexedAnnotations.clear()
+
+            // index element counter of every array of gene expressions and add to new ArrayList
+            for (gene in geneExpr)
+                indexedGeneExpression += gene[i]
+
+            for (annotation in annotationArray)
+                indexedAnnotations += annotation[i]
+
+            var color = if (annotationMode) {
+                rgbColorSpectrum.sample(indexedAnnotations[annotationPicker])
+
+            } else {
+                colormap.sample(indexedGeneExpression[genePicker] / 10f)
+            }
+            // metadata "selected" stores whether point has been marked by laser. Colors marked cells red.
+            if (s.metadata["selected"] == true)
+                color = s.material.diffuse.xyzw()
+
+            s.instancedProperties["Color"] = { color }
+
+            resettingCounter++
+        }
+        for (master in 1..masterCount) {
+            (masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+        }
+    }
+
+    private fun loadEnvironment() {
+        // add box to scene for sense of bound
+        val boxSize = 25.0f
+        val lightbox = Box(Vector3f(boxSize, boxSize, boxSize), insideNormals = true)
+        lightbox.name = "Lightbox"
+        lightbox.material.diffuse = Vector3f(0.4f, 0.4f, 0.4f)
+        lightbox.material.roughness = 1.0f
+        lightbox.material.metallic = 0.0f
+        lightbox.material.cullingMode = Material.CullingMode.Front
+        addChild(lightbox)
+
+        val lightStretch = 12.4f
+        val lights = (0 until 10).map {
+            val l = PointLight(radius = 50.0f)
+            l.position = Vector3f(
+                Random.randomFromRange(-lightStretch, lightStretch),
+                Random.randomFromRange(-lightStretch, lightStretch),
+                Random.randomFromRange(-lightStretch, lightStretch)
+            )
+//            l.emissionColor = Random.random3DVectorFromRange(0.2f, 0.8f)
+            l.emissionColor = Vector3f(1f, 1f, 1f)
+            l.intensity = 1f
+
+            l
+        }
+        lights.forEach { addChild(it) }
 
         //text board displaying name of gene currently encoded as colormap. Disappears if color encodes cell type
         geneBoard.transparent = 1
         geneBoard.fontColor = Vector3f(0f, 0f, 0f).xyzw()
-        geneBoard.backgroundColor = Vector3f(1.0f, 1.0f, 1.0f).xyzw()
-        //geneBoard.position = Vector3f(-15f, -10f, -48f) // on far wall
-        geneBoard.scale = Vector3f(0.1f, 0.1f, 0.1f)
-        geneBoard.visible = false
-        geneBoard.position = Vector3f(0f, 0f, -0.2f)
-        geneBoard.scale = Vector3f(0.05f, 0.05f, 0.05f)
-
+        geneBoard.position = Vector3f(-2.5f, 1.5f, -12.4f) // on far wall
+        geneBoard.scale = Vector3f(1f, 1f, 1f)
+        geneScaleMesh.addChild(geneBoard)
 
         // create cylinders orthogonal to each other, representing axes centered around 0,0,0 and add them to the scene
         val x = generateAxis("X", 5.00f)
         addChild(x)
         val y = generateAxis("Y", 5.00f)
         addChild(y)
-        val z = generateAxis("Z", 5.00f)
+        val z = generateAxis(
+            "Z", 5.00f
+        )
         addChild(z)
-
-        // create scene lighting
-        Light.createLightTetrahedron<PointLight>(spread = 10.0f, radius = 95.0f).forEach {
-            addChild(it)
-        }
-
-        // add box to scene for sense of bound
-        val hullbox = Box(Vector3f(100.0f, 100.0f, 100.0f), insideNormals = true)
-        with(hullbox) {
-            position = Vector3f(0.0f, 0.0f, 0.0f)
-            material.ambient = Vector3f(0.6f, 0.6f, 0.6f)
-            material.diffuse = Vector3f(0.4f, 0.4f, 0.4f)
-            material.specular = Vector3f(0.0f, 0.0f, 0.0f)
-            material.cullingMode = Material.CullingMode.Front
-        }
-        addChild(hullbox)
 
         // give lasers texture and set them to be visible (could use to have different lasers/colors/styles and switch between them)
         initializeLaser(laser)
         initializeLaser(laser2)
 
-        // fetch center of mass for each cell type and attach TextBoard with cell type at that location
-        val massMap = textBoardPositions()
-        for(i in uniqueCellNames){
-            val t = TextBoard(isBillboard = false)
-            t.text = i
-            t.name = i
-            t.transparent = 1
-            t.fontColor = Vector3f(0.0f, 0.0f, 0.0f).xyzw()
-            t.backgroundColor = tabulaColorMap[i]!!.xyzw()
-            t.position = massMap[i]!!
-            t.scale = Vector3f(0.4f, 0.4f, 0.4f)*positionScaling
-            textBoardMesh.addChild(t)
-        }
+        val colorMapScale = Box(Vector3f(5.0f, 1.0f, 0f))
+        val maxTick = TextBoard()
+        val minTick = TextBoard()
 
-        // add all data points and their labels (if color encodes cell type) to the scene
-        addChild(textBoardMesh)
-        addChild(dotMesh)
+        colorMapScale.material.textures["diffuse"] =
+            Texture.fromImage(Image.fromResource("volumes/colormap-$encoding.png", this::class.java))
+        colorMapScale.material.metallic = 0.3f
+        colorMapScale.material.roughness = 0.9f
+        colorMapScale.position = Vector3f(0f, 3f, -12.4f)
+        geneScaleMesh.addChild(colorMapScale)
+
+        minTick.text = "0"
+        minTick.transparent = 1
+        minTick.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
+        minTick.position = Vector3f(-2.5f, 3.5f, -12.4f)
+        geneScaleMesh.addChild(minTick)
+
+        maxTick.text = "10"
+        maxTick.transparent = 1
+        maxTick.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
+        maxTick.position = Vector3f(2.1f, 3.5f, -boxSize / 2 + 0.1f)
+        geneScaleMesh.addChild(maxTick)
+
+        geneScaleMesh.visible = false
+        addChild(geneScaleMesh)
     }
 
-    private fun csvReader(pathName: String): Triple<ArrayList<String>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>> {
-        val cellNames = ArrayList<String>()
-        val geneExpressions = ArrayList<ArrayList<Float>>()
-        val tsneCoordinates = ArrayList<ArrayList<Float>>()
+    private fun generateLabels(annotation: String, type: String): Mesh {
+        println("label being made")
+        val m = Mesh()
+        val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical") as Pair<String, ArrayList<String>> // don't use .first
 
-        val csv = File(pathName)
-        logger.info("pathname $pathName")
-        var nline = 0
-
-        csv.forEachLine(Charsets.UTF_8) {line ->
-            when {
-                nline == 0 -> line.split(",").drop(2).dropLast(4).forEach {
-                    geneNames.add(it)
-                }
-                nline != 0 -> {
-                    val tsneFields = ArrayList<Float>()
-                    val geneFields = ArrayList<Float>()
-                    var colN = 0
-                    var cellName = ""
-                    var index = -1
-
-                    line.split(",").drop(1).dropLast(4).forEach{
-                        if(colN == 0 ){
-                            // cell name
-                            cellName = it.replace("\"", "")
-                        } else{
-                            // gene expression
-                            val itFloatGene = (round(it.toFloat()*10f))/10f
-                            geneFields.add(itFloatGene)
-                        }
-                        colN += 1
-                    }
-
-                    if(nline < 2) {
-                        globalGeneCount = colN - 1
-                    }
-
-                    var coordinateCol = 0
-                    line.split(",").drop(1+colN).forEach{
-                        if(coordinateCol < 3){
-                            // coordinate
-                            val itFloatTsne = it.toFloat()
-                            tsneFields.add(itFloatTsne)
-                        } else{
-                            // dataset
-                            val name = it.replace("\"", "")
-                            dataSet.add(name)
-                            index = dataSet.indexOf(name)
-                        }
-                        coordinateCol += 1
-                    }
-
-                    geneExpressions.add(geneFields)
-                    tsneCoordinates.add(tsneFields)
-                    cellNames.add("$index//$cellName")
-                }
+        val mapSize = if (mapping.second.size > 1) mapping.second.size - 1 else 1
+        for ((count, label) in mapping.second.withIndex()) {
+            val t = TextBoard()
+            t.text = label.replace("ï", "i")
+            t.transparent = 0
+            t.fontColor = Vector3f(0f, 0f, 0f).xyzw()
+            t.backgroundColor = rgbColorSpectrum.sample(count.toFloat() / mapSize)
+            when (type) {
+                "Byte" -> t.position = fetchCellLabelPosition(annotation, count.toByte())
+                "Short" -> t.position = fetchCellLabelPosition(annotation, count.toShort())
             }
-            nline += 1
+            t.scale = Vector3f(0.2f, 0.2f, 0.2f) * positionScaling
+            m.addChild(t)
         }
-        return Triple(cellNames, geneExpressions, tsneCoordinates)
+
+        m.visible = false
+        addChild(m)
+        return m
     }
-
-    private fun normalizeGeneExpressions(): ArrayList<ArrayList<Float>> {
-
-        val normalizedGeneExpression = ArrayList<ArrayList<Float>>()
-        val maxList = ArrayList<Float>()
-
-        for(i in 0 until globalGeneCount){
-            maxList.add(fetchMaxGeneExp(i))
-        }
-
-        for(row in globalGeneExpression){
-            val subNormalized = ArrayList<Float>()
-            var geneCounter = 0
-            for(gene in row){
-                subNormalized.add((round(gene/maxList[geneCounter]*10f))/10f)
-                geneCounter += 1
-            }
-            normalizedGeneExpression.add(subNormalized)
-        }
-
-        return normalizedGeneExpression
-    }
-
-    private fun getColorMaps(): HashMap<String, HashMap<String, Vector3f>> {
-
-        val tabulaCells = HashMap<String, Vector3f>()
-        for (i in uniqueCellNames) {
-            tabulaCells[i] = graphics.scenery.numerics.Random.random3DVectorFromRange(0f, 1.0f)
-        }
-        val pancreaticCellMap = hashMapOf(
-            "udf" to Vector3f(255 / 255f, 98 / 255f, 188 / 255f),
-            "type B pancreatic cell" to Vector3f(232 / 255f, 107 / 255f, 244 / 255f),
-            "pancreatic stellate cell" to Vector3f(149 / 255f, 145 / 255f, 255 / 255f),
-            "pancreatic PP cell" to Vector3f(0 / 255f, 176 / 255f, 246 / 255f),
-            "pancreatic ductal cell" to Vector3f(0 / 255f, 191 / 255f, 196 / 255f),
-            "pancreatic D cell" to Vector3f(0 / 255f, 190 / 255f, 125 / 255f),
-            "pancreatic acinar cell" to Vector3f(57 / 255f, 182 / 255f, 0 / 255f),
-            "pancreatic A cell" to Vector3f(162 / 255f, 165 / 255f, 0 / 255f),
-            "leukocyte" to Vector3f(216 / 255f, 144 / 255f, 0 / 255f),
-            "endothelial cell" to Vector3f(248 / 255f, 118 / 255f, 108 / 255f)
-        )
-        val plateMap = hashMapOf(
-            "MAA000574" to Vector3f(102 / 255f, 194 / 255f, 165 / 255f),
-            "MAA000577" to Vector3f(252 / 255f, 141 / 255f, 98 / 255f),
-            "MAA000884" to Vector3f(141 / 255f, 160 / 255f, 203 / 255f),
-            "MAA000910" to Vector3f(231 / 255f, 138 / 255f, 195 / 255f),
-            "MAA001857" to Vector3f(166 / 255f, 216 / 255f, 84 / 255f),
-            "MAA001861" to Vector3f(255 / 255f, 217 / 255f, 47 / 255f),
-            "MAA001862" to Vector3f(229 / 255f, 196 / 255f, 148 / 255f),
-            "MAA001868" to Vector3f(179 / 255f, 179 / 255f, 179 / 255f)
-        )
-        return hashMapOf(
-            "pancreaticCellMap" to pancreaticCellMap,
-            "plateMap" to plateMap,
-            "tabulaCells" to tabulaCells,
-        )
-    }// Currently only works with random color map
 
     // for a given cell type, find the average position for all of its instances. Used to place label in sensible position, given that the data is clustered
-    private fun fetchCenterOfMass(type: String): Vector3f {
+    private fun fetchCellLabelPosition(annotation: String, type: Any): Vector3f {
         val additiveMass = FloatArray(3)
         var filteredLength = 0f
 
-        for(i in globalMasterMap[1]!!.instances.filter{ it.name == type }) {
-            additiveMass[0] += i.position.toFloatArray()[0]
-            additiveMass[1] += i.position.toFloatArray()[1]
-            additiveMass[2] += i.position.toFloatArray()[2]
+        for (master in 1..masterCount) {
+            for (instance in masterMap[master]!!.instances.filter { it.metadata[annotation] == type }) {
+                additiveMass[0] += instance.position.toFloatArray()[0]
+                additiveMass[1] += instance.position.toFloatArray()[1]
+                additiveMass[2] += instance.position.toFloatArray()[2]
 
-            filteredLength += 1
+                filteredLength++
+            }
         }
         return Vector3f(
-                (additiveMass[0] / filteredLength),
-                (additiveMass[1] / filteredLength),
-                (additiveMass[2] / filteredLength)
+            (additiveMass[0] / filteredLength),
+            (additiveMass[1] / filteredLength),
+            (additiveMass[2] / filteredLength)
         )
     }
 
-    // for each unique cell type in the dataset, calculate the average position of all of its instances
-    private fun textBoardPositions(): HashMap<String, Vector3f> {
-        val massMap = HashMap<String, Vector3f>()
-        for(i in uniqueCellNames){
-            massMap[i] = fetchCenterOfMass(i)
-            logger.info("center of mass for $i is: ${fetchCenterOfMass(i)}")
+    private fun fetchCenterOfMass(coordArray: ArrayList<ArrayList<Float>>): Vector3f {
+        val additiveMass = FloatArray(3)
+        var filteredLength = 0
+
+        for (entry in coordArray) {
+            for (axis in 0..2) {
+                additiveMass[axis] += entry[axis]
+            }
+            filteredLength++
         }
-        return massMap
+        return Vector3f(
+            (additiveMass[0] / filteredLength),
+            (additiveMass[1] / filteredLength),
+            (additiveMass[2] / filteredLength)
+        )
     }
 
-    private fun fetchMaxGeneExp(geneLocus: Int): Float {
-        val maxList = ArrayList<Float>()
-        // index chosen gene (geneLocus) from each row (cell) and add to list maxList
-        for(i in globalGeneExpression){
-            maxList.add(i[geneLocus])
+    private fun createSphereKey(annotation: String): Mesh {
+        val m = Mesh()
+        val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical")
+        // first: type, second: array
+
+        val rootPosY = 10f
+        val rootPosX = -10.5f
+        val scale = 0.4f
+
+        val sizeList = arrayListOf<Int>()
+        val overflowLim = (22 / scale).toInt()
+        var overflow = 0
+        var maxString = 0
+
+        for (cat in mapping.second) {
+            if (overflow < overflowLim) {
+                val len = cat.toString().toCharArray().size
+                if (len > maxString)
+                    maxString = len
+                overflow++
+            } else {
+                if (maxString < scale * 70)
+                    sizeList.add(maxString)
+                else
+                    sizeList.add((scale * 70).toInt())
+                maxString = 0
+                overflow = 0
+            }
         }
-        // return highest gene expression from list
-        val max = maxList.maxOrNull()
-        return max!!
-    }
+        val title = TextBoard()
+        title.transparent = 1
+        title.text = annotation
+        title.scale = Vector3f(scale * 2)
+        title.fontColor = Vector3f(0f, 0f, 0f).xyzw()
+        title.position = Vector3f(rootPosX + scale, rootPosY, -11f)
+        m.addChild(title)
 
-    private fun initializeLaser(laserName: Cylinder){
-        laserName.material.diffuse = Vector3f(5.0f, 0.0f, 0.02f)
-        laserName.material.metallic = 0.5f
-        laserName.material.roughness = 1.0f
-        laserName.rotation.rotateX(-Math.PI.toFloat()/1.5f) // point laser forwards
-        laserName.visible = true
-    }
+        overflow = 0
+        var lenIndex = -1 // -1 so first column isn't shifted
+        var charSum = 0
+        val mapSize = if (mapping.second.size > 1) mapping.second.size - 1 else 1
 
-    private fun generateAxis(dimension: String = "x", length: Float = 5.00f): Cylinder{
-        val cyl: Cylinder = when(dimension.capitalize()){
-            "X" -> { Cylinder.betweenPoints(Vector3f(-length, 0f, 0f), Vector3f(length, 0f, 0f)) }
-            "Y" -> { Cylinder.betweenPoints(Vector3f(0f, -length, 0f), Vector3f(0f, length, 0f)) }
-            "Z" -> { Cylinder.betweenPoints(Vector3f(0f, 0f, -length), Vector3f(0f, 0f, length)) }
-            else -> throw IllegalArgumentException("$dimension is not a valid dimension")
+        for ((colorIncrement, cat) in mapping.second.withIndex()) {
+            val key = TextBoard()
+            val tooLargeBy = cat.toString().toCharArray().size - (scale * 70)
+            when {
+                (tooLargeBy >= 0) ->
+                    key.text = cat.toString().replace("ï", "i").dropLast(tooLargeBy.toInt() + 5) + "..."// not utf-8 -_-
+                (tooLargeBy < 0) ->
+                    key.text = cat.toString().replace("ï", "i") // not utf-8 -_-
+            }
+
+            key.fontColor = Vector3f(0f, 0f, 0f).xyzw()
+            key.transparent = 1
+            key.scale = Vector3f(scale)
+
+            val sphere = Icosphere(scale / 2, 3)
+            sphere.material.diffuse = rgbColorSpectrum.sample(colorIncrement.toFloat() / mapSize).xyz()
+            sphere.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
+            sphere.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
+            sphere.material.roughness = 0.19f
+            sphere.material.metallic = 0.0001f
+
+            if (lenIndex == -1) {
+                key.position = Vector3f(rootPosX + scale, rootPosY - (overflow + 1) * scale, -11f)
+                sphere.position = Vector3f(rootPosX, (rootPosY - (overflow + 1) * scale) + scale / 2, -11f)
+            } else {
+                key.position =
+                    Vector3f(rootPosX + scale + (charSum * 0.31f * scale), rootPosY - (overflow + 1) * scale, -11f)
+                sphere.position = Vector3f(
+                    rootPosX + (charSum * 0.31f * scale),
+                    (rootPosY - (overflow + 1) * scale) + scale / 2,
+                    -11f
+                )
+            }
+            m.addChild(sphere)
+            m.addChild(key)
+            overflow++
+
+            if (overflow == overflowLim && sizeList.size > 0) { // also checking for case of mapping.size == overFlowLim
+                lenIndex++
+                overflow = 0
+                charSum += if (sizeList[lenIndex] < 5) 18
+                else sizeList[lenIndex]
+                
+            }
         }
-        cyl.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
-        return cyl
-    }
-
-    fun cycleDatasets() {
-        currentDatasetIndex = (currentDatasetIndex + 1) % dataSet.size
+        m.visible = false
+        addChild(m)
+        return m
     }
 
     private fun addMasterProperties(master: Icosphere, masterNumber: Int): Icosphere {
@@ -459,14 +472,21 @@ class XPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
        Generate an Icosphere used as Master for 10k instances.
        Override shader to allow for varied color on instancing and makes color an instanced property.
         */
-
+        master.metadata["MaxInstanceUpdateCount"] = AtomicInteger(1)
+//        (metadata["MaxInstanceUpdateCount"] as? AtomicInteger)?.getAndIncrement()
         master.name = "master$masterNumber"
-        master.material = ShaderMaterial(Shaders.ShadersFromFiles(arrayOf("DefaultDeferredInstanced.frag", "DefaultDeferredInstancedColor.vert"), XPlot::class.java)) //overrides the shader
-        master.material.diffuse = Vector3f(0.8f, 0.7f, 0.7f)
-        master.material.ambient = Vector3f(0.1f, 0.0f, 0.0f)
-        master.material.specular = Vector3f(0.05f, 0f, 0f)
-        master.material.roughness = 0.2f
-        master.metadata["sourceCount"] = 2
+        master.material = ShaderMaterial(
+            Shaders.ShadersFromFiles(
+                arrayOf(
+                    "DefaultDeferredInstanced.frag",
+                    "DefaultDeferredInstancedColor.vert"
+                ), XPlot::class.java
+            )
+        ) //overrides the shader
+        master.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
+        master.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
+        master.material.roughness = 0.19f
+        master.material.metallic = 0.0001f
         master.instancedProperties["ModelMatrix"] = { master.world }
         master.instancedProperties["Color"] = { master.material.diffuse.xyzw() }
 
@@ -475,20 +495,57 @@ class XPlot(val fileName: String = "GMB_cellAtlas_data.csv "): Node() {
         return master
     }
 
+    private fun initializeLaser(laserName: Cylinder) {
+        laserName.material.diffuse = Vector3f(0.9f, 0.0f, 0.0f)
+        laserName.material.metallic = 0.001f
+        laserName.material.roughness = 0.18f
+        laserName.rotation.rotateX(-Math.PI.toFloat() / 1.5f) // point laser forwards
+        laserName.visible = true
+    }
+
+    private fun generateAxis(dimension: String = "x", length: Float = 5.00f): Cylinder {
+        val cyl: Cylinder = when (dimension.capitalize()) {
+            "X" -> {
+                Cylinder.betweenPoints(Vector3f(-length, 0f, 0f), Vector3f(length, 0f, 0f), radius = 0.01f)
+            }
+            "Y" -> {
+                Cylinder.betweenPoints(Vector3f(0f, -length, 0f), Vector3f(0f, length, 0f), radius = 0.01f)
+            }
+            "Z" -> {
+                Cylinder.betweenPoints(Vector3f(0f, 0f, -length), Vector3f(0f, 0f, length), radius = 0.01f)
+            }
+            else -> throw IllegalArgumentException("$dimension is not a valid dimension")
+        }
+        cyl.material.roughness = 0.18f
+        cyl.material.metallic = 0.001f
+        cyl.material.diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+        return cyl
+    }
+
     fun resetVisibility() {
-        v.instances.forEach {
-            it.visible = true
-            it.metadata.remove("selected")
+        for (i in 0..masterMap.size) {
+            masterMap[i]?.instances?.forEach {
+                it.visible = true
+                it.metadata.remove("selected")
+            }
         }
     }
 
-    fun reload() {
-        children.forEach { child -> removeChild(child) }
+    fun loadNewGenes() {
+        thread {
+            Thread.currentThread().priority = Thread.MIN_PRIORITY
 
-        v = Icosphere(0.2f * positionScaling, 1)
-        dotMesh = Mesh()
-        textBoardMesh = Mesh()
+            geneBoard.text = "fetching..."
 
-        loadDataset()
+            val (geneNameBuffer, geneExprBuffer) = annFetcher.fetchGeneExpression()
+            genePicker = 0
+            geneNames.clear()
+            geneExpr.clear()
+            geneNames = geneNameBuffer
+            geneExpr = geneExprBuffer
+
+            updateInstancingColor()
+            geneBoard.text = "Gene: " + geneNames[genePicker]
+        }
     }
 }

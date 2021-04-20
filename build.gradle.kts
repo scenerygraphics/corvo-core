@@ -4,34 +4,28 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 plugins {
     java
     maven
+    application
     kotlin("jvm") version "1.4.20"
+    id("com.github.johnrengelman.shadow") version "6.0.0"
 }
 
 group = "graphics.scenery"
 version = "0.1.0-SNAPSHOT"
 
-description = "scenery-dimensional-reduction"
+description = "xtra-dimension_vr"
 
-//sourceCompatibility = 1.8
-//targetCompatibility = 1.8
-//tasks.withType(JavaCompile) {
-//	options.encoding = 'UTF-8'
-//}
-//
-//configurations.all {
-//}
-//
 repositories {
     mavenCentral()
     maven("https://maven.scijava.org/content/groups/public")
     maven("https://jitpack.io")
-    maven("http://nexus.senbox.net/nexus/content/groups/public/")
+    maven("https://nexus.senbox.net/nexus/content/groups/public/")
 }
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("com.github.scenerygraphics:scenery:e1d1db66ed")
-    implementation("junit:junit:4.12")
+//    implementation("com.github.scenerygraphics:scenery:e1d1db66ed")
+    implementation("graphics.scenery:scenery:5b4df6e")
+    implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when (current()) {
         WINDOWS -> "windows"
         LINUX -> "linux"
@@ -47,9 +41,23 @@ dependencies {
     implementation("org.jogamp.gluegen:gluegen-rt:2.3.2")
     implementation("org.jogamp.jogl:jogl-all:2.3.2")
     implementation("org.scijava:ui-behaviour:2.0.3")
-    implementation("graphics.scenery:spirvcrossj:0.7.0-1.1.106.0")
-    runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.0-1.1.106.0", classifier = lwjglNative)
-    testImplementation ("org.junit.jupiter:junit-jupiter:5.6.0")
+    implementation("graphics.scenery:spirvcrossj:0.7.1-1.1.106.0")
+    implementation("org.nd4j:nd4j-api:1.0.0-beta7")
+    implementation("org.nd4j:nd4j-native-platform:1.0.0-beta7")
+    implementation("cisd:jhdf5:19.04.0")
+    runtimeOnly("net.java.jinput", "jinput", version="2.0.9", classifier="natives-all")
+    runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.1-1.1.106.0", classifier = lwjglNative)
+
+    // needed for logging to work correctly, don't use log4j, it's overkill in this case.
+    runtimeOnly("org.slf4j:slf4j-simple:1.7.30")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
+}
+
+application {
+//    mainClass.set("graphics.scenery.xtradimensionvr.XVisualizationKT")
+    @Suppress("DEPRECATION")
+    mainClassName ="graphics.scenery.xtradimensionvr.XVisualization"
 }
 
 tasks {
@@ -60,5 +68,15 @@ tasks {
 
     named<Test>("test") {
         useJUnitPlatform()
+    }
+
+    shadowJar {
+        isZip64 = true
+    }
+
+    jar {
+        manifest {
+            attributes ("Class-Path" to "/libs/a.jar")
+        }
     }
 }

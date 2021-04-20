@@ -28,13 +28,11 @@ repositories {
     maven("https://maven.scijava.org/content/groups/public")
     maven("https://jitpack.io")
     maven("http://nexus.senbox.net/nexus/content/groups/public/")
-    maven("https://oss.sonatype.org/content/repositories/graphicsscenery-1207/")
 }
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-//    implementation("graphics.scenery:scenery:8ed735b")
-    implementation("com.github.scenerygraphics:scenery:e1d1db66ed")
+    implementation("graphics.scenery:scenery:5b4df6e")
     implementation("junit:junit:4.12")
     implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when(current()) {
@@ -63,12 +61,10 @@ dependencies {
     runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.1-1.1.106.0", classifier = lwjglNative)
     testImplementation ("org.junit.jupiter:junit-jupiter:5.6.0")
 
-    implementation("org.apache.logging.log4j:log4j-api:2.13.3")
-    implementation("org.apache.logging.log4j:log4j-core:2.13.3")
-    implementation("org.apache.logging.log4j:log4j-slf4j-impl:2.13.3")
+    // needed for logging to work correctly
+    runtimeOnly("org.slf4j:slf4j-simple:1.7.30")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.0-M1")
-//    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.3.5")
 }
 
 application {

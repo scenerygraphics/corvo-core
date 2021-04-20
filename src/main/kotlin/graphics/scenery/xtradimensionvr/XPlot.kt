@@ -5,10 +5,7 @@ import graphics.scenery.backends.Shaders
 import graphics.scenery.numerics.Random
 import graphics.scenery.textures.Texture
 import graphics.scenery.utils.Image
-import graphics.scenery.utils.extensions.times
-import graphics.scenery.utils.extensions.toFloatArray
-import graphics.scenery.utils.extensions.xyz
-import graphics.scenery.utils.extensions.xyzw
+import graphics.scenery.utils.extensions.*
 import graphics.scenery.volumes.Colormap
 import org.joml.Vector3f
 import kotlin.collections.ArrayList
@@ -16,7 +13,7 @@ import kotlin.collections.set
 import kotlin.concurrent.thread
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.ceil
-
+import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 
 /**.
  * cellxgene interactivity - start fixing selection and marking tools
@@ -60,27 +57,36 @@ class XPlot : Node() {
 //    var geneNames = ArrayList<String>() // stores ordered gene names for gene board
 //    var geneExpr = ArrayList<FloatArray>()
 
-    private val annFetcher = AnnotationsIngest("/home/luke/PycharmProjects/VRCaller/file_conversion/tabula_vr_processed.h5ad")
+    private val annFetcher =
+        AnnotationsIngest("/home/luke/PycharmProjects/VRCaller/file_conversion/bbknn_processed.h5ad")
     private val spatialCoords = annFetcher.umapReader3D()
+
+    var annotationList = ArrayList<String>()
+    var metaOnlyAnnList = ArrayList<String>()
 
     // give annotations you would like (maybe with checkboxes, allow to enter the names of their annotations)
     // list of annotations
-    var annotationList =
-        arrayOf(
-            "free_annotation",
-            "cell_ontology_class",
-            "method",
-            "mouse.id",
-            "sex",
-            "subtissue",
-            "tissue",
-            "louvain",
-            "leiden",
-            "cell_ontology_id",
+    init{
+        for (ann in annFetcher.reader.getGroupMembers("/obs")){
+            try {
+                val info = annFetcher.reader.getDataSetInformation("/uns/" + ann + "_categorical")
+                if (info.toString().toCharArray().size < 17)
+                    annotationList.add(ann)
+                else
+                    metaOnlyAnnList.add(ann)
+            } catch (e: HDF5SymbolTableException) {
+                metaOnlyAnnList.add(ann)
+                println("$ann is not color encodable and will exist only as metadata")
+            }
+        }
+        println(annotationList)
 
-        )
+    }
+    //[age, batch, cell, cell_ontology_class, cell_ontology_id, free_annotation, leiden, louvain, method, mouse.id, sex, subtissue, tissue, tissue_FACS_droplet, tissue_free_annotation]
+
     private var annotationArray = ArrayList<FloatArray>() //used to color spheres, normalized
-    private val rawAnnotations = ArrayList<ArrayList<Byte>>()
+    private val rawAnnotations = ArrayList<ArrayList<*>>()
+    private val typeList = ArrayList<String>()
 
     val annKeyList = ArrayList<Mesh>()
     val labelList = ArrayList<Mesh>()
@@ -88,22 +94,35 @@ class XPlot : Node() {
 
     init {
         for (ann in annotationList) {
-            annotationArray.add(run {
-                val raw = annFetcher.h5adAnnotationReader("/obs/$ann", false) as ArrayList<Byte>
-                rawAnnotations.add(raw) // used to attach metadata spheres
-                val norm = FloatArray(raw.size) // array of zeros if annotation entries are all the same
-                val max: Byte? = raw.maxOrNull()
-                if (max != null && max > 0f) {
-                    for (i in raw.indices)
-                        norm[i] = raw[i].toFloat() / max
+
+            annotationArray.add( run {
+                val raw = annFetcher.h5adAnnotationReader("/obs/$ann", false)
+
+                rawAnnotations.add(raw.second) // used to attach metadata spheres
+                typeList.add(raw.first) // grow list of annotation datatypes (used currently for metadata check for labels)
+                val norm = FloatArray(raw.second.size) // array of zeros if annotation entries are all the same
+
+                when (raw.first) {
+                    "Byte" -> {
+                        val max: Byte? = (raw.second as ArrayList<Byte>).maxOrNull()
+                        if (max != null && max > 0f) {
+                            for (i in raw.second.indices)
+                                norm[i] = (raw.second[i] as Byte).toFloat() / max
+                        }
+                    }
+                    "Short" -> {
+                        val max: Short? = (raw.second as ArrayList<Short>).maxOrNull()
+                        if (max != null && max > 0f) {
+                            for (i in raw.second.indices)
+                                norm[i] = (raw.second[i] as Short).toFloat() / max
+                        }
+                    }
                 }
                 norm
             })
             annKeyList.add(createSphereKey(ann))
         }
-//        createSphereKey("free_annotation")
     }
-
 
     //generate master spheres for every 10k cells for performance
     private val masterSplit = 10_000
@@ -116,8 +135,6 @@ class XPlot : Node() {
 
     private val indexedGeneExpression = ArrayList<Float>()
     private val indexedAnnotations = ArrayList<Float>()
-
-    var currentlyLoading = false
 
     var geneNames = ArrayList<String>()
     var geneExpr = ArrayList<FloatArray>()
@@ -139,7 +156,7 @@ class XPlot : Node() {
         // hashmap to emulate at run time variable declaration
         // allows for dynamically growing number of master spheres with size of dataset
         for (i in 1..masterCount) {
-            val masterTemp = Icosphere(0.02f * positionScaling, 1) // sphere properties
+            val masterTemp = Icosphere(0.007f * positionScaling, 1) // sphere properties
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
         println("hashmap looks like: $masterMap")
@@ -173,9 +190,9 @@ class XPlot : Node() {
         addChild(dotMesh)
 
         // create labels for each annotation
-        for (annotation in annotationList) {
-            labelList.add(generateLabels(annotation))
-        }
+        for ((typeCount, annotation) in annotationList.withIndex())
+            labelList.add(generateLabels(annotation, typeList[typeCount]))
+
     }
 
     fun updateInstancingColor() {
@@ -184,7 +201,7 @@ class XPlot : Node() {
         for (i in spatialCoords.indices) {
             if (resettingCounter >= masterSplit) {
                 parentIterator++
-                logger.info("parentIterator: $parentIterator")
+                logger.info("ntparentIterator: $parentIterator")
                 resettingCounter = 0
             }
 
@@ -232,20 +249,20 @@ class XPlot : Node() {
         addChild(lightbox)
 
         val lightStretch = 12.4f
-        val lights = (0 until 12).map {
-            val l = PointLight(radius = 200.0f)
+        val lights = (0 until 10).map {
+            val l = PointLight(radius = 50.0f)
             l.position = Vector3f(
                 Random.randomFromRange(-lightStretch, lightStretch),
                 Random.randomFromRange(-lightStretch, lightStretch),
                 Random.randomFromRange(-lightStretch, lightStretch)
             )
 //            l.emissionColor = Random.random3DVectorFromRange(0.2f, 0.8f)
-            l.emissionColor = Vector3f(0.7f, 0.7f, 0.7f)
-            l.intensity = Random.randomFromRange(0.7f, 1.0f)
+            l.emissionColor = Vector3f(1f, 1f, 1f)
+            l.intensity = 1f
 
             l
         }
-        lights.forEach { lightbox.addChild(it) }
+        lights.forEach { addChild(it) }
 
         //text board displaying name of gene currently encoded as colormap. Disappears if color encodes cell type
         geneBoard.transparent = 1
@@ -295,18 +312,22 @@ class XPlot : Node() {
         addChild(geneScaleMesh)
     }
 
-    private fun generateLabels(annotation: String): Mesh {
+    private fun generateLabels(annotation: String, type: String): Mesh {
+        println("label being made")
         val m = Mesh()
-        val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical") as ArrayList<String>
+        val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical") as Pair<String, ArrayList<String>> // don't use .first
 
-        val mapSize = if (mapping.size > 1) mapping.size - 1 else 1
-        for ((count, type) in mapping.withIndex()) {
+        val mapSize = if (mapping.second.size > 1) mapping.second.size - 1 else 1
+        for ((count, label) in mapping.second.withIndex()) {
             val t = TextBoard()
-            t.text = type.replace("ï", "i")
+            t.text = label.replace("ï", "i")
             t.transparent = 0
             t.fontColor = Vector3f(0f, 0f, 0f).xyzw()
             t.backgroundColor = rgbColorSpectrum.sample(count.toFloat() / mapSize)
-            t.position = fetchCellLabelPosition(annotation, count.toByte())
+            when (type) {
+                "Byte" -> t.position = fetchCellLabelPosition(annotation, count.toByte())
+                "Short" -> t.position = fetchCellLabelPosition(annotation, count.toShort())
+            }
             t.scale = Vector3f(0.2f, 0.2f, 0.2f) * positionScaling
             m.addChild(t)
         }
@@ -317,7 +338,7 @@ class XPlot : Node() {
     }
 
     // for a given cell type, find the average position for all of its instances. Used to place label in sensible position, given that the data is clustered
-    private fun fetchCellLabelPosition(annotation: String, type: Byte): Vector3f {
+    private fun fetchCellLabelPosition(annotation: String, type: Any): Vector3f {
         val additiveMass = FloatArray(3)
         var filteredLength = 0f
 
@@ -357,24 +378,28 @@ class XPlot : Node() {
     private fun createSphereKey(annotation: String): Mesh {
         val m = Mesh()
         val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical")
+        // first: type, second: array
 
         val rootPosY = 10f
         val rootPosX = -10.5f
-        val scale = 0.5f
+        val scale = 0.4f
 
         val sizeList = arrayListOf<Int>()
         val overflowLim = (22 / scale).toInt()
         var overflow = 0
         var maxString = 0
 
-        for (cat in mapping) {
+        for (cat in mapping.second) {
             if (overflow < overflowLim) {
                 val len = cat.toString().toCharArray().size
                 if (len > maxString)
                     maxString = len
                 overflow++
             } else {
-                sizeList.add(maxString)
+                if (maxString < scale * 70)
+                    sizeList.add(maxString)
+                else
+                    sizeList.add((scale * 70).toInt())
                 maxString = 0
                 overflow = 0
             }
@@ -390,13 +415,17 @@ class XPlot : Node() {
         overflow = 0
         var lenIndex = -1 // -1 so first column isn't shifted
         var charSum = 0
-        val mapSize = if (mapping.size > 1) mapping.size - 1 else 1
+        val mapSize = if (mapping.second.size > 1) mapping.second.size - 1 else 1
 
-        for ((colorIncrement, cat) in mapping.withIndex()) {
+        for ((colorIncrement, cat) in mapping.second.withIndex()) {
             val key = TextBoard()
-
-            val interCat = cat.toString().replace("ï", "i")
-            key.text = interCat
+            val tooLargeBy = cat.toString().toCharArray().size - (scale * 70)
+            when {
+                (tooLargeBy >= 0) ->
+                    key.text = cat.toString().replace("ï", "i").dropLast(tooLargeBy.toInt() + 5) + "..."// not utf-8 -_-
+                (tooLargeBy < 0) ->
+                    key.text = cat.toString().replace("ï", "i") // not utf-8 -_-
+            }
 
             key.fontColor = Vector3f(0f, 0f, 0f).xyzw()
             key.transparent = 1
@@ -425,11 +454,12 @@ class XPlot : Node() {
             m.addChild(key)
             overflow++
 
-            if (overflow == overflowLim) {
+            if (overflow == overflowLim && sizeList.size > 0) { // also checking for case of mapping.size == overFlowLim
                 lenIndex++
                 overflow = 0
                 charSum += if (sizeList[lenIndex] < 5) 18
                 else sizeList[lenIndex]
+                
             }
         }
         m.visible = false
@@ -503,16 +533,7 @@ class XPlot : Node() {
 
     fun loadNewGenes() {
         thread {
-            Thread.currentThread().priority=Thread.MIN_PRIORITY
-//            while(true) {
-//                val reader =
-//                    HDF5Factory.openForReading("/home/luke/PycharmProjects/VRCaller/file_conversion/tabula_vr_processed.h5ad")
-//                // return dense row of gene expression values for a chosen row / cell
-//
-//                val data = reader.float32().readMDArray("/X/data")
-//                val indices = reader.int32().readMDArray("/X/indices")
-//                val indptr = reader.int32().readMDArray("/X/indptr")
-//            }
+            Thread.currentThread().priority = Thread.MIN_PRIORITY
 
             geneBoard.text = "fetching..."
 

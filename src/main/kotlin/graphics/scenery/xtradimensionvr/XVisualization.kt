@@ -10,9 +10,8 @@ import org.scijava.ui.behaviour.ClickBehaviour
 import kotlin.concurrent.thread
 import org.joml.Vector3f
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
-import ui.Imgui
+import ui.ImguiMesh
+import ui.imguiMesh
 
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
@@ -46,7 +45,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 //        renderer?.toggleVR()
 
 
-        val imgui = Imgui(hub, plot)
+        val imgui = ImguiMesh(hub, plot)
         scene.addChild(imgui)
 
         // add parameter hmd to DetachedHeadCamera for VR
@@ -84,6 +83,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     override fun inputSetup() {
         super.inputSetup()
         // see [OpenVRhmd?.toAWTKeyCode] for key bindings
+
+        inputHandler?.addBehaviour("toggleMenu", ClickBehaviour { _, _ ->
+
+            imguiMesh.hideMe = !imguiMesh.hideMe
+
+        })
+        inputHandler?.addKeyBinding("toggleMenu", "H")
 
         inputHandler?.let { handler ->
             hashMapOf(

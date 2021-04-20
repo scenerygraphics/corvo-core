@@ -34,8 +34,9 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-//    implementation("graphics.scenery:scenery:7ab67ae6")
-    implementation("com.github.scenerygraphics:scenery:e1d1db66ed")
+    implementation("graphics.scenery:scenery:7ab67ae6")
+//    implementation("com.github.scenerygraphics:scenery:e1d1db66ed")
+//    implementation("com.github.scenerygraphics:scenery:7ab67ae6")
 //    implementation("graphics.scenery:scenery:886a7492")
     implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when(current()) {

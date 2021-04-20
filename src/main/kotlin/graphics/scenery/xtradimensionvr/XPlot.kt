@@ -58,7 +58,8 @@ class XPlot : Node() {
 //    var geneExpr = ArrayList<FloatArray>()
 
     private val annFetcher =
-        AnnotationsIngest("/home/luke/PycharmProjects/VRCaller/file_conversion/bbknn_processed.h5ad")
+//        AnnotationsIngest("/home/luke/PycharmProjects/VRCaller/file_conversion/bbknn_processed.h5ad")
+        AnnotationsIngest("/home/elect/IdeaProjects/XtraDimensionVR/liver_vr_processed_2.h5ad")
     private val spatialCoords = annFetcher.umapReader3D()
 
     var annotationList = ArrayList<String>()
@@ -156,7 +157,7 @@ class XPlot : Node() {
         // hashmap to emulate at run time variable declaration
         // allows for dynamically growing number of master spheres with size of dataset
         for (i in 1..masterCount) {
-            val masterTemp = Icosphere(0.007f * positionScaling, 1) // sphere properties
+            val masterTemp = Icosphere(0.04f * positionScaling, 1) // sphere properties
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
         println("hashmap looks like: $masterMap")

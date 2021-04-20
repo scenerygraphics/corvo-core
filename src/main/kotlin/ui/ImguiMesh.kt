@@ -17,15 +17,26 @@ import imgui.classes.Context
 import imgui.impl.glfw.ImplGlfw
 import kool.*
 import kool.lib.fill
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.joml.Vector2f
 import org.joml.Vector2i
 import org.joml.Vector3i
 import org.lwjgl.system.MemoryUtil.*
 import uno.glfw.GlfwWindow
 
-class Imgui(hub: Hub, val plot: XPlot) : Mesh("Menu") {
+lateinit var imguiMesh: ImguiMesh
+
+fun topLevel() {
+
+}
+
+class ImguiMesh(hub: Hub, val plot: XPlot) : Mesh("Menu") {
 
     var showDemoWindow = false
+
+    var hideMe = false
 
     // Setup Dear ImGui context
     val ctx = Context()
@@ -36,7 +47,7 @@ class Imgui(hub: Hub, val plot: XPlot) : Mesh("Menu") {
     var vrCursorPos: Vec2? = null
 
     // 1f unless you use any scaling != 100%, 125% corresponds to 1.25f
-    val scaleFont = 1.25f
+    val scaleFont = 1.75f
 
     // this must come before retrieving the texture (which comes right after, in the init)
     val font = ImGui.io.fonts.addFontFromFileTTF("graphics/scenery/ui/ProggyClean.ttf", 16f * scaleFont)!!
@@ -54,7 +65,12 @@ class Imgui(hub: Hub, val plot: XPlot) : Mesh("Menu") {
     // Setup Platform/Renderer bindings
     val implGlfw = ImplGlfw(window, true, vrTexSize)
 
-    val size = Vec2(500)
+    val checkboxes = BooleanArray(20) { it % 2 == 0 }
+
+    init {
+        println("new ImguiMesh")
+        imguiMesh = this
+    }
 
     override fun preDraw(): Boolean {
         //        if(!stale) {
@@ -65,19 +81,39 @@ class Imgui(hub: Hub, val plot: XPlot) : Mesh("Menu") {
         //        implGlfwNewFrame()
         implGlfw.newFrame()
 
-        ImGui.run {
+        //        ImGui.run {
 
-            newFrame()
+        ImGui.newFrame()
 
-            dsl.withFont(this@Imgui.font) {
-//                showDemoWindow(::showDemoWindow)
-//                ImGui.setNextWindowSize(size)
-                dsl.window(plot.annotationList[0]) {
-                    for(cell in plot.cellNames)
-                        ImGui.text(cell)
+        // use this on high resolution monitors
+        //            dsl.withFont(this@Imgui.font) {
+        //        ImGui.showDemoWindow(::showDemoWindow)
+        //                ImGui.setNextWindowSize(size)
+        println("hideMe=$hideMe")
+        if (hideMe) {
+            dsl.window("Annotations") {
+                for (i in plot.annotationList.indices) {
+                    val ann = plot.annotationList[i]
+                    if (ImGui.checkbox(ann, checkboxes, i)) {
+                        println("selected $i")
+
+                        plot.annKeyList[plot.annotationPicker].visible = false
+                        plot.labelList[plot.annotationPicker].visible = false
+
+                        plot.annotationPicker = i
+
+                        plot.annKeyList[plot.annotationPicker].visible = true
+                        plot.labelList[plot.annotationPicker].visible = true
+
+                        GlobalScope.launch(Dispatchers.Default) {
+                            plot.updateInstancingColor()
+                        }
+                    }
                 }
+                //                }
             }
         }
+        //        }
 
         return renderImgui()
     }

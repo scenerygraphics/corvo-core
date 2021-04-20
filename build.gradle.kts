@@ -30,7 +30,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("com.github.scenerygraphics:scenery:886a7492")
+    implementation("com.github.scenerygraphics:scenery:e1d1db66ed")
     implementation("junit:junit:4.12")
     val lwjglNative = "natives-" + when (current()) {
         WINDOWS -> "windows"

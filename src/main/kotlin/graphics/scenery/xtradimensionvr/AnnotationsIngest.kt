@@ -33,10 +33,10 @@ class AnnotationsIngest(h5adPath: String) {
         val randGenesNames = arrayListOf<String>()
 
         for (i in 0..12) {
-            randGenesNames.add(geneNames.second[Random.randomFromRange(0f, numGenes.toFloat()).toInt()] as String)
+            randGenesNames.add(geneNames[Random.randomFromRange(0f, numGenes.toFloat()).toInt()] as String)
         }
         for (i in randGenesNames)
-            randGenesIndices.add(geneNames.second.indexOf(i))
+            randGenesIndices.add(geneNames.indexOf(i))
 
         val geneExpression = ArrayList<FloatArray>()
         for (i in randGenesIndices) {
@@ -73,7 +73,7 @@ class AnnotationsIngest(h5adPath: String) {
         return UMAP
     }
 
-    fun h5adAnnotationReader(hdfPath: String, asString: Boolean = true): Pair<Type, ArrayList<*>> {
+    fun h5adAnnotationReader(hdfPath: String, asString: Boolean = true): ArrayList<*> {
         /**
          * reads any 1 dimensional annotation (ie obs, var, uns from scanPy output), checking if a categorical map exists for them
          **/
@@ -141,7 +141,7 @@ class AnnotationsIngest(h5adPath: String) {
                 type = "Bool"
                 }
         }
-        return Pair(type, data)
+        return data
     }
 
     /**

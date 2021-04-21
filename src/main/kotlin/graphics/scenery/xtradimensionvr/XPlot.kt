@@ -76,7 +76,7 @@ class XPlot : Node() {
                     metaOnlyAnnList.add(ann)
             } catch (e: HDF5SymbolTableException) {
                 metaOnlyAnnList.add(ann)
-                println("$ann is not color encodable and will exist only as metadata")
+                logger.info("$ann is not color encodable and will exist only as metadata")
             }
         }
         println(annotationList)
@@ -86,7 +86,7 @@ class XPlot : Node() {
 
     private var annotationArray = ArrayList<FloatArray>() //used to color spheres, normalized
     private val rawAnnotations = ArrayList<ArrayList<*>>()
-    private val typeList = ArrayList<String>()
+    private val typeList = ArrayList<String>() //grow list of annotation datatypes (used currently for metadata check for labels)
 
     val annKeyList = ArrayList<Mesh>()
     val labelList = ArrayList<Mesh>()
@@ -98,23 +98,24 @@ class XPlot : Node() {
             annotationArray.add( run {
                 val raw = annFetcher.h5adAnnotationReader("/obs/$ann", false)
 
-                rawAnnotations.add(raw.second) // used to attach metadata spheres
-                typeList.add(raw.first) // grow list of annotation datatypes (used currently for metadata check for labels)
-                val norm = FloatArray(raw.second.size) // array of zeros if annotation entries are all the same
+                rawAnnotations.add(raw) // used to attach metadata spheres
+                val norm = FloatArray(raw.size) // array of zeros if annotation entries are all the same
 
-                when (raw.first) {
-                    "Byte" -> {
-                        val max: Byte? = (raw.second as ArrayList<Byte>).maxOrNull()
+                when (raw[0]) {
+                    is Byte -> {
+                        typeList.add("Byte")
+                        val max: Byte? = (raw as ArrayList<Byte>).maxOrNull()
                         if (max != null && max > 0f) {
-                            for (i in raw.second.indices)
-                                norm[i] = (raw.second[i] as Byte).toFloat() / max
+                            for (i in raw.indices)
+                                norm[i] = (raw[i]).toFloat() / max
                         }
                     }
-                    "Short" -> {
-                        val max: Short? = (raw.second as ArrayList<Short>).maxOrNull()
+                    is Short -> {
+                        typeList.add("Short")
+                        val max: Short? = (raw as ArrayList<Short>).maxOrNull()
                         if (max != null && max > 0f) {
-                            for (i in raw.second.indices)
-                                norm[i] = (raw.second[i] as Short).toFloat() / max
+                            for (i in raw.indices)
+                                norm[i] = (raw[i] as Short).toFloat() / max
                         }
                     }
                 }
@@ -148,7 +149,6 @@ class XPlot : Node() {
         loadDataset()
         updateInstancingColor()
         annKeyList[0].visible = true
-        labelList[0].visible = true
     }
 
     private fun loadDataset() {
@@ -156,10 +156,10 @@ class XPlot : Node() {
         // hashmap to emulate at run time variable declaration
         // allows for dynamically growing number of master spheres with size of dataset
         for (i in 1..masterCount) {
-            val masterTemp = Icosphere(0.007f * positionScaling, 1) // sphere properties
+            val masterTemp = Icosphere(0.012f * positionScaling, 1) // sphere properties
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
-        println("hashmap looks like: $masterMap")
+        logger.info("hashmap looks like: $masterMap")
 
         //create and add instances using their UMAP coordinates as position
         var resettingCounter = 0
@@ -201,7 +201,6 @@ class XPlot : Node() {
         for (i in spatialCoords.indices) {
             if (resettingCounter >= masterSplit) {
                 parentIterator++
-                logger.info("ntparentIterator: $parentIterator")
                 resettingCounter = 0
             }
 
@@ -313,12 +312,12 @@ class XPlot : Node() {
     }
 
     private fun generateLabels(annotation: String, type: String): Mesh {
-        println("label being made")
+        logger.info("label being made")
         val m = Mesh()
-        val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical") as Pair<String, ArrayList<String>> // don't use .first
+        val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical") as ArrayList<String>
 
-        val mapSize = if (mapping.second.size > 1) mapping.second.size - 1 else 1
-        for ((count, label) in mapping.second.withIndex()) {
+        val mapSize = if (mapping.size > 1) mapping.size - 1 else 1
+        for ((count, label) in mapping.withIndex()) {
             val t = TextBoard()
             t.text = label.replace("ï", "i")
             t.transparent = 0
@@ -329,6 +328,7 @@ class XPlot : Node() {
                 "Short" -> t.position = fetchCellLabelPosition(annotation, count.toShort())
             }
             t.scale = Vector3f(0.2f, 0.2f, 0.2f) * positionScaling
+            t.addChild(Sphere(0.1f, 1))
             m.addChild(t)
         }
 
@@ -378,7 +378,6 @@ class XPlot : Node() {
     private fun createSphereKey(annotation: String): Mesh {
         val m = Mesh()
         val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical")
-        // first: type, second: array
 
         val rootPosY = 10f
         val rootPosX = -10.5f
@@ -389,7 +388,7 @@ class XPlot : Node() {
         var overflow = 0
         var maxString = 0
 
-        for (cat in mapping.second) {
+        for (cat in mapping) {
             if (overflow < overflowLim) {
                 val len = cat.toString().toCharArray().size
                 if (len > maxString)
@@ -415,9 +414,9 @@ class XPlot : Node() {
         overflow = 0
         var lenIndex = -1 // -1 so first column isn't shifted
         var charSum = 0
-        val mapSize = if (mapping.second.size > 1) mapping.second.size - 1 else 1
+        val mapSize = if (mapping.size > 1) mapping.size - 1 else 1
 
-        for ((colorIncrement, cat) in mapping.second.withIndex()) {
+        for ((colorIncrement, cat) in mapping.withIndex()) {
             val key = TextBoard()
             val tooLargeBy = cat.toString().toCharArray().size - (scale * 70)
             when {

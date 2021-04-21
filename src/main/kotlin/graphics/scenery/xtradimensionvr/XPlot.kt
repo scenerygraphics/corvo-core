@@ -381,7 +381,7 @@ class XPlot : Node() {
 
         val rootPosY = 10f
         val rootPosX = -10.5f
-        val scale = 0.4f
+        val scale = 0.6f
 
         val sizeList = arrayListOf<Int>()
         val overflowLim = (22 / scale).toInt()
@@ -456,7 +456,7 @@ class XPlot : Node() {
             if (overflow == overflowLim && sizeList.size > 0) { // also checking for case of mapping.size == overFlowLim
                 lenIndex++
                 overflow = 0
-                charSum += if (sizeList[lenIndex] < 5) 18
+                charSum += if (sizeList[lenIndex] < 12) 18
                 else sizeList[lenIndex]
                 
             }

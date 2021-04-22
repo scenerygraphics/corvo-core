@@ -162,12 +162,29 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 plot.annotationPicker %= plot.annotationList.size
 
                 plot.annKeyList[plot.annotationPicker].visible = true
-            }
-            GlobalScope.launch(Dispatchers.Default) {
-                plot.updateInstancingColor()
+
+                GlobalScope.launch(Dispatchers.Default) {
+                    plot.updateInstancingColor()
+                }
             }
         })
         inputHandler?.addKeyBinding("toggle_annotations_forward", "L")
+
+        hmd.addBehaviour("toggle_annotations_forward", ClickBehaviour { _, _ ->
+            if (plot.annotationMode) { // freeze current annotation selection if in gene mode
+                plot.annKeyList[plot.annotationPicker].visible = false
+
+                plot.annotationPicker += 1
+                plot.annotationPicker %= plot.annotationList.size
+
+                plot.annKeyList[plot.annotationPicker].visible = true
+
+                GlobalScope.launch(Dispatchers.Default) {
+                    plot.updateInstancingColor()
+                }
+            }
+        })
+        hmd.addKeyBinding("toggle_annotations_forward", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
 
         hmd.addBehaviour("toggle_genes_backward", ClickBehaviour { _, _ ->
             GlobalScope.launch(Dispatchers.Default) {
@@ -183,19 +200,38 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         hmd.addKeyBinding("toggle_genes_backward", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //N
 
         inputHandler?.addBehaviour("toggle_annotations_backward", ClickBehaviour { _, _ ->
-            plot.annKeyList[plot.annotationPicker].visible = false
-            if (plot.annotationPicker > 0) {
-                plot.annotationPicker -= 1
-            } else {
-                plot.annotationPicker = plot.annotationList.size - 1
-            }
-            plot.annKeyList[plot.annotationPicker].visible = true
+            if (plot.annotationMode) {
+                plot.annKeyList[plot.annotationPicker].visible = false
+                if (plot.annotationPicker > 0) {
+                    plot.annotationPicker -= 1
+                } else {
+                    plot.annotationPicker = plot.annotationList.size - 1
+                }
+                plot.annKeyList[plot.annotationPicker].visible = true
 
-            GlobalScope.launch(Dispatchers.Default) {
-                plot.updateInstancingColor()
+                GlobalScope.launch(Dispatchers.Default) {
+                    plot.updateInstancingColor()
+                }
             }
         })
         inputHandler?.addKeyBinding("toggle_annotations_backward", "O")
+
+        hmd.addBehaviour("toggle_annotations_backward", ClickBehaviour { _, _ ->
+            if (plot.annotationMode) {
+                plot.annKeyList[plot.annotationPicker].visible = false
+                if (plot.annotationPicker > 0) {
+                    plot.annotationPicker -= 1
+                } else {
+                    plot.annotationPicker = plot.annotationList.size - 1
+                }
+                plot.annKeyList[plot.annotationPicker].visible = true
+
+                GlobalScope.launch(Dispatchers.Default) {
+                    plot.updateInstancingColor()
+                }
+            }
+        })
+        hmd.addKeyBinding("toggle_annotations_backward", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //N
 
         //try openAL for audio - spatial audio - sound sources that move around - connect to a node? See link to tutorial:
         //http://wiki.lwjgl.org/wiki/OpenAL_Tutorial_1_-_Single_Static_Source.html

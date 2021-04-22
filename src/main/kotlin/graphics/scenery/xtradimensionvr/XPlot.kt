@@ -58,7 +58,7 @@ class XPlot : Node() {
 //    var geneExpr = ArrayList<FloatArray>()
 
     private val annFetcher =
-        AnnotationsIngest("/home/luke/PycharmProjects/VRCaller/file_conversion/bbknn_processed.h5ad")
+        AnnotationsIngest("marrow_vr_processed.h5ad")
     private val spatialCoords = annFetcher.umapReader3D()
 
     var annotationList = ArrayList<String>()
@@ -156,7 +156,7 @@ class XPlot : Node() {
         // hashmap to emulate at run time variable declaration
         // allows for dynamically growing number of master spheres with size of dataset
         for (i in 1..masterCount) {
-            val masterTemp = Icosphere(0.012f * positionScaling, 1) // sphere properties
+            val masterTemp = Icosphere(0.015f * positionScaling, 1) // sphere properties
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
         logger.info("hashmap looks like: $masterMap")
@@ -484,8 +484,8 @@ class XPlot : Node() {
         ) //overrides the shader
         master.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
         master.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
-        master.material.roughness = 0.19f
-        master.material.metallic = 0.0001f
+//        master.material.roughness = 0.6f
+//        master.material.metallic = 0.8f //0.0001f
         master.instancedProperties["ModelMatrix"] = { master.world }
         master.instancedProperties["Color"] = { master.material.diffuse.xyzw() }
 

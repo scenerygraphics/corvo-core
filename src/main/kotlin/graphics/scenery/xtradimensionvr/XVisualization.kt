@@ -60,7 +60,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
 //        val filename = resource[0]
-        plot = XPlot("bbknn_vr_processed.h5ad")
+        plot = XPlot("/home/luke/PycharmProjects/VRCaller/file_conversion/bbknn_processed.h5ad")
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
@@ -71,7 +71,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         // add parameter hmd to DetachedHeadCamera for VR
         cam = DetachedHeadCamera(hmd)
         with(cam) {
-            position = Vector3f(2.0f, 0.0f, 3.5f)
+            position = Vector3f(0f, 0f, 0f)
             perspectiveCamera(60.0f, windowWidth, windowHeight)
             this.addChild(Sphere(2f, 1)) // cam bounding box
             scene.addChild(this)
@@ -98,19 +98,19 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
-        thread {
-            cam.update.add {
-                plot.labelList.forEach { it.visible = false }
-                if (annotationMode) {
-                    plot.labelList[annotationPicker].children.filter { board ->
-                        cam.children.first().intersects(board.children.first())
-                    }
-                        .forEach { board ->
-                            board.visible = true
-                        }
-                }
-            }
-        }
+//        thread {
+//            cam.update.add {
+//                plot.labelList.forEach { it.visible = false }
+//                if (annotationMode) {
+//                    plot.labelList[annotationPicker].children.filter { board ->
+//                        cam.children.first().intersects(board.children.first())
+//                    }
+//                        .forEach { board ->
+//                            board.visible = true
+//                        }
+//                }
+//            }
+//        }
 
         scene.addChild(plot)
     }
@@ -151,25 +151,26 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         cam.nearPlaneDistance = 0.01f
         cam.farPlaneDistance = 1000.0f
         cam.addChild(headlight)
-        floor = InfinitePlane() //new Box( new Vector3f( 500f, 0.2f, 500f ) );
-        (floor as InfinitePlane).type = InfinitePlane.Type.Grid
+
+        floor = InfinitePlane()
+        floor.type = InfinitePlane.Type.Grid
         (floor as Node).name = "Floor"
         scene.addChild(floor as Node)
 
         //text board displaying name of gene currently encoded as colormap. Disappears if color encodes cell type
         geneBoard.transparent = 1
-        geneBoard.fontColor = Vector3f(0f, 0f, 0f).xyzw()
+        geneBoard.fontColor = Vector3f(1f, 1f, 1f).xyzw()
         geneBoard.position = Vector3f(-2.5f, 1.5f, -12.4f) // on far wall
         geneBoard.scale = Vector3f(1f, 1f, 1f)
         geneScaleMesh.addChild(geneBoard)
 
 //         create cylinders orthogonal to each other, representing axes centered around 0,0,0 and add them to the scene
-        val x = generateAxis("X", 50.00f)
-        scene.addChild(x)
+//        val x = generateAxis("X", 50.00f)
+//        scene.addChild(x)
         val y = generateAxis("Y", 50.00f)
         scene.addChild(y)
-        val z = generateAxis("Z", 50.00f)
-        scene.addChild(z)
+//        val z = generateAxis("Z", 50.00f)
+//        scene.addChild(z)
 
         // give lasers texture and set them to be visible (could use to have different lasers/colors/styles and switch between them)
         initializeLaser(laser)
@@ -188,13 +189,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
         minTick.text = "0"
         minTick.transparent = 1
-        minTick.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
+        minTick.fontColor = Vector3f(1f, 1f, 1f).xyzw()
         minTick.position = Vector3f(-2.5f, 3.5f, -12.4f)
         geneScaleMesh.addChild(minTick)
 
         maxTick.text = "10"
         maxTick.transparent = 1
-        maxTick.fontColor = Vector3f(0.03f, 0.03f, 0.03f).xyzw()
+        maxTick.fontColor = Vector3f(1f, 1f, 1f).xyzw()
         maxTick.position = Vector3f(2.1f, 3.5f, -12.4f)
         geneScaleMesh.addChild(maxTick)
 
@@ -283,127 +284,101 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         hmd.addKeyBinding("decrease_size", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Left) //H
 
-        hmd.addBehaviour("toggle_genes_forwards", ClickBehaviour { _, _ ->
-            GlobalScope.launch(Dispatchers.Default) {
-                if (!annotationMode) {
-                    genePicker += 1
-                    genePicker %= geneNames.size
-
-                    geneBoard.text = "Gene: " + geneNames[genePicker]
-
-                    plot.updateInstancingColor()
-                    for (master in 1..plot.masterMap.size) {
-                        (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                    }
-                }
-            }
-        })
-        hmd.addKeyBinding("toggle_genes_forwards", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
-
-        inputHandler?.addBehaviour("toggle_genes_forward", ClickBehaviour { _, _ ->
-            GlobalScope.launch(Dispatchers.Default) {
-                if (!annotationMode) {
-                    genePicker += 1
-                    genePicker %= geneNames.size
-                    geneBoard.text = "Gene: " + geneNames[genePicker]
-                    plot.updateInstancingColor()
-                }
-            }
-        })
-        inputHandler?.addKeyBinding("toggle_genes_forward", "M")
-
-        inputHandler?.addBehaviour("toggle_annotations_forward", ClickBehaviour { _, _ ->
-            if (annotationMode) { // freeze current annotation selection if in gene mode
-                plot.annKeyList[annotationPicker].visible = false
-
-                annotationPicker += 1
-                annotationPicker %= plot.annotationList.size
-
-                plot.annKeyList[annotationPicker].visible = true
-
-                GlobalScope.launch(Dispatchers.Default) {
-                    plot.updateInstancingColor()
-                }
-            }
-        })
-        inputHandler?.addKeyBinding("toggle_annotations_forward", "L")
-
-        hmd.addBehaviour("toggle_annotations_forward", ClickBehaviour { _, _ ->
+        inputHandler?.addBehaviour("toggle_forward", ClickBehaviour { _, _ ->
             GlobalScope.launch(Dispatchers.Default) {
                 if (annotationMode) { // freeze current annotation selection if in gene mode
-                    plot.annKeyList[annotationPicker].visible = false
-
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList[annotationPicker].visible = false
                     annotationPicker += 1
                     annotationPicker %= plot.annotationList.size
-
-                    plot.annKeyList[annotationPicker].visible = true
-
-                    plot.updateInstancingColor()
-                    for (master in 1..plot.masterMap.size) {
-                        (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                    }
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList[annotationPicker].visible = true
+                } else if (!annotationMode && geneNames.size > 1) {
+                    genePicker += 1
+                    genePicker %= geneNames.size
+                    geneBoard.text = "Gene: " + geneNames[genePicker]
                 }
+                plot.updateInstancingColor()
+                for (master in 1..plot.masterMap.size)
+                    (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
         })
-        hmd.addKeyBinding("toggle_annotations_forward", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
+        inputHandler?.addKeyBinding("toggle_forward", "L")
 
-        hmd.addBehaviour("toggle_genes_backward", ClickBehaviour { _, _ ->
+        hmd.addBehaviour("toggle_forward", ClickBehaviour { _, _ ->
             GlobalScope.launch(Dispatchers.Default) {
-                if (!annotationMode) {
+                if (annotationMode) { // freeze current annotation selection if in gene mode
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList[annotationPicker].visible = false
+                    annotationPicker += 1
+                    annotationPicker %= plot.annotationList.size
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList[annotationPicker].visible = true
+                } else if (!annotationMode && geneNames.size > 1) {
+                    genePicker += 1
+                    genePicker %= geneNames.size
+                    geneBoard.text = "Gene: " + geneNames[genePicker]
+                }
+                plot.updateInstancingColor()
+                for (master in 1..plot.masterMap.size)
+                    (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+            }
+        })
+        hmd.addKeyBinding("toggle_forward", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
+
+        inputHandler?.addBehaviour("toggle_backward", ClickBehaviour { _, _ ->
+            GlobalScope.launch(Dispatchers.Default) {
+                if (annotationMode) {
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList[annotationPicker].visible = false
+                    if (annotationPicker > 0) {
+                        annotationPicker -= 1
+                    } else {
+                        annotationPicker = plot.annotationList.size - 1
+                    }
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList[annotationPicker].visible = true
+                } else if (!annotationMode && geneNames.size > 1) {
                     if (genePicker > 0) {
                         genePicker -= 1
                     } else {
                         genePicker = geneNames.size - 1
                     }
                     geneBoard.text = "Gene: " + geneNames[genePicker]
-
-                    plot.updateInstancingColor()
-                    for (master in 1..plot.masterMap.size) {
-                        (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                    }
                 }
+                plot.updateInstancingColor()
+                for (master in 1..plot.masterMap.size)
+                    (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
         })
-        hmd.addKeyBinding("toggle_genes_backward", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //N
+        inputHandler?.addKeyBinding("toggle_backward", "O")
 
-        inputHandler?.addBehaviour("toggle_annotations_backward", ClickBehaviour { _, _ ->
+        hmd.addBehaviour("toggle_backward", ClickBehaviour { _, _ ->
             GlobalScope.launch(Dispatchers.Default) {
                 if (annotationMode) {
-                    plot.annKeyList[annotationPicker].visible = false
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList[annotationPicker].visible = false
                     if (annotationPicker > 0) {
                         annotationPicker -= 1
                     } else {
                         annotationPicker = plot.annotationList.size - 1
                     }
-                    plot.annKeyList[annotationPicker].visible = true
-
-                    GlobalScope.launch(Dispatchers.Default) {
-                        plot.updateInstancingColor()
-                    }
-                }
-            }
-        })
-        inputHandler?.addKeyBinding("toggle_annotations_backward", "O")
-
-        hmd.addBehaviour("toggle_annotations_backward", ClickBehaviour { _, _ ->
-            GlobalScope.launch(Dispatchers.Default) {
-                if (annotationMode) {
-                    plot.annKeyList[annotationPicker].visible = false
-                    if (annotationPicker > 0) {
-                        annotationPicker -= 1
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList[annotationPicker].visible = true
+                } else if (!annotationMode && geneNames.size > 1) {
+                    if (genePicker > 0) {
+                        genePicker -= 1
                     } else {
-                        annotationPicker = plot.annotationList.size - 1
+                        genePicker = geneNames.size - 1
                     }
-                    plot.annKeyList[annotationPicker].visible = true
-
-                    plot.updateInstancingColor()
-                    for (master in 1..plot.masterMap.size) {
-                        (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                    }
+                    geneBoard.text = "Gene: " + geneNames[genePicker]
                 }
+                plot.updateInstancingColor()
+                for (master in 1..plot.masterMap.size)
+                    (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
         })
-        hmd.addKeyBinding("toggle_annotations_backward", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //N
+        hmd.addKeyBinding("toggle_backward", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //N
 
         //try openAL for audio - spatial audio - sound sources that move around - connect to a node? See link to tutorial:
         //http://wiki.lwjgl.org/wiki/OpenAL_Tutorial_1_-_Single_Static_Source.html
@@ -427,18 +402,19 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             GlobalScope.launch(Dispatchers.Default) {
                 if (annotationMode) { // true -> annotation encoded as color
                     annotationMode = !annotationMode
-                    plot.annKeyList.forEach { it.visible = false }
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList.forEach { it.visible = false }
                 } else { // false -> gene expression encoded as color
                     annotationMode = !annotationMode
-                    plot.annKeyList[annotationPicker].visible = true
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList[annotationPicker].visible = true
                 }
                 geneBoard.text = "Gene: " + geneNames[genePicker]
                 geneScaleMesh.visible = !geneScaleMesh.visible
 
                 plot.updateInstancingColor()
-                for (master in 1..plot.masterMap.size) {
+                for (master in 1..plot.masterMap.size)
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                }
             }
         })
         hmd.addKeyBinding("toggleMode", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Side) //X
@@ -447,21 +423,21 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             GlobalScope.launch(Dispatchers.Default) {
                 if (annotationMode) { // true -> annotation encoded as color
                     annotationMode = !annotationMode
-                    plot.annKeyList.forEach { it.visible = false }
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList.forEach { it.visible = false }
                 } else { // false -> gene expression encoded as color
                     annotationMode = !annotationMode
-                    plot.annKeyList[annotationPicker].visible = true
+                    if (plot.annKeyList.size > 0)
+                        plot.annKeyList[annotationPicker].visible = true
                 }
                 geneBoard.text = "Gene: " + geneNames[genePicker]
                 geneScaleMesh.visible = !geneScaleMesh.visible
 
                 plot.updateInstancingColor()
-                for (master in 1..plot.masterMap.size) {
+                for (master in 1..plot.masterMap.size)
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                }
             }
         })
-
         inputHandler?.addKeyBinding("toggleMode", "X")
 
         hmd.addBehaviour("deletePoints", ClickBehaviour { _, _ ->
@@ -551,6 +527,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         fun main(args: Array<String>) {
             System.setProperty("scenery.Renderer.Device", "3070")
             System.setProperty("scenery.Renderer", "VulkanRenderer")
+//            System.setProperty("scenery.Renderer.ForceUndecoratedWindow", "true")
+            System.setProperty("scenery.Renderer.SupersamplingFactor", "1.3f")
             XVisualization().main()
             if (args.isNotEmpty()) {
                 println(args[0])

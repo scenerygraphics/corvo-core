@@ -71,6 +71,7 @@ class XPlot(filePath: String) : Node() {
 
     private var annotationArray = ArrayList<FloatArray>() //used to color spheres, normalized
     private val rawAnnotations = ArrayList<ArrayList<*>>()
+    private val metaOnlyRawAnnotations = ArrayList<ArrayList<*>>()
     private val typeList =
         ArrayList<String>() //grow list of annotation datatypes (used currently for metadata check for labels)
 
@@ -107,8 +108,10 @@ class XPlot(filePath: String) : Node() {
                 }
                 norm
             })
-            annKeyList.add(createSphereKey(ann))
+//            annKeyList.add(createSphereKey(ann))
         }
+        for (ann in metaOnlyAnnList)
+            metaOnlyRawAnnotations.add(annFetcher.h5adAnnotationReader("/obs/$ann", false))
     }
 
     //generate master spheres for every 10k cells for performance
@@ -126,7 +129,7 @@ class XPlot(filePath: String) : Node() {
 
         loadDataset()
         updateInstancingColor()
-        annKeyList[0].visible = true
+//        annKeyList[0].visible = true
     }
 
     private fun loadDataset() {
@@ -134,7 +137,7 @@ class XPlot(filePath: String) : Node() {
         // hashmap to emulate at run time variable declaration
         // allows for dynamically growing number of master spheres with size of dataset
         for (i in 1..masterCount) {
-            val masterTemp = Icosphere(0.03f * positionScaling, 1) // sphere properties
+            val masterTemp = Icosphere(0.02f * positionScaling, 1) // sphere properties
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
         logger.info("hashmap looks like: $masterMap")
@@ -154,13 +157,16 @@ class XPlot(filePath: String) : Node() {
 
             val s = Mesh()
 
-            for ((annCount, annotation) in annotationList.withIndex()) { //add all annotations as metadata (for label center of mass)
+            for ((annCount, annotation) in annotationList.withIndex())  //add all annotations as metadata (for label center of mass)
                 s.metadata[annotation] = rawAnnotations[annCount][counter]
-            }
 
+            for ((annCount, annotation) in metaOnlyAnnList.withIndex())
+                s.metadata[annotation] = metaOnlyRawAnnotations[annCount][counter]
+
+            s.name = "$counter" // used to identify row of the cell
             s.parent = masterMap[parentIterator]
             s.position =
-                (Vector3f((coord[0] - center[0]), (coord[1] - center[1]), (coord[2] - center[2]))) * positionScaling
+                (Vector3f((coord[0] - center[0]), (coord[1] - center[1] + 10f), (coord[2] - center[2]))) * positionScaling
             s.instancedProperties["ModelMatrix"] = { s.world }
             masterMap[parentIterator]?.instances?.add(s)
             resettingCounter++
@@ -168,8 +174,8 @@ class XPlot(filePath: String) : Node() {
         addChild(dotMesh)
 
         // create labels for each annotation
-        for ((typeCount, annotation) in annotationList.withIndex())
-            labelList.add(generateLabels(annotation, typeList[typeCount]))
+//        for ((typeCount, annotation) in annotationList.withIndex())
+//            labelList.add(generateLabels(annotation, typeList[typeCount]))
         addChild(textBoardMesh)
     }
 

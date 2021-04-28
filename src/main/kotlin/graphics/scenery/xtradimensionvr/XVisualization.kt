@@ -18,6 +18,7 @@ import org.joml.Vector4f
 import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.collections.ArrayList
+import kotlin.math.sqrt
 
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
@@ -60,7 +61,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
 //        val filename = resource[0]
-        plot = XPlot("/home/luke/PycharmProjects/VRCaller/file_conversion/bbknn_processed.h5ad")
+        plot = XPlot("/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad")
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
@@ -71,8 +72,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         // add parameter hmd to DetachedHeadCamera for VR
         cam = DetachedHeadCamera(hmd)
         with(cam) {
-            position = Vector3f(0f, 0f, 0f)
-            perspectiveCamera(60.0f, windowWidth, windowHeight)
+//            position = Vector3f(0f, 0f, 0f)
+            position = Vector3f(0.0f, 1.65f, 5.0f)
+            perspectiveCamera(50.0f, windowWidth, windowHeight, 0.1f, 1000.0f)
+//            perspectiveCamera(60.0f, windowWidth, windowHeight)
             this.addChild(Sphere(2f, 1)) // cam bounding box
             scene.addChild(this)
         }
@@ -98,32 +101,32 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
-//        thread {
-//            cam.update.add {
-//                plot.labelList.forEach { it.visible = false }
-//                if (annotationMode) {
-//                    plot.labelList[annotationPicker].children.filter { board ->
-//                        cam.children.first().intersects(board.children.first())
-//                    }
-//                        .forEach { board ->
-//                            board.visible = true
-//                        }
-//                }
-//            }
-//        }
+        thread {
+            cam.update.add {
+                plot.labelList.forEach { it.visible = false }
+                if (annotationMode) {
+                    plot.labelList[annotationPicker].children.filter { board ->
+                        cam.children.first().intersects(board.children.first())
+                    }
+                        .forEach { board ->
+                            board.visible = true
+                        }
+                }
+            }
+        }
 
         scene.addChild(plot)
     }
 
     private fun loadEnvironment() {
-        var floor: Node? = null
+//        var floor: Node? = null
         //import net.imagej.axis.DefaultLinearAxis
 
         val tetrahedron = arrayOfNulls<Vector3f>(4)
-        tetrahedron[0] = Vector3f(1.0f, 0f, -1.0f / Math.sqrt(2.0).toFloat())
-        tetrahedron[1] = Vector3f(-1.0f, 0f, -1.0f / Math.sqrt(2.0).toFloat())
-        tetrahedron[2] = Vector3f(0.0f, 1.0f, 1.0f / Math.sqrt(2.0).toFloat())
-        tetrahedron[3] = Vector3f(0.0f, -1.0f, 1.0f / Math.sqrt(2.0).toFloat())
+        tetrahedron[0] = Vector3f(1.0f, 0f, -1.0f / sqrt(2.0).toFloat())
+        tetrahedron[1] = Vector3f(-1.0f, 0f, -1.0f / sqrt(2.0).toFloat())
+        tetrahedron[2] = Vector3f(0.0f, 1.0f, 1.0f / sqrt(2.0).toFloat())
+        tetrahedron[3] = Vector3f(0.0f, -1.0f, 1.0f / sqrt(2.0).toFloat())
 
         val lights = ArrayList<PointLight>()
         for (i in 0..3) {
@@ -152,10 +155,11 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         cam.farPlaneDistance = 1000.0f
         cam.addChild(headlight)
 
-        floor = InfinitePlane()
+        val floor = InfinitePlane()
+        floor.baseLineWidth = 1.5f
         floor.type = InfinitePlane.Type.Grid
-        (floor as Node).name = "Floor"
-        scene.addChild(floor as Node)
+        (floor).name = "Floor"
+        scene.addChild(floor)
 
         //text board displaying name of gene currently encoded as colormap. Disappears if color encodes cell type
         geneBoard.transparent = 1

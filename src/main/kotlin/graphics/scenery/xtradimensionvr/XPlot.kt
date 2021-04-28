@@ -108,10 +108,10 @@ class XPlot(filePath: String) : Node() {
                 }
                 norm
             })
-//            annKeyList.add(createSphereKey(ann))
+            annKeyList.add(createSphereKey(ann))
         }
-        for (ann in metaOnlyAnnList)
-            metaOnlyRawAnnotations.add(annFetcher.h5adAnnotationReader("/obs/$ann", false))
+//        for (ann in metaOnlyAnnList)
+//            metaOnlyRawAnnotations.add(annFetcher.h5adAnnotationReader("/obs/$ann", false))
     }
 
     //generate master spheres for every 10k cells for performance
@@ -129,7 +129,7 @@ class XPlot(filePath: String) : Node() {
 
         loadDataset()
         updateInstancingColor()
-//        annKeyList[0].visible = true
+        annKeyList[0].visible = true
     }
 
     private fun loadDataset() {
@@ -160,8 +160,8 @@ class XPlot(filePath: String) : Node() {
             for ((annCount, annotation) in annotationList.withIndex())  //add all annotations as metadata (for label center of mass)
                 s.metadata[annotation] = rawAnnotations[annCount][counter]
 
-            for ((annCount, annotation) in metaOnlyAnnList.withIndex())
-                s.metadata[annotation] = metaOnlyRawAnnotations[annCount][counter]
+//            for ((annCount, annotation) in metaOnlyAnnList.withIndex())
+//                s.metadata[annotation] = metaOnlyRawAnnotations[annCount][counter]
 
             s.name = "$counter" // used to identify row of the cell
             s.parent = masterMap[parentIterator]
@@ -173,9 +173,9 @@ class XPlot(filePath: String) : Node() {
         }
         addChild(dotMesh)
 
-        // create labels for each annotation
-//        for ((typeCount, annotation) in annotationList.withIndex())
-//            labelList.add(generateLabels(annotation, typeList[typeCount]))
+//         create labels for each annotation
+        for ((typeCount, annotation) in annotationList.withIndex())
+            labelList.add(generateLabels(annotation, typeList[typeCount]))
         addChild(textBoardMesh)
     }
 
@@ -403,9 +403,6 @@ class XPlot(filePath: String) : Node() {
 
         return master
     }
-
-
-
 
     fun resetVisibility() {
         for (i in 0..masterMap.size) {

@@ -2,19 +2,15 @@ package graphics.scenery.xtradimensionvr
 
 import graphics.scenery.*
 import graphics.scenery.backends.Shaders
-import graphics.scenery.numerics.Random
-import graphics.scenery.textures.Texture
-import graphics.scenery.utils.Image
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.volumes.Colormap
 import org.joml.Vector3f
 import kotlin.collections.ArrayList
 import kotlin.collections.set
-import kotlin.concurrent.thread
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.math.ceil
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
-import net.ericaro.neoitertools.Lambda
+import org.joml.Vector4f
 
 /**.
  * cellxgene interactivity - start fixing selection and marking tools
@@ -119,16 +115,14 @@ class XPlot(filePath: String) : Node() {
     private val masterCount = ceil(spatialCoords.size.toFloat() / masterSplit).toInt()
     val masterMap = hashMapOf<Int, Icosphere>()
 
-    private val indexedGeneExpression = ArrayList<Float>()
-    private val indexedAnnotations = ArrayList<Float>()
-
     init {
         val buffer = annFetcher.fetchGeneExpression()
         geneNames = buffer.first
         geneExpr = buffer.second
 
         loadDataset()
-        updateInstancingColor()
+        updateInstancingArrays()
+        updateInstancingLambdas()
         annKeyList[0].visible = true
     }
 
@@ -155,7 +149,7 @@ class XPlot(filePath: String) : Node() {
                 resettingCounter = 0
             }
 
-            val s = Mesh()
+            val s = Icosphere(0.02f * positionScaling, 1) // add as icosphere so intersection works
 
             for ((annCount, annotation) in annotationList.withIndex())  //add all annotations as metadata (for label center of mass)
                 s.metadata[annotation] = rawAnnotations[annCount][counter]
@@ -166,20 +160,29 @@ class XPlot(filePath: String) : Node() {
             s.name = "$counter" // used to identify row of the cell
             s.parent = masterMap[parentIterator]
             s.position =
-                (Vector3f((coord[0] - center[0]), (coord[1] - center[1] + 10f), (coord[2] - center[2]))) * positionScaling
+                (Vector3f(
+                    (coord[0] - center[0]),
+                    (coord[1] - center[1] + 10f),
+                    (coord[2] - center[2])
+                )) * positionScaling
             s.instancedProperties["ModelMatrix"] = { s.world }
             masterMap[parentIterator]?.instances?.add(s)
             resettingCounter++
         }
         addChild(dotMesh)
 
-//         create labels for each annotation
-        for ((typeCount, annotation) in annotationList.withIndex())
+//      create labels for each annotation
+        for ((typeCount, annotation) in annotationList.withIndex()) {
             labelList.add(generateLabels(annotation, typeList[typeCount]))
+        }
         addChild(textBoardMesh)
     }
 
-    fun updateInstancingColor() {
+    /**
+     * updateInstancingArrays creates new data arrays for each instance
+     * only needs to be called at launch or when new data such as gene expression needs to be loaded
+     */
+    fun updateInstancingArrays() {
         var resettingCounter = 0
         var parentIterator = 1
         for (i in spatialCoords.indices) {
@@ -187,12 +190,8 @@ class XPlot(filePath: String) : Node() {
                 parentIterator++
                 resettingCounter = 0
             }
-
-            val s = masterMap[parentIterator]!!.instances[resettingCounter]
-            s.dirty = true  //update on gpu
-
-            indexedGeneExpression.clear()
-            indexedAnnotations.clear()
+            val indexedGeneExpression = ArrayList<Float>()
+            val indexedAnnotations = ArrayList<Float>()
 
             // index element counter of every array of gene expressions and add to new ArrayList
             for (gene in geneExpr)
@@ -201,19 +200,50 @@ class XPlot(filePath: String) : Node() {
             for (annotation in annotationArray)
                 indexedAnnotations += annotation[i]
 
-            var color = if (annotationMode) {
-                rgbColorSpectrum.sample(indexedAnnotations[annotationPicker])
-            } else {
-                colormap.sample(indexedGeneExpression[genePicker] / 10f)
+            val s = masterMap[parentIterator]!!.instances[resettingCounter]
+
+            val vectorIndexedGeneExpression = indexedGeneExpression.map {rgbColorSpectrum.sample(it)}
+            val vectorIndexedAnnotations = indexedAnnotations.map {colormap.sample(it)}
+
+            s.metadata["colors"] = arrayOf(  // fix current state as metadata to avoid race conditions
+                indexedGeneExpression,
+                indexedAnnotations
+//                vectorIndexedGeneExpression,
+//                vectorIndexedAnnotations
+            )
+
+            resettingCounter++
+        }
+        for (master in 1..masterCount) {
+            (masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+        }
+    }
+
+    /**
+     * updates the color instancing property of each point with the current index of the data arrays
+     */
+    fun updateInstancingLambdas(){
+        var resettingCounter = 0
+        var parentIterator = 1
+        for (i in spatialCoords.indices) {
+            if (resettingCounter >= masterSplit) {
+                parentIterator++
+                resettingCounter = 0
             }
-            // metadata "selected" stores whether point has been marked by laser. Colors marked cells red.
-            if (s.metadata["selected"] == true)
-                color = s.material.diffuse.xyzw()
+            val s = masterMap[parentIterator]!!.instances[resettingCounter]
 
-            val colorCopy = color
+            s.instancedProperties["Color"] = {
+                when {
+                    s.metadata["selected"] == true -> s.material.diffuse.xyzw()
 
-            s.instancedProperties["Color"] = { colorCopy }
+                    annotationMode -> rgbColorSpectrum.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[1][annotationPicker])
 
+                    !annotationMode -> colormap.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[0][genePicker])
+
+                    else -> Vector4f(1f, 0f, 0f, 1f)
+
+                }
+            }
             resettingCounter++
         }
         for (master in 1..masterCount) {
@@ -317,7 +347,7 @@ class XPlot(filePath: String) : Node() {
         title.transparent = 1
         title.text = annotation
         title.scale = Vector3f(scale * 2)
-        title.fontColor = Vector3f(180/255f, 23/255f, 52/255f).xyzw()
+        title.fontColor = Vector3f(180 / 255f, 23 / 255f, 52 / 255f).xyzw()
         title.position = Vector3f(rootPosX + scale, rootPosY, -11f)
         m.addChild(title)
 

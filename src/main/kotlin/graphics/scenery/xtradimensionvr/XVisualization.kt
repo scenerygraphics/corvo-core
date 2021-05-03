@@ -9,13 +9,10 @@ import graphics.scenery.textures.Texture
 import graphics.scenery.utils.Image
 import graphics.scenery.utils.extensions.times
 import graphics.scenery.utils.extensions.xyzw
-import graphics.scenery.volumes.Colormap
 import org.scijava.ui.behaviour.ClickBehaviour
 import kotlin.concurrent.thread
 import org.joml.Vector3f
 import kotlinx.coroutines.*
-import org.joml.Vector4f
-import java.util.*
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.collections.ArrayList
 import kotlin.math.sqrt
@@ -23,7 +20,9 @@ import kotlin.math.sqrt
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
  * VM options in Run Configurations
- *
+ * intersection and generating an integer list of selected cells
+ * generate integer list of cells expressing chosen gene
+ * implement hypergeometric test
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
 val geneScaleMesh = Mesh()
@@ -38,8 +37,8 @@ var annotationPicker = 0
 
 var annotationMode = true
 
-val laser = Cylinder(0.01f, 2.0f, 10)
-val laser2 = Cylinder(0.01f, 2.0f, 10)
+val rightLaser = Cylinder(0.01f, 2.0f, 10)
+val leftLaser = Cylinder(0.01f, 2.0f, 10)
 
 private lateinit var cam: Camera
 
@@ -72,10 +71,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         // add parameter hmd to DetachedHeadCamera for VR
         cam = DetachedHeadCamera(hmd)
         with(cam) {
-//            position = Vector3f(0f, 0f, 0f)
-            position = Vector3f(0.0f, 1.65f, 5.0f)
-            perspectiveCamera(50.0f, windowWidth, windowHeight, 0.1f, 1000.0f)
-//            perspectiveCamera(60.0f, windowWidth, windowHeight)
+            position = Vector3f(0f, 0f, 0f)
+//            position = Vector3f(0.0f, 1.65f, 5.0f)
+            perspectiveCamera(70.0f, windowWidth, windowHeight, 0.1f, 1000.0f)
             this.addChild(Sphere(2f, 1)) // cam bounding box
             scene.addChild(this)
         }
@@ -92,10 +90,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     device.model?.let {
                         hmd.attachToNode(device, it, cam)
                         if (device.role == TrackerRole.RightHand) {
-                            it.addChild(laser)
+                            it.addChild(rightLaser)
                         }
                         if (device.role == TrackerRole.LeftHand) {
-                            it.addChild(laser2)
+                            it.addChild(leftLaser)
                         }
                     }
                 }
@@ -114,7 +112,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
-
         scene.addChild(plot)
     }
 
@@ -139,7 +136,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
         // Make a headlight for the camera
-        val headlight = PointLight(150.0f)
+        val headlight = PointLight(2.0f)
         headlight.position = Vector3f(0f, 0f, -1f).mul(25.0f)
         headlight.emissionColor = Vector3f(1.0f, 1.0f, 1.0f)
         headlight.intensity = 0.5f
@@ -177,8 +174,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 //        scene.addChild(z)
 
         // give lasers texture and set them to be visible (could use to have different lasers/colors/styles and switch between them)
-        initializeLaser(laser)
-        initializeLaser(laser2)
+        initializeLaser(rightLaser)
+        initializeLaser(leftLaser)
 
         val colorMapScale = Box(Vector3f(5.0f, 1.0f, 0f))
         val maxTick = TextBoard()
@@ -302,7 +299,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     genePicker %= geneNames.size
                     geneBoard.text = "Gene: " + geneNames[genePicker]
                 }
-                plot.updateInstancingColor()
+                plot.updateInstancingLambdas()
                 for (master in 1..plot.masterMap.size)
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
@@ -323,7 +320,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     genePicker %= geneNames.size
                     geneBoard.text = "Gene: " + geneNames[genePicker]
                 }
-                plot.updateInstancingColor()
+                plot.updateInstancingArrays()
                 for (master in 1..plot.masterMap.size)
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
@@ -350,7 +347,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     }
                     geneBoard.text = "Gene: " + geneNames[genePicker]
                 }
-                plot.updateInstancingColor()
+                plot.updateInstancingLambdas()
                 for (master in 1..plot.masterMap.size)
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
@@ -377,7 +374,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     }
                     geneBoard.text = "Gene: " + geneNames[genePicker]
                 }
-                plot.updateInstancingColor()
+                plot.updateInstancingArrays()
                 for (master in 1..plot.masterMap.size)
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
@@ -395,8 +392,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             override fun click(p0: Int, p1: Int) {
                 logger.info("Toggling laser")
                 if (System.nanoTime() - last < timeout) return
-                laser.visible = !laser.visible
-                laser2.visible = !laser2.visible
+                rightLaser.visible = !rightLaser.visible
+                leftLaser.visible = !leftLaser.visible
                 last = System.nanoTime()
             }
         })
@@ -416,7 +413,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 geneBoard.text = "Gene: " + geneNames[genePicker]
                 geneScaleMesh.visible = !geneScaleMesh.visible
 
-                plot.updateInstancingColor()
+                plot.updateInstancingLambdas()
                 for (master in 1..plot.masterMap.size)
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
@@ -437,73 +434,61 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 geneBoard.text = "Gene: " + geneNames[genePicker]
                 geneScaleMesh.visible = !geneScaleMesh.visible
 
-                plot.updateInstancingColor()
+                plot.updateInstancingArrays()
                 for (master in 1..plot.masterMap.size)
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
         })
         inputHandler?.addKeyBinding("toggleMode", "X")
 
-        hmd.addBehaviour("deletePoints", ClickBehaviour { _, _ ->
+        hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
             for (i in 1..plot.masterMap.size) {
                 plot.masterMap[i]?.instances?.forEach {
-                    if (laser2.intersects(it)) {
-                        //if(plot.laser2.intersects(it, parent = plot.v)){
-                        it.visible = false
+                    if (rightLaser.intersects(it)) {
+                        it.metadata["selected"] = true
+                        it.material.diffuse = Vector3f(1f, 0f, 0f)
+                        for (master in 1..plot.masterMap.size)
+                            (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
                     }
                 }
             }
-
-//            plot.v.instances.forEach {
-//                if(plot.laser2.intersects(it)){
-//                    //if(plot.laser2.intersects(it, parent = plot.v)){
-//                    it.visible = false
-//                }
-//            }
-        })
-        hmd.addKeyBinding("deletePoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger) // T
-
-        hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
-            println("executed")
-            dotMesh.children.forEach { it ->
-                it.instances.forEach {
-//                    it.needsUpdate = true
-//                    it.needsUpdateWorld = true
-                    if (laser.intersects(it)) {
-//                        it.metadata["selected"] = true
-//                        it.material.diffuse = Vector3f(1.0f, 0.0f, 0.0f)
-                        println("intersecting")
-                    }
-                }
-            }
-//            plot.annKeyList[plot.annotationPicker].children.forEach {
-//                if(plot.laser.intersects(it))
-//                    println("intersects")
-//            }
-//            for (master in 1..plot.masterMap.size) {
-//                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//            }
+            plot.updateInstancingLambdas()
+            for (master in 1..plot.masterMap.size)
+                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
         })
         hmd.addKeyBinding("markPoints", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
 
+        hmd.addBehaviour("unmarkPoints", ClickBehaviour { _, _ ->
+            for (i in 1..plot.masterMap.size) {
+                plot.masterMap[i]?.instances?.forEach {
+                    if (leftLaser.intersects(it)) {
+                        it.metadata["selected"] = false
+                        for (master in 1..plot.masterMap.size)
+                            (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+                    }
+                }
+            }
+            plot.updateInstancingLambdas()
+            for (master in 1..plot.masterMap.size)
+                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+        })
+        hmd.addKeyBinding("unmarkPoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger)
+
         hmd.addBehaviour("extendLaser", ClickBehaviour { _, _ ->
-            val scale = laser.scale
+            val scale = rightLaser.scale
             scale.y *= 1.10f
-            laser.scale = scale
-            laser2.scale = scale
+            rightLaser.scale = scale
+            leftLaser.scale = scale
         })
         hmd.addKeyBinding("extendLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Up) //K
 
         hmd.addBehaviour("shrinkLaser", ClickBehaviour { _, _ ->
-            val scale = laser.scale
+            val scale = rightLaser.scale
             scale.y /= 1.1f
-            laser.scale = scale
-            laser2.scale = scale
+            rightLaser.scale = scale
+            leftLaser.scale = scale
         })
         hmd.addKeyBinding("shrinkLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
-
-        inputHandler?.addBehaviour("resetVisibility", ClickBehaviour { _, _ -> plot.resetVisibility() })
-        inputHandler?.addKeyBinding("resetVisibility", "R")
 
         inputHandler?.addBehaviour("reloadFile", ClickBehaviour { _, _ ->
             thread {
@@ -518,7 +503,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 geneNames = geneNameBuffer
                 geneExpr = geneExprBuffer
 
-                plot.updateInstancingColor()
+                plot.updateInstancingArrays()
                 geneBoard.text = "Gene: " + geneNames[genePicker]
             }
         })
@@ -531,8 +516,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         fun main(args: Array<String>) {
             System.setProperty("scenery.Renderer.Device", "3070")
             System.setProperty("scenery.Renderer", "VulkanRenderer")
-//            System.setProperty("scenery.Renderer.ForceUndecoratedWindow", "true")
-            System.setProperty("scenery.Renderer.SupersamplingFactor", "1.3f")
+            System.setProperty("scenery.Renderer.ForceUndecoratedWindow", "true")
+//            System.setProperty("scenery.Renderer.SupersamplingFactor", "1.3f")
             XVisualization().main()
             if (args.isNotEmpty()) {
                 println(args[0])

@@ -4,7 +4,6 @@ import ch.systemsx.cisd.base.mdarray.MDFloatArray
 import ch.systemsx.cisd.base.mdarray.MDIntArray
 import ch.systemsx.cisd.hdf5.HDF5Factory
 import ch.systemsx.cisd.hdf5.IHDF5Reader
-import graphics.scenery.Mesh
 import graphics.scenery.numerics.Random
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import java.util.*
@@ -23,32 +22,24 @@ class AnnotationsIngest(h5adPath: String) {
     private val cscIndices: MDIntArray = reader.int32().readMDArray("/layers/X_csc/indices")
     private val cscIndptr: MDIntArray = reader.int32().readMDArray("/layers/X_csc/indptr")
 
-    private val numGenes = reader.string().readArrayRaw("/var/index").size
-    private val numCells = reader.string().readArrayRaw("/obs/index").size
+    val numGenes = reader.string().readArrayRaw("/var/index").size
+    val numCells = reader.string().readArrayRaw("/obs/index").size
 
-    init{
-        println(reader.getGroupMembers("/obs"))
-    }
-
-    fun fetchGeneExpression(): Pair<ArrayList<String>, ArrayList<FloatArray>> {
-        val randGenesIndices = ArrayList<Int>()
-        val randGenesNames = arrayListOf<String>()
-
-        for (i in 0..12) {
-            randGenesNames.add(geneNames[Random.randomFromRange(0f, numGenes.toFloat()).toInt()] as String)
+    fun fetchGeneExpression(genes: ArrayList<Int> = arrayListOf()): Pair<ArrayList<String>, ArrayList<FloatArray>> {
+        if (genes.isEmpty()) {
+            for (i in 0..5) {
+                genes.add(Random.randomFromRange(0f, numGenes.toFloat()).toInt())
+            }
         }
-        for (i in randGenesNames)
-            randGenesIndices.add(geneNames.indexOf(i))
+        val expressions = genes.map { cscReader(it) } as ArrayList<FloatArray>
 
-        val geneExpression = ArrayList<FloatArray>()
-        for (i in randGenesIndices) {
-            geneExpression.add(cscReader(i))
-        }
-        return Pair(randGenesNames, geneExpression)
+        val names = genes.map { geneNames[it] } as ArrayList<String>
+
+        return Pair(names, expressions)
     }
 
     fun umapReader3D(): ArrayList<ArrayList<Float>> {
-        val UMAP = arrayListOf<ArrayList<Float>>()
+        val umap = arrayListOf<ArrayList<Float>>()
 
         var tripletCounter = 0
         val cellUMAP = ArrayList<Float>()
@@ -58,7 +49,7 @@ class AnnotationsIngest(h5adPath: String) {
                 cellUMAP.add(coordinate)
                 tripletCounter += 1
             } else {
-                UMAP.add(
+                umap.add(
                     arrayListOf(
                         cellUMAP[0],
                         cellUMAP[1],
@@ -70,9 +61,9 @@ class AnnotationsIngest(h5adPath: String) {
                 cellUMAP.add(coordinate)
             }
         }
-        UMAP.add(arrayListOf(cellUMAP[0], cellUMAP[1], cellUMAP[2])) // add final sub-array
+        umap.add(arrayListOf(cellUMAP[0], cellUMAP[1], cellUMAP[2])) // add final sub-array
 
-        return UMAP
+        return umap
     }
 
     fun h5adAnnotationReader(hdfPath: String, asString: Boolean = true): ArrayList<*> {
@@ -93,7 +84,8 @@ class AnnotationsIngest(h5adPath: String) {
             }
             reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(1)") && asString ->
                 try {
-                    for ((counter, category) in reader.string().readArray("/uns/" + annotation + "_categorical").withIndex())
+                    for ((counter, category) in reader.string().readArray("/uns/" + annotation + "_categorical")
+                        .withIndex())
                         categoryMap[counter] = category
 
                     for (i in reader.int8().readArray(hdfPath))
@@ -118,38 +110,22 @@ class AnnotationsIngest(h5adPath: String) {
             reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(8)") -> {// Long
                 for (i in reader.int64().readArray(hdfPath))
                     data.add(i)
-                }
+            }
             reader.getDataSetInformation(hdfPath).toString().contains("FLOAT(4)") -> {// Float
                 for (i in reader.float32().readArray(hdfPath))
                     data.add(i)
-                }
+            }
             reader.getDataSetInformation(hdfPath).toString().contains("FLOAT(8)") -> {// Double
                 for (i in reader.float64().readArray(hdfPath))
                     data.add(i)
-                }
+            }
             reader.getDataSetInformation(hdfPath).toString().contains("BOOLEAN") -> {// Boolean
                 for (i in reader.int8().readArray(hdfPath))
                     data.add(i)
-                }
+            }
         }
         return data
     }
-
-    fun fetchMostExpressedGenes(cells: ArrayList<Mesh>, numGenes: Int) {
-        val cellIndices = cells.map { it.name.toInt() }
-        val geneExpressions: ArrayList<HashMap<String, Float>> = cellIndices.run {
-            this.forEach {
-                for (i in 0..numGenes) {
-
-                }
-            }
-
-
-            ArrayList<HashMap<String, Float>>()
-        }
-    }
-
-
 
     /**
      * return dense row of gene expression values for a chosen row / cell
@@ -160,10 +136,10 @@ class AnnotationsIngest(h5adPath: String) {
 
         // slice pointer array to give the number of non-zeros in the row
         val start = csrIndptr[row]
-        val end = csrIndptr[row+1]
+        val end = csrIndptr[row + 1]
 
         // from start index until (excluding) end index, substitute non-zero values into empty array
-        for(i in start until end){
+        for (i in start until end) {
             exprArray[csrIndices[i]] = csrData[i]
         }
         return exprArray
@@ -172,19 +148,15 @@ class AnnotationsIngest(h5adPath: String) {
     /**
      * return dense column of gene expression values for a chosen column / gene
      */
-    private fun cscReader(col: GeneIndex = 0): FloatArray {
+    fun cscReader(col: GeneIndex = 0): FloatArray {
         val exprArray = FloatArray(numCells)
 
         val start = cscIndptr[col]
-        val end = cscIndptr[col+1]
+        val end = cscIndptr[col + 1]
 
-        for(i in start until end){
+        for (i in start until end) {
             exprArray[cscIndices[i]] = cscData[i]
         }
         return exprArray
     }
-}
-
-fun main(){
-    AnnotationsIngest("/home/luke/PycharmProjects/VRCaller/file_conversion/bbknn_processed.h5ad")
 }

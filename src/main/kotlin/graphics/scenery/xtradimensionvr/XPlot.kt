@@ -4,13 +4,14 @@ import graphics.scenery.*
 import graphics.scenery.backends.Shaders
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.volumes.Colormap
-import org.joml.Vector3f
-import kotlin.collections.ArrayList
-import kotlin.collections.set
-import java.util.concurrent.atomic.AtomicInteger
-import kotlin.math.ceil
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
+import org.apache.commons.math3.distribution.HypergeometricDistribution
+import org.joml.Vector3f
 import org.joml.Vector4f
+import java.util.Map
+import java.util.concurrent.atomic.AtomicInteger
+import kotlin.collections.set
+import kotlin.math.*
 
 /**.
  * cellxgene interactivity - start fixing selection and marking tools
@@ -202,8 +203,8 @@ class XPlot(filePath: String) : Node() {
 
             val s = masterMap[parentIterator]!!.instances[resettingCounter]
 
-            val vectorIndexedGeneExpression = indexedGeneExpression.map {rgbColorSpectrum.sample(it)}
-            val vectorIndexedAnnotations = indexedAnnotations.map {colormap.sample(it)}
+            val vectorIndexedGeneExpression = indexedGeneExpression.map { rgbColorSpectrum.sample(it) }
+            val vectorIndexedAnnotations = indexedAnnotations.map { colormap.sample(it) }
 
             s.metadata["colors"] = arrayOf(  // fix current state as metadata to avoid race conditions
                 indexedGeneExpression,
@@ -222,7 +223,7 @@ class XPlot(filePath: String) : Node() {
     /**
      * updates the color instancing property of each point with the current index of the data arrays
      */
-    fun updateInstancingLambdas(){
+    fun updateInstancingLambdas() {
         var resettingCounter = 0
         var parentIterator = 1
         for (i in spatialCoords.indices) {
@@ -434,12 +435,60 @@ class XPlot(filePath: String) : Node() {
         return master
     }
 
-    fun resetVisibility() {
-        for (i in 0..masterMap.size) {
-            masterMap[i]?.instances?.forEach {
-                it.visible = true
-                it.metadata.remove("selected")
+    fun hypergeometricTest(selectedCells: ArrayList<Int>, backgroundCells: ArrayList<Int>): ArrayList<Int> {
+        /**
+         * could filter out genes with more than 80% zeros
+         * return list of strings of 10 most highly expressed genes in the selection relative to background expression.
+         */
+
+        val pValueMap = HashMap<Int, Float>()
+
+        for (geneIndex in 0 until annFetcher.numGenes) {
+            val expression = ArrayList<Int>()
+
+            for ((cell, expr) in annFetcher.cscReader(geneIndex).withIndex()) {
+                when {
+                    expr > 0 -> expression.add(cell)
+                }
+            }
+            val hypDist = HypergeometricDistribution(null, annFetcher.numCells, expression.size, selectedCells.size)
+
+            val intersection: MutableSet<Int> = HashSet(selectedCells)
+            intersection.retainAll(expression)  //intersection of selected cells and cells expressing the gene
+
+            pValueMap[geneIndex] = (1 - hypDist.cumulativeProbability(intersection.size)).toFloat()
+        }
+        val filteredPValueMap = pValueMap.filterValues { it <= 0.05f }
+
+        val logRatioMap = HashMap<Int, Float>()
+        filteredPValueMap.forEach {
+            val expressionArray = annFetcher.cscReader(it.key)
+
+            val selectedSum = ArrayList<Float>()
+            val backgroundSum = ArrayList<Float>()
+
+            for (cell in selectedCells) {
+                selectedSum.add(expressionArray[cell])
+            }
+            for (cell in backgroundCells) {
+                backgroundSum.add(expressionArray[cell])
+            }
+            if (abs(log2(selectedSum.sum() / backgroundSum.sum())) > 0.7) {
+                logRatioMap[it.key] = abs(log2(selectedSum.sum() / backgroundSum.sum()))
             }
         }
+
+        val nonInfinityList = logRatioMap.filterValues { it != Float.POSITIVE_INFINITY } as HashMap<Int, Float>
+
+        val maxGenesList = ArrayList<Int>()
+        for (i in 0..10) {
+            val maxKey = nonInfinityList.maxByOrNull { it.value }?.key
+            if (maxKey != null) { maxGenesList.add(maxKey) }
+            nonInfinityList.remove(maxKey)
+        }
+
+        return maxGenesList
     }
+
+
 }

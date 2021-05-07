@@ -112,6 +112,23 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
+//        thread {
+//            cam.update.add {
+//                for (i in 1..plot.masterMap.size) {
+//                    plot.masterMap[i]?.instances?.forEach {
+//                        if (cam.children.first().intersects(it)) {
+//                            it.metadata["selected"] = true
+//                            it.material.diffuse = Vector3f(1f, 0f, 0f)
+//                            for (master in 1..plot.masterMap.size)
+//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//                            plot.updateInstancingLambdas()
+//                            for (master in 1..plot.masterMap.size)
+//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//                        }
+//                    }
+//                }
+//            }
+//        }
         scene.addChild(plot)
     }
 
@@ -165,13 +182,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         geneBoard.scale = Vector3f(1f, 1f, 1f)
         geneScaleMesh.addChild(geneBoard)
 
-//         create cylinders orthogonal to each other, representing axes centered around 0,0,0 and add them to the scene
-//        val x = generateAxis("X", 50.00f)
-//        scene.addChild(x)
+//      create y axis cylinder to add center to data exploration
         val y = generateAxis("Y", 50.00f)
         scene.addChild(y)
-//        val z = generateAxis("Z", 50.00f)
-//        scene.addChild(z)
 
         // give lasers texture and set them to be visible (could use to have different lasers/colors/styles and switch between them)
         initializeLaser(rightLaser)
@@ -463,8 +476,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 plot.masterMap[i]?.instances?.forEach {
                     if (leftLaser.intersects(it)) {
                         it.metadata["selected"] = false
-                        for (master in 1..plot.masterMap.size)
-                            (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//                        for (master in 1..plot.masterMap.size)
+//                            (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
                     }
                 }
             }
@@ -490,24 +503,44 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         hmd.addKeyBinding("shrinkLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
 
-        inputHandler?.addBehaviour("reloadFile", ClickBehaviour { _, _ ->
+        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
             thread {
                 Thread.currentThread().priority = Thread.MIN_PRIORITY
-
                 geneBoard.text = "fetching..."
 
-                val (geneNameBuffer, geneExprBuffer) = plot.annFetcher.fetchGeneExpression()
+                val selectedList = arrayListOf<Int>()
+                val backgroundList = arrayListOf<Int>()
+                for (i in 1..plot.masterMap.size) {
+                    plot.masterMap[i]?.instances?.forEach {
+                        if (it.metadata["selected"] == true) {
+                            selectedList.add(it.name.toInt())
+                        } else {
+                            backgroundList.add(it.name.toInt())
+                        }
+                    }
+                }
+                val (geneNameBuffer, geneExprBuffer) = plot.annFetcher.fetchGeneExpression(
+                    plot.hypergeometricTest(
+                        selectedList,
+                        backgroundList
+                    )
+                )
                 genePicker = 0
                 geneNames.clear()
                 geneExpr.clear()
                 geneNames = geneNameBuffer
                 geneExpr = geneExprBuffer
 
+                for (i in 1..plot.masterMap.size) {
+                    plot.masterMap[i]?.instances?.forEach {
+                        it.metadata["selected"] = false
+                    }
+                }
                 plot.updateInstancingArrays()
                 geneBoard.text = "Gene: " + geneNames[genePicker]
             }
         })
-        inputHandler?.addKeyBinding("reloadFile", "shift R")
+        inputHandler?.addKeyBinding("fetchCurrentSelection", "shift G")
 
     }
 

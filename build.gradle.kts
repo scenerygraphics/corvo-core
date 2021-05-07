@@ -46,6 +46,7 @@ dependencies {
     implementation("org.nd4j:nd4j-native-platform:1.0.0-beta7")
     implementation("cisd:jhdf5:19.04.0")
     implementation("org.apache.commons:commons-math3:3.6.1")
+    implementation("net.sf.trove4j:trove4j:3.0.3")
     runtimeOnly("net.java.jinput", "jinput", version="2.0.9", classifier="natives-all")
     runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.1-1.1.106.0", classifier = lwjglNative)
 

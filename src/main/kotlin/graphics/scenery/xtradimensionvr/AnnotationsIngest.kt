@@ -8,6 +8,7 @@ import graphics.scenery.numerics.Random
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.math.exp
 
 
 class AnnotationsIngest(h5adPath: String) {
@@ -24,6 +25,20 @@ class AnnotationsIngest(h5adPath: String) {
 
     val numGenes = reader.string().readArrayRaw("/var/index").size
     val numCells = reader.string().readArrayRaw("/obs/index").size
+
+    val nonZeroExpression = ArrayList<ArrayList<Int>>()
+    init {
+        for (geneIndex in 0 until numGenes) {
+            val expression = ArrayList<Int>()
+
+            for ((cell, expr) in cscReader(geneIndex).withIndex()) {
+                when {
+                    expr > 0 -> expression.add(cell)
+                }
+            }
+            nonZeroExpression.add(expression)
+        }
+    }
 
     fun fetchGeneExpression(genes: ArrayList<Int> = arrayListOf()): Pair<ArrayList<String>, ArrayList<FloatArray>> {
         if (genes.isEmpty()) {

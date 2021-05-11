@@ -1,14 +1,15 @@
 package graphics.scenery.xtradimensionvr
 
+import gnu.trove.set.hash.TIntHashSet
 import graphics.scenery.*
 import graphics.scenery.backends.Shaders
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.volumes.Colormap
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import org.apache.commons.math3.distribution.HypergeometricDistribution
+import org.apache.commons.math3.stat.descriptive.rank.Median
 import org.joml.Vector3f
 import org.joml.Vector4f
-import java.util.Map
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.collections.set
 import kotlin.math.*
@@ -158,7 +159,7 @@ class XPlot(filePath: String) : Node() {
 //            for ((annCount, annotation) in metaOnlyAnnList.withIndex())
 //                s.metadata[annotation] = metaOnlyRawAnnotations[annCount][counter]
 
-            s.name = "$counter" // used to identify row of the cell
+            s.metadata["index"] = counter  // used to identify row of the cell
             s.parent = masterMap[parentIterator]
             s.position =
                 (Vector3f(
@@ -435,56 +436,59 @@ class XPlot(filePath: String) : Node() {
         return master
     }
 
-    fun hypergeometricTest(selectedCells: ArrayList<Int>, backgroundCells: ArrayList<Int>): ArrayList<Int> {
+    fun hypergeometricTest(selectedCells: TIntHashSet, backgroundCells: TIntHashSet): ArrayList<Int> {
         /**
          * could filter out genes with more than 80% zeros
          * return list of strings of 10 most highly expressed genes in the selection relative to background expression.
+         * if no cells are selected, all p values are zero - fold change is always zero as selected is zero -> empty gene list
          */
-
-        val pValueMap = HashMap<Int, Float>()
+        val logRatioMap = HashMap<Int, Double>()
 
         for (geneIndex in 0 until annFetcher.numGenes) {
-            val expression = ArrayList<Int>()
 
-            for ((cell, expr) in annFetcher.cscReader(geneIndex).withIndex()) {
+            val expression = annFetcher.cscReader(geneIndex)
+            val nonzeroExpression = TIntHashSet()
+
+            for ((cell, expr) in expression.withIndex()) {
                 when {
-                    expr > 0 -> expression.add(cell)
+                    expr > 0 -> nonzeroExpression.add(cell)
                 }
             }
-            val hypDist = HypergeometricDistribution(null, annFetcher.numCells, expression.size, selectedCells.size)
 
-            val intersection: MutableSet<Int> = HashSet(selectedCells)
-            intersection.retainAll(expression)  //intersection of selected cells and cells expressing the gene
+            val intersection = TIntHashSet(selectedCells)
+            intersection.retainAll(nonzeroExpression)  //intersection of selected cells and cells expressing the gene
 
-            pValueMap[geneIndex] = (1 - hypDist.cumulativeProbability(intersection.size)).toFloat()
+            if ((1 - HypergeometricDistribution(
+                    null,
+                    annFetcher.numCells,
+                    nonzeroExpression.size(),
+                    selectedCells.size()
+                ).cumulativeProbability(intersection.size())).toFloat() <= 0.05f
+            ) {
+                val selectedExpressions = ArrayList<Double>()
+                val backgroundExpressions = ArrayList<Double>()
+
+                for (cell in selectedCells) {
+                    selectedExpressions.add(expression[cell].toDouble())
+                }
+                for (cell in backgroundCells) {
+                    backgroundExpressions.add(expression[cell].toDouble())
+                }
+                val foldChange =
+                    abs(log2(Median().evaluate(selectedExpressions.toDoubleArray()) / Median().evaluate(backgroundExpressions.toDoubleArray())))
+                if (foldChange > 0.7) {
+                    logRatioMap[geneIndex] = foldChange
+                }
+            }
         }
-        val filteredPValueMap = pValueMap.filterValues { it <= 0.05f }
-
-        val logRatioMap = HashMap<Int, Float>()
-        filteredPValueMap.forEach {
-            val expressionArray = annFetcher.cscReader(it.key)
-
-            val selectedSum = ArrayList<Float>()
-            val backgroundSum = ArrayList<Float>()
-
-            for (cell in selectedCells) {
-                selectedSum.add(expressionArray[cell])
-            }
-            for (cell in backgroundCells) {
-                backgroundSum.add(expressionArray[cell])
-            }
-            if (abs(log2(selectedSum.sum() / backgroundSum.sum())) > 0.7) {
-                logRatioMap[it.key] = abs(log2(selectedSum.sum() / backgroundSum.sum()))
-            }
-        }
-
-        val nonInfinityList = logRatioMap.filterValues { it != Float.POSITIVE_INFINITY } as HashMap<Int, Float>
 
         val maxGenesList = ArrayList<Int>()
         for (i in 0..10) {
-            val maxKey = nonInfinityList.maxByOrNull { it.value }?.key
-            if (maxKey != null) { maxGenesList.add(maxKey) }
-            nonInfinityList.remove(maxKey)
+            val maxKey = logRatioMap.maxByOrNull { it.value }?.key
+            if (maxKey != null) {
+                maxGenesList.add(maxKey)
+            }
+            logRatioMap.remove(maxKey)
         }
 
         return maxGenesList

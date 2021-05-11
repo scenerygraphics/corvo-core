@@ -1,5 +1,6 @@
 package graphics.scenery.xtradimensionvr
 
+import gnu.trove.set.hash.TIntHashSet
 import graphics.scenery.*
 import graphics.scenery.backends.Renderer
 import graphics.scenery.controls.OpenVRHMD
@@ -74,7 +75,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             position = Vector3f(0f, 0f, 0f)
 //            position = Vector3f(0.0f, 1.65f, 5.0f)
             perspectiveCamera(70.0f, windowWidth, windowHeight, 0.1f, 1000.0f)
-            this.addChild(Sphere(2f, 1)) // cam bounding box
+            this.addChild(Sphere(1f, 1)) // cam bounding box
             scene.addChild(this)
         }
 
@@ -112,23 +113,23 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
-//        thread {
-//            cam.update.add {
-//                for (i in 1..plot.masterMap.size) {
-//                    plot.masterMap[i]?.instances?.forEach {
-//                        if (cam.children.first().intersects(it)) {
-//                            it.metadata["selected"] = true
-//                            it.material.diffuse = Vector3f(1f, 0f, 0f)
-//                            for (master in 1..plot.masterMap.size)
-//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//                            plot.updateInstancingLambdas()
-//                            for (master in 1..plot.masterMap.size)
-//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//                        }
-//                    }
-//                }
-//            }
-//        }
+        thread {
+            cam.update.add {
+                for (i in 1..plot.masterMap.size) {
+                    plot.masterMap[i]?.instances?.forEach {
+                        if (cam.children.first().intersects(it)) {
+                            it.metadata["selected"] = true
+                            it.material.diffuse = Vector3f(1f, 0f, 0f)
+                            for (master in 1..plot.masterMap.size)
+                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+                            plot.updateInstancingLambdas()
+                            for (master in 1..plot.masterMap.size)
+                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+                        }
+                    }
+                }
+            }
+        }
         scene.addChild(plot)
     }
 
@@ -476,8 +477,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 plot.masterMap[i]?.instances?.forEach {
                     if (leftLaser.intersects(it)) {
                         it.metadata["selected"] = false
-//                        for (master in 1..plot.masterMap.size)
-//                            (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
                     }
                 }
             }
@@ -508,34 +507,52 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 Thread.currentThread().priority = Thread.MIN_PRIORITY
                 geneBoard.text = "fetching..."
 
-                val selectedList = arrayListOf<Int>()
-                val backgroundList = arrayListOf<Int>()
+                val selectedList = TIntHashSet()
+                val backgroundList = TIntHashSet()
+
                 for (i in 1..plot.masterMap.size) {
                     plot.masterMap[i]?.instances?.forEach {
                         if (it.metadata["selected"] == true) {
-                            selectedList.add(it.name.toInt())
+                            selectedList.add(it.metadata["index"] as Int)
                         } else {
-                            backgroundList.add(it.name.toInt())
+                            backgroundList.add(it.metadata["index"] as Int)
                         }
                     }
                 }
-                val (geneNameBuffer, geneExprBuffer) = plot.annFetcher.fetchGeneExpression(
-                    plot.hypergeometricTest(
-                        selectedList,
-                        backgroundList
-                    )
-                )
-                genePicker = 0
-                geneNames.clear()
-                geneExpr.clear()
-                geneNames = geneNameBuffer
-                geneExpr = geneExprBuffer
+
+                when (selectedList.size()) {
+                    0 -> {
+                        // no cells selected, just fetch random genes
+                        geneBoard.text = "no cells selected, fetching random genes..."
+                        val (geneNameBuffer, geneExprBuffer) = plot.annFetcher.fetchGeneExpression()
+                        genePicker = 0
+                        geneNames.clear()
+                        geneExpr.clear()
+                        geneNames = geneNameBuffer
+                        geneExpr = geneExprBuffer
+                    }
+
+                    else -> {
+                        val (geneNameBuffer, geneExprBuffer) = plot.annFetcher.fetchGeneExpression(
+                            plot.hypergeometricTest(
+                                selectedList,
+                                backgroundList
+                            )
+                        )
+                        genePicker = 0
+                        geneNames.clear()
+                        geneExpr.clear()
+                        geneNames = geneNameBuffer
+                        geneExpr = geneExprBuffer
+                    }
+                }
 
                 for (i in 1..plot.masterMap.size) {
                     plot.masterMap[i]?.instances?.forEach {
                         it.metadata["selected"] = false
                     }
                 }
+
                 plot.updateInstancingArrays()
                 geneBoard.text = "Gene: " + geneNames[genePicker]
             }
@@ -550,7 +567,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             System.setProperty("scenery.Renderer.Device", "3070")
             System.setProperty("scenery.Renderer", "VulkanRenderer")
             System.setProperty("scenery.Renderer.ForceUndecoratedWindow", "true")
-//            System.setProperty("scenery.Renderer.SupersamplingFactor", "1.3f")
             XVisualization().main()
             if (args.isNotEmpty()) {
                 println(args[0])

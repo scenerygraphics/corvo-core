@@ -8,7 +8,7 @@ import graphics.scenery.numerics.Random
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import java.util.*
 import kotlin.collections.ArrayList
-import kotlin.math.exp
+import kotlin.math.ceil
 
 
 class AnnotationsIngest(h5adPath: String) {
@@ -26,31 +26,33 @@ class AnnotationsIngest(h5adPath: String) {
     val numGenes = reader.string().readArrayRaw("/var/index").size
     val numCells = reader.string().readArrayRaw("/obs/index").size
 
-    val nonZeroExpression = ArrayList<ArrayList<Int>>()
-    init {
-        for (geneIndex in 0 until numGenes) {
-            val expression = ArrayList<Int>()
-
-            for ((cell, expr) in cscReader(geneIndex).withIndex()) {
-                when {
-                    expr > 0 -> expression.add(cell)
-                }
-            }
-            nonZeroExpression.add(expression)
-        }
-    }
-
-    fun fetchGeneExpression(genes: ArrayList<Int> = arrayListOf()): Pair<ArrayList<String>, ArrayList<FloatArray>> {
+    fun fetchGeneExpression(genes: ArrayList<Int> = arrayListOf()): Triple<ArrayList<String>, ArrayList<FloatArray>, ArrayList<Int>> {
         if (genes.isEmpty()) {
-            for (i in 0..5) {
+            for (i in 0..10) {
                 genes.add(Random.randomFromRange(0f, numGenes.toFloat()).toInt())
             }
         }
-        val expressions = genes.map { cscReader(it) } as ArrayList<FloatArray>
+        val expressions = (genes.map { cscReader(it) } as ArrayList<FloatArray>)
+
+        // normalize between 0 and 10
+        val maxList = ArrayList<Float>()  // save in list for access by color map labels
+        for (gene in 0 until genes.size) {
+            val max = ceil(expressions[gene].maxOrNull()!!)
+                when {
+                    max == 0f -> maxList.add(10f)
+                    max > 0f -> {
+                        maxList.add(max)
+                        for (expr in 0 until numCells) {
+                            expressions[gene][expr] *= (10 / maxList[gene])
+                        }
+                    }
+                }
+        }
 
         val names = genes.map { geneNames[it] } as ArrayList<String>
+        println(names)
 
-        return Pair(names, expressions)
+        return Triple(names, expressions, maxList.map {it.toInt()} as ArrayList<Int>)
     }
 
     fun umapReader3D(): ArrayList<ArrayList<Float>> {

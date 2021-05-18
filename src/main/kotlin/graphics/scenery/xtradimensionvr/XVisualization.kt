@@ -1,6 +1,5 @@
 package graphics.scenery.xtradimensionvr
 
-import gnu.trove.set.hash.TIntHashSet
 import graphics.scenery.*
 import graphics.scenery.backends.Renderer
 import graphics.scenery.controls.OpenVRHMD
@@ -43,7 +42,7 @@ val leftLaser = Cylinder(0.01f, 2.0f, 10)
 
 private lateinit var cam: Camera
 
-val encoding = "viridis"
+val encoding = "plasma"
 
 class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     SceneryBase("XVisualization", 2560, 1440, wantREPL = false) {
@@ -51,7 +50,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     private lateinit var hmd: OpenVRHMD
     lateinit var plot: XPlot
 
+    // init here so can be accessed by input commands
     val geneBoard = TextBoard()
+    val maxTick = TextBoard()
 
     override fun init() {
         hmd = OpenVRHMD(useCompositor = true)
@@ -75,7 +76,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             position = Vector3f(0f, 0f, 0f)
 //            position = Vector3f(0.0f, 1.65f, 5.0f)
             perspectiveCamera(70.0f, windowWidth, windowHeight, 0.1f, 1000.0f)
-            this.addChild(Sphere(1f, 1)) // cam bounding box
+//            this.addChild(Sphere(1f, 1)) // cam bounding box
             scene.addChild(this)
         }
 
@@ -113,29 +114,27 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
-        thread {
-            cam.update.add {
-                for (i in 1..plot.masterMap.size) {
-                    plot.masterMap[i]?.instances?.forEach {
-                        if (cam.children.first().intersects(it)) {
-                            it.metadata["selected"] = true
-                            it.material.diffuse = Vector3f(1f, 0f, 0f)
-                            for (master in 1..plot.masterMap.size)
-                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                            plot.updateInstancingLambdas()
-                            for (master in 1..plot.masterMap.size)
-                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                        }
-                    }
-                }
-            }
-        }
+//        thread {
+//            cam.update.add {
+//                for (i in 1..plot.masterMap.size) {
+//                    plot.masterMap[i]?.instances?.forEach {
+//                        if (cam.children.first().intersects(it)) {
+//                            it.metadata["selected"] = true
+//                            it.material.diffuse = Vector3f(1f, 0f, 0f)
+//                            for (master in 1..plot.masterMap.size)
+//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//                            plot.updateInstancingLambdas()
+//                            for (master in 1..plot.masterMap.size)
+//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//                        }
+//                    }
+//                }
+//            }
+//        }
         scene.addChild(plot)
     }
 
     private fun loadEnvironment() {
-//        var floor: Node? = null
-        //import net.imagej.axis.DefaultLinearAxis
 
         val tetrahedron = arrayOfNulls<Vector3f>(4)
         tetrahedron[0] = Vector3f(1.0f, 0f, -1.0f / sqrt(2.0).toFloat())
@@ -159,6 +158,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         headlight.emissionColor = Vector3f(1.0f, 1.0f, 1.0f)
         headlight.intensity = 0.5f
         headlight.name = "headlight"
+
         val lightSphere = Icosphere(1.0f, 2)
         headlight.addChild(lightSphere)
         lightSphere.material.diffuse = headlight.emissionColor
@@ -166,8 +166,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         lightSphere.material.ambient = headlight.emissionColor
         lightSphere.material.wireframe = true
         lightSphere.visible = false
-        cam.nearPlaneDistance = 0.01f
-        cam.farPlaneDistance = 1000.0f
         cam.addChild(headlight)
 
         val floor = InfinitePlane()
@@ -192,7 +190,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         initializeLaser(leftLaser)
 
         val colorMapScale = Box(Vector3f(5.0f, 1.0f, 0f))
-        val maxTick = TextBoard()
         val minTick = TextBoard()
 
         colorMapScale.material.textures["diffuse"] =
@@ -208,7 +205,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         minTick.position = Vector3f(-2.5f, 3.5f, -12.4f)
         geneScaleMesh.addChild(minTick)
 
-        maxTick.text = "10"
+        // class object as it needs to be changed when genes toggled
+        maxTick.text = maxExprList[genePicker].toString()
         maxTick.transparent = 1
         maxTick.fontColor = Vector3f(1f, 1f, 1f).xyzw()
         maxTick.position = Vector3f(2.1f, 3.5f, -12.4f)
@@ -312,6 +310,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     genePicker += 1
                     genePicker %= geneNames.size
                     geneBoard.text = "Gene: " + geneNames[genePicker]
+                    maxTick.text = maxExprList[genePicker].toString()
                 }
                 plot.updateInstancingLambdas()
                 for (master in 1..plot.masterMap.size)
@@ -333,6 +332,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     genePicker += 1
                     genePicker %= geneNames.size
                     geneBoard.text = "Gene: " + geneNames[genePicker]
+                    maxTick.text = maxExprList[genePicker].toString()
                 }
                 plot.updateInstancingArrays()
                 for (master in 1..plot.masterMap.size)
@@ -360,6 +360,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         genePicker = geneNames.size - 1
                     }
                     geneBoard.text = "Gene: " + geneNames[genePicker]
+                    maxTick.text = maxExprList[genePicker].toString()
                 }
                 plot.updateInstancingLambdas()
                 for (master in 1..plot.masterMap.size)
@@ -387,6 +388,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         genePicker = geneNames.size - 1
                     }
                     geneBoard.text = "Gene: " + geneNames[genePicker]
+                    maxTick.text = maxExprList[genePicker].toString()
                 }
                 plot.updateInstancingArrays()
                 for (master in 1..plot.masterMap.size)
@@ -425,6 +427,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         plot.annKeyList[annotationPicker].visible = true
                 }
                 geneBoard.text = "Gene: " + geneNames[genePicker]
+                maxTick.text = maxExprList[genePicker].toString()
                 geneScaleMesh.visible = !geneScaleMesh.visible
 
                 plot.updateInstancingLambdas()
@@ -446,6 +449,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         plot.annKeyList[annotationPicker].visible = true
                 }
                 geneBoard.text = "Gene: " + geneNames[genePicker]
+                maxTick.text = maxExprList[genePicker].toString()
+
                 geneScaleMesh.visible = !geneScaleMesh.visible
 
                 plot.updateInstancingArrays()
@@ -507,8 +512,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 Thread.currentThread().priority = Thread.MIN_PRIORITY
                 geneBoard.text = "fetching..."
 
-                val selectedList = TIntHashSet()
-                val backgroundList = TIntHashSet()
+                val selectedList = ArrayList<Int>()
+                val backgroundList = ArrayList<Int>()
 
                 for (i in 1..plot.masterMap.size) {
                     plot.masterMap[i]?.instances?.forEach {
@@ -519,22 +524,20 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         }
                     }
                 }
-
-                when (selectedList.size()) {
-                    0 -> {
-                        // no cells selected, just fetch random genes
-                        geneBoard.text = "no cells selected, fetching random genes..."
-                        val (geneNameBuffer, geneExprBuffer) = plot.annFetcher.fetchGeneExpression()
+                when {
+                    selectedList.size == 0 || backgroundList.size == 0 -> {
+//                        geneBoard.text = "no differential selection made, fetching random genes..."
+                        val buffer = plot.annFetcher.fetchGeneExpression()
                         genePicker = 0
                         geneNames.clear()
                         geneExpr.clear()
-                        geneNames = geneNameBuffer
-                        geneExpr = geneExprBuffer
+                        geneNames = buffer.first
+                        geneExpr = buffer.second
+                        maxExprList = buffer.third
                     }
-
                     else -> {
-                        val (geneNameBuffer, geneExprBuffer) = plot.annFetcher.fetchGeneExpression(
-                            plot.hypergeometricTest(
+                        val buffer = plot.annFetcher.fetchGeneExpression(
+                            plot.maxDiffExpressedGenes(
                                 selectedList,
                                 backgroundList
                             )
@@ -542,8 +545,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         genePicker = 0
                         geneNames.clear()
                         geneExpr.clear()
-                        geneNames = geneNameBuffer
-                        geneExpr = geneExprBuffer
+                        geneNames = buffer.first
+                        geneExpr = buffer.second
+                        maxExprList = buffer.third
                     }
                 }
 
@@ -555,6 +559,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
                 plot.updateInstancingArrays()
                 geneBoard.text = "Gene: " + geneNames[genePicker]
+                maxTick.text = maxExprList[genePicker].toString()
             }
         })
         inputHandler?.addKeyBinding("fetchCurrentSelection", "shift G")

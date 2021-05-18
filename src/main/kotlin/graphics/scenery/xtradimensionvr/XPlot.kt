@@ -8,6 +8,7 @@ import graphics.scenery.volumes.Colormap
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import org.apache.commons.math3.distribution.HypergeometricDistribution
 import org.apache.commons.math3.stat.descriptive.rank.Median
+import org.apache.commons.math3.stat.inference.MannWhitneyUTest
 import org.joml.Vector3f
 import org.joml.Vector4f
 import java.util.concurrent.atomic.AtomicInteger
@@ -36,6 +37,7 @@ import kotlin.math.*
 
 var geneNames = ArrayList<String>()
 var geneExpr = ArrayList<FloatArray>()
+var maxExprList = ArrayList<Int>()
 
 class XPlot(filePath: String) : Node() {
     // a scaling factor for better scale relative to user
@@ -121,6 +123,7 @@ class XPlot(filePath: String) : Node() {
         val buffer = annFetcher.fetchGeneExpression()
         geneNames = buffer.first
         geneExpr = buffer.second
+        maxExprList = buffer.third  // max of each gene from normalization - used by color map label
 
         loadDataset()
         updateInstancingArrays()
@@ -203,15 +206,9 @@ class XPlot(filePath: String) : Node() {
                 indexedAnnotations += annotation[i]
 
             val s = masterMap[parentIterator]!!.instances[resettingCounter]
-
-            val vectorIndexedGeneExpression = indexedGeneExpression.map { rgbColorSpectrum.sample(it) }
-            val vectorIndexedAnnotations = indexedAnnotations.map { colormap.sample(it) }
-
             s.metadata["colors"] = arrayOf(  // fix current state as metadata to avoid race conditions
                 indexedGeneExpression,
                 indexedAnnotations
-//                vectorIndexedGeneExpression,
-//                vectorIndexedAnnotations
             )
 
             resettingCounter++
@@ -225,9 +222,12 @@ class XPlot(filePath: String) : Node() {
      * updates the color instancing property of each point with the current index of the data arrays
      */
     fun updateInstancingLambdas() {
+
         var resettingCounter = 0
         var parentIterator = 1
+
         for (i in spatialCoords.indices) {
+
             if (resettingCounter >= masterSplit) {
                 parentIterator++
                 resettingCounter = 0
@@ -240,7 +240,7 @@ class XPlot(filePath: String) : Node() {
 
                     annotationMode -> rgbColorSpectrum.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[1][annotationPicker])
 
-                    !annotationMode -> colormap.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[0][genePicker])
+                    !annotationMode -> colormap.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[0][genePicker] / 10)
 
                     else -> Vector4f(1f, 0f, 0f, 1f)
 
@@ -255,21 +255,27 @@ class XPlot(filePath: String) : Node() {
 
     private fun generateLabels(annotation: String, type: String): Mesh {
         logger.info("label being made")
+
         val m = Mesh()
         val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical") as ArrayList<String>
 
         val mapSize = if (mapping.size > 1) mapping.size - 1 else 1
+
         for ((count, label) in mapping.withIndex()) {
             val t = TextBoard()
+
             t.text = label.replace("ï", "i")
             t.transparent = 0
             t.fontColor = Vector3f(0f, 0f, 0f).xyzw()
             t.backgroundColor = rgbColorSpectrum.sample(count.toFloat() / mapSize)
+
             when (type) {
                 "Byte" -> t.position = fetchCellLabelPosition(annotation, count.toByte())
                 "Short" -> t.position = fetchCellLabelPosition(annotation, count.toShort())
             }
+
             t.scale = Vector3f(0.3f, 0.3f, 0.3f) * positionScaling
+
             t.addChild(Sphere(0.1f, 1))
             m.addChild(t)
         }
@@ -331,11 +337,13 @@ class XPlot(filePath: String) : Node() {
         var maxString = 0
 
         for (cat in mapping) {
+
             if (overflow < overflowLim) {
                 val len = cat.toString().toCharArray().size
                 if (len > maxString)
                     maxString = len
                 overflow++
+
             } else {
                 if (maxString < scale * 70)
                     sizeList.add(maxString)
@@ -345,6 +353,7 @@ class XPlot(filePath: String) : Node() {
                 overflow = 0
             }
         }
+
         val title = TextBoard()
         title.transparent = 1
         title.text = annotation
@@ -359,8 +368,10 @@ class XPlot(filePath: String) : Node() {
         val mapSize = if (mapping.size > 1) mapping.size - 1 else 1
 
         for ((colorIncrement, cat) in mapping.withIndex()) {
+
             val key = TextBoard()
             val tooLargeBy = cat.toString().toCharArray().size - (scale * 70)
+
             when {
                 (tooLargeBy >= 0) ->
                     key.text = cat.toString().replace("ï", "i").dropLast(tooLargeBy.toInt() + 5) + "..."// not utf-8 -_-
@@ -382,6 +393,7 @@ class XPlot(filePath: String) : Node() {
             if (lenIndex == -1) {
                 key.position = Vector3f(rootPosX + scale, rootPosY - (overflow + 1) * scale, -11f)
                 sphere.position = Vector3f(rootPosX, (rootPosY - (overflow + 1) * scale) + scale / 2, -11f)
+
             } else {
                 key.position =
                     Vector3f(rootPosX + scale + (charSum * 0.31f * scale), rootPosY - (overflow + 1) * scale, -11f)
@@ -475,7 +487,13 @@ class XPlot(filePath: String) : Node() {
                     backgroundExpressions.add(expression[cell].toDouble())
                 }
                 val foldChange =
-                    abs(log2(Median().evaluate(selectedExpressions.toDoubleArray()) / Median().evaluate(backgroundExpressions.toDoubleArray())))
+                    abs(
+                        log2(
+                            Median().evaluate(selectedExpressions.toDoubleArray()) / Median().evaluate(
+                                backgroundExpressions.toDoubleArray()
+                            )
+                        )
+                    )
                 if (foldChange > 0.7) {
                     logRatioMap[geneIndex] = foldChange
                 }
@@ -494,5 +512,34 @@ class XPlot(filePath: String) : Node() {
         return maxGenesList
     }
 
+    fun maxDiffExpressedGenes(selectedCells: ArrayList<Int>, backgroundCells: ArrayList<Int>): ArrayList<Int> {
+        // looking for biggest t, ie the most significant difference in the two distributions
+        val pMap = HashMap<Int, Double>()
+        val maxGenesList = ArrayList<Int>()
+
+        for (geneIndex in 0 until annFetcher.numGenes) {
+            val expression = annFetcher.cscReader(geneIndex)
+
+            val selectedArray = ArrayList<Double>()
+            val backgroundArray = ArrayList<Double>()
+
+            selectedCells.forEach { selectedArray.add(expression[it].toDouble()) }
+
+            backgroundCells.forEach { backgroundArray.add(expression[it].toDouble()) }
+
+            pMap[geneIndex] =
+                MannWhitneyUTest().mannWhitneyUTest(selectedArray.toDoubleArray(), backgroundArray.toDoubleArray())
+        }
+
+        for (i in 0..10) {
+            val maxKey = pMap.minByOrNull { it.value }?.key
+            if (maxKey != null) {
+                maxGenesList.add(maxKey)
+            }
+            pMap.remove(maxKey)
+        }
+
+        return maxGenesList
+    }
 
 }

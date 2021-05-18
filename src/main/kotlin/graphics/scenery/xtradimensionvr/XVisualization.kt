@@ -62,7 +62,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
 //        val filename = resource[0]
-        plot = XPlot("/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad")
+        plot = XPlot("marrow_vr_processed.h5ad")
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
@@ -247,20 +247,20 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         super.inputSetup()
         // see [OpenVRhmd?.toAWTKeyCode] for key bindings
 
-        inputHandler?.let { handler ->
-            hashMapOf(
-                "move_forward" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Up),
-                "move_back" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Down),
-                "move_left" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Left),
-                "move_right" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Right)
-            ).forEach { (name, key) ->
-                handler.getBehaviour(name)?.let { b ->
-                    logger.info("Adding behaviour $name bound to $key to HMD")
-                    hmd.addBehaviour(name, b)
-                    hmd.addKeyBinding(name, key)
-                }
-            }
-        }
+//        inputHandler?.let { handler ->
+//            hashMapOf(
+//                "move_forward" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Up),
+//                "move_back" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Down),
+//                "move_left" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Left),
+//                "move_right" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Right)
+//            ).forEach { (name, key) ->
+//                handler.getBehaviour(name)?.let { b ->
+//                    logger.info("Adding behaviour $name bound to $key to HMD")
+//                    hmd.addBehaviour(name, b)
+//                    hmd.addKeyBinding(name, key)
+//                }
+//            }
+//        }
 
         hmd.addBehaviour("increase_size", ClickBehaviour { _, _ ->
             dotMesh.children.forEach { it ->
@@ -339,7 +339,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
         })
-        hmd.addKeyBinding("toggle_forward", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //M
+        hmd.addKeyBinding("toggle_forward", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Side) //M
 
         inputHandler?.addBehaviour("toggle_backward", ClickBehaviour { _, _ ->
             GlobalScope.launch(Dispatchers.Default) {
@@ -395,25 +395,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
         })
-        hmd.addKeyBinding("toggle_backward", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //N
+        hmd.addKeyBinding("toggle_backward", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Side) //N
 
         //try openAL for audio - spatial audio - sound sources that move around - connect to a node? See link to tutorial:
         //http://wiki.lwjgl.org/wiki/OpenAL_Tutorial_1_-_Single_Static_Source.html
-
-        //adding a pointing laser for interacting with objects
-        hmd.addBehaviour("toggle_laser", object : ClickBehaviour {
-            val timeout = 500 * 1000 * 1000
-            var last = 0L
-
-            override fun click(p0: Int, p1: Int) {
-                logger.info("Toggling laser")
-                if (System.nanoTime() - last < timeout) return
-                rightLaser.visible = !rightLaser.visible
-                leftLaser.visible = !leftLaser.visible
-                last = System.nanoTime()
-            }
-        })
-        hmd.addKeyBinding("toggle_laser", "Y")
 
         hmd.addBehaviour("toggleMode", ClickBehaviour { _, _ ->
             GlobalScope.launch(Dispatchers.Default) {
@@ -435,7 +420,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
         })
-        hmd.addKeyBinding("toggleMode", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Side) //X
+        hmd.addKeyBinding("toggleMode",  TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //X
 
         inputHandler?.addBehaviour("toggleMode", ClickBehaviour { _, _ ->
             GlobalScope.launch(Dispatchers.Default) {
@@ -507,9 +492,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         hmd.addKeyBinding("shrinkLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
 
-        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
+        hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
             thread {
-                Thread.currentThread().priority = Thread.MIN_PRIORITY
+//                Thread.currentThread().priority = Thread.MIN_PRIORITY
                 geneBoard.text = "fetching..."
 
                 val selectedList = ArrayList<Int>()
@@ -562,8 +547,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 maxTick.text = maxExprList[genePicker].toString()
             }
         })
-        inputHandler?.addKeyBinding("fetchCurrentSelection", "shift G")
-
+        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
     }
 
     companion object {

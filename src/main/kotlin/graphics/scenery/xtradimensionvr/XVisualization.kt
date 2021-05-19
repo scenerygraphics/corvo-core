@@ -25,6 +25,8 @@ import kotlin.math.sqrt
  * implement hypergeometric test
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
+var currentlyFetching = false
+
 val geneScaleMesh = Mesh()
 
 var dotMesh = Mesh()
@@ -492,63 +494,66 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         hmd.addKeyBinding("shrinkLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
 
-        hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
-            thread {
+        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
+            if (!currentlyFetching) {
+                thread {
+                    currentlyFetching = true
 //                Thread.currentThread().priority = Thread.MIN_PRIORITY
-                geneBoard.text = "fetching..."
+                    geneBoard.text = "fetching..."
 
-                val selectedList = ArrayList<Int>()
-                val backgroundList = ArrayList<Int>()
+                    val selectedList = ArrayList<Int>()
+                    val backgroundList = ArrayList<Int>()
 
-                for (i in 1..plot.masterMap.size) {
-                    plot.masterMap[i]?.instances?.forEach {
-                        if (it.metadata["selected"] == true) {
-                            selectedList.add(it.metadata["index"] as Int)
-                        } else {
-                            backgroundList.add(it.metadata["index"] as Int)
+                    for (i in 1..plot.masterMap.size) {
+                        plot.masterMap[i]?.instances?.forEach {
+                            if (it.metadata["selected"] == true) {
+                                selectedList.add(it.metadata["index"] as Int)
+                            } else {
+                                backgroundList.add(it.metadata["index"] as Int)
+                            }
                         }
                     }
-                }
-                when {
-                    selectedList.size == 0 || backgroundList.size == 0 -> {
-//                        geneBoard.text = "no differential selection made, fetching random genes..."
-                        val buffer = plot.annFetcher.fetchGeneExpression()
-                        genePicker = 0
-                        geneNames.clear()
-                        geneExpr.clear()
-                        geneNames = buffer.first
-                        geneExpr = buffer.second
-                        maxExprList = buffer.third
-                    }
-                    else -> {
-                        val buffer = plot.annFetcher.fetchGeneExpression(
-                            plot.maxDiffExpressedGenes(
-                                selectedList,
-                                backgroundList
+                    when {
+                        selectedList.size == 0 || backgroundList.size == 0 -> {
+                            val buffer = plot.annFetcher.fetchGeneExpression()
+                            genePicker = 0
+                            geneNames.clear()
+                            geneExpr.clear()
+                            geneNames = buffer.first
+                            geneExpr = buffer.second
+                            maxExprList = buffer.third
+                        }
+                        else -> {
+                            val buffer = plot.annFetcher.fetchGeneExpression(
+                                plot.maxDiffExpressedGenes(
+                                    selectedList,
+                                    backgroundList
+                                )
                             )
-                        )
-                        genePicker = 0
-                        geneNames.clear()
-                        geneExpr.clear()
-                        geneNames = buffer.first
-                        geneExpr = buffer.second
-                        maxExprList = buffer.third
+                            genePicker = 0
+                            geneNames.clear()
+                            geneExpr.clear()
+                            geneNames = buffer.first
+                            geneExpr = buffer.second
+                            maxExprList = buffer.third
+                        }
                     }
-                }
 
-                for (i in 1..plot.masterMap.size) {
-                    plot.masterMap[i]?.instances?.forEach {
-                        it.metadata["selected"] = false
+                    for (i in 1..plot.masterMap.size) {
+                        plot.masterMap[i]?.instances?.forEach {
+                            it.metadata["selected"] = false
+                        }
                     }
-                }
 
-                plot.updateInstancingArrays()
-                geneBoard.text = "Gene: " + geneNames[genePicker]
-                maxTick.text = maxExprList[genePicker].toString()
+                    plot.updateInstancingArrays()
+                    geneBoard.text = "Gene: " + geneNames[genePicker]
+                    maxTick.text = maxExprList[genePicker].toString()
+                    currentlyFetching = false
+                }
             }
         })
-        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
-//        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
+//        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
+        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
     }
 
     companion object {

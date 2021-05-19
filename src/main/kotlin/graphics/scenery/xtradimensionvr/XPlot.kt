@@ -534,7 +534,7 @@ class XPlot(filePath: String) : Node() {
                 MannWhitneyUTest().mannWhitneyUTest(selectedArray.toDoubleArray(), backgroundArray.toDoubleArray())
         }
 
-        for (i in 0..10) {
+        for (i in 0..9) {
             val maxKey = pMap.minByOrNull { it.value }?.key
             if (maxKey != null) {
                 maxGenesList.add(maxKey)

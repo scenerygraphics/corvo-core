@@ -136,7 +136,7 @@ class XPlot(filePath: String) : Node() {
         // hashmap to emulate at run time variable declaration
         // allows for dynamically growing number of master spheres with size of dataset
         for (i in 1..masterCount) {
-            val masterTemp = Icosphere(0.02f * positionScaling, 1) // sphere properties
+            val masterTemp = Icosphere(0.018f * positionScaling, 1) // sphere properties
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
         logger.info("hashmap looks like: $masterMap")
@@ -161,6 +161,9 @@ class XPlot(filePath: String) : Node() {
 
 //            for ((annCount, annotation) in metaOnlyAnnList.withIndex())
 //                s.metadata[annotation] = metaOnlyRawAnnotations[annCount][counter]
+            if (s.metadata["cell_ontology_class"] == 3.toByte()){
+                s.metadata["selected"] = true
+            }
 
             s.metadata["index"] = counter  // used to identify row of the cell
             s.parent = masterMap[parentIterator]
@@ -517,7 +520,7 @@ class XPlot(filePath: String) : Node() {
         val pMap = HashMap<Int, Double>()
         val maxGenesList = ArrayList<Int>()
 
-        for (geneIndex in 0 until annFetcher.numGenes) {
+        for (geneIndex in annFetcher.nonZeroGenes) {
             val expression = annFetcher.cscReader(geneIndex)
 
             val selectedArray = ArrayList<Double>()

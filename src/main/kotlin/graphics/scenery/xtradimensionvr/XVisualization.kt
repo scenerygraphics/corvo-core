@@ -62,7 +62,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
 //        val filename = resource[0]
-        plot = XPlot("marrow_vr_processed.h5ad")
+        plot = XPlot("/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad")
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
@@ -548,6 +548,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             }
         })
         hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
+//        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
     }
 
     companion object {

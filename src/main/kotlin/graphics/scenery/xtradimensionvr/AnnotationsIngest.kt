@@ -26,6 +26,21 @@ class AnnotationsIngest(h5adPath: String) {
     val numGenes = reader.string().readArrayRaw("/var/index").size
     val numCells = reader.string().readArrayRaw("/obs/index").size
 
+    val nonZeroGenes = ArrayList<Int>()
+
+    init {
+        val ratioList = ArrayList<Float>()
+        for (geneIndex in 0 until numGenes) {
+            ratioList.add((cscIndptr[geneIndex + 1] - cscIndptr[geneIndex]).toFloat() / numCells.toFloat())
+
+            if (ratioList[geneIndex] > 0.2) {
+                nonZeroGenes.add(geneIndex)
+            }
+        }
+        println(nonZeroGenes.size)
+        println(numGenes)
+    }
+
     fun fetchGeneExpression(genes: ArrayList<Int> = arrayListOf()): Triple<ArrayList<String>, ArrayList<FloatArray>, ArrayList<Int>> {
         if (genes.isEmpty()) {
             for (i in 0..10) {

@@ -9,6 +9,7 @@ import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import org.apache.commons.math3.distribution.HypergeometricDistribution
 import org.apache.commons.math3.stat.descriptive.rank.Median
 import org.apache.commons.math3.stat.inference.MannWhitneyUTest
+import org.apache.commons.math3.stat.inference.TTest
 import org.joml.Vector3f
 import org.joml.Vector4f
 import java.util.concurrent.atomic.AtomicInteger
@@ -161,7 +162,7 @@ class XPlot(filePath: String) : Node() {
 
 //            for ((annCount, annotation) in metaOnlyAnnList.withIndex())
 //                s.metadata[annotation] = metaOnlyRawAnnotations[annCount][counter]
-            if (s.metadata["cell_ontology_class"] == 3.toByte()){
+            if (s.metadata["cell_ontology_class"] == 3.toByte()) {
                 s.metadata["selected"] = true
             }
 
@@ -515,7 +516,7 @@ class XPlot(filePath: String) : Node() {
         return maxGenesList
     }
 
-    fun maxDiffExpressedGenes(selectedCells: ArrayList<Int>, backgroundCells: ArrayList<Int>): ArrayList<Int> {
+    fun welchTTest(selectedCells: ArrayList<Int>, backgroundCells: ArrayList<Int>): ArrayList<Int> {
         // looking for biggest t, ie the most significant difference in the two distributions
         val pMap = HashMap<Int, Double>()
         val maxGenesList = ArrayList<Int>()
@@ -532,6 +533,48 @@ class XPlot(filePath: String) : Node() {
 
             pMap[geneIndex] =
                 MannWhitneyUTest().mannWhitneyUTest(selectedArray.toDoubleArray(), backgroundArray.toDoubleArray())
+        }
+
+        for (i in 0..9) {
+            val maxKey = pMap.minByOrNull { it.value }?.key
+            if (maxKey != null) {
+                maxGenesList.add(maxKey)
+            }
+            pMap.remove(maxKey)
+        }
+
+        return maxGenesList
+
+//        TTest().tTest(selectedArray.toDoubleArray(), backgroundArray.toDoubleArray())
+    }
+
+    fun maxDiffExpressedGenes(
+        selectedCells: ArrayList<Int>,
+        backgroundCells: ArrayList<Int>,
+        method: String = "Mann"
+    ): ArrayList<Int> {
+        // looking for biggest t, ie the most significant difference in the two distributions
+        val pMap = HashMap<Int, Double>()
+        val maxGenesList = ArrayList<Int>()
+
+        for (geneIndex in annFetcher.nonZeroGenes) {
+            val expression = annFetcher.cscReader(geneIndex)
+
+            val selectedArray = ArrayList<Double>()
+            val backgroundArray = ArrayList<Double>()
+
+            selectedCells.forEach { selectedArray.add(expression[it].toDouble()) }
+
+            backgroundCells.forEach { backgroundArray.add(expression[it].toDouble()) }
+
+            pMap[geneIndex] = if (method == "TTest") TTest().tTest(
+                selectedArray.toDoubleArray(),
+                backgroundArray.toDoubleArray()
+            )
+            else MannWhitneyUTest().mannWhitneyUTest(
+                selectedArray.toDoubleArray(),
+                backgroundArray.toDoubleArray()
+            )
         }
 
         for (i in 0..9) {

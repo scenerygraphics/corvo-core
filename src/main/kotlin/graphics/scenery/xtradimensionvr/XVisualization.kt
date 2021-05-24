@@ -20,9 +20,9 @@ import kotlin.math.sqrt
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
  * VM options in Run Configurations
- * intersection and generating an integer list of selected cells
- * generate integer list of cells expressing chosen gene
- * implement hypergeometric test
+ * implement ttest
+ * implement selection sphere instead of laser
+ * UI: search for genes, change colormaps, choose annotations, choose test method, choose obsm entry
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
 var currentlyFetching = false
@@ -53,8 +53,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     lateinit var plot: XPlot
 
     // init here so can be accessed by input commands
-    val geneBoard = TextBoard()
-    val maxTick = TextBoard()
+    private val geneBoard = TextBoard()
+    private val maxTick = TextBoard()
 
     override fun init() {
         hmd = OpenVRHMD(useCompositor = true)
@@ -78,7 +78,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             position = Vector3f(0f, 0f, 0f)
 //            position = Vector3f(0.0f, 1.65f, 5.0f)
             perspectiveCamera(70.0f, windowWidth, windowHeight, 0.1f, 1000.0f)
-//            this.addChild(Sphere(1f, 1)) // cam bounding box
+            this.addChild(Sphere(1f, 1)) // cam bounding box
             scene.addChild(this)
         }
 
@@ -116,23 +116,23 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
-//        thread {
-//            cam.update.add {
-//                for (i in 1..plot.masterMap.size) {
-//                    plot.masterMap[i]?.instances?.forEach {
-//                        if (cam.children.first().intersects(it)) {
-//                            it.metadata["selected"] = true
-//                            it.material.diffuse = Vector3f(1f, 0f, 0f)
-//                            for (master in 1..plot.masterMap.size)
-//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//                            plot.updateInstancingLambdas()
-//                            for (master in 1..plot.masterMap.size)
-//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//                        }
-//                    }
-//                }
-//            }
-//        }
+        thread {
+            cam.update.add {
+                for (i in 1..plot.masterMap.size) {
+                    plot.masterMap[i]?.instances?.forEach {
+                        if (cam.children.first().intersects(it)) {
+                            it.metadata["selected"] = true
+                            it.material.diffuse = Vector3f(1f, 0f, 0f)
+                            for (master in 1..plot.masterMap.size)
+                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+                            plot.updateInstancingLambdas()
+                            for (master in 1..plot.masterMap.size)
+                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+                        }
+                    }
+                }
+            }
+        }
         scene.addChild(plot)
     }
 
@@ -173,7 +173,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         val floor = InfinitePlane()
         floor.baseLineWidth = 1.5f
         floor.type = InfinitePlane.Type.Grid
-        (floor).name = "Floor"
+        floor.name = "Floor"
         scene.addChild(floor)
 
         //text board displaying name of gene currently encoded as colormap. Disappears if color encodes cell type
@@ -527,7 +527,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                             val buffer = plot.annFetcher.fetchGeneExpression(
                                 plot.maxDiffExpressedGenes(
                                     selectedList,
-                                    backgroundList
+                                    backgroundList,
+                                    "TTest"
                                 )
                             )
                             genePicker = 0

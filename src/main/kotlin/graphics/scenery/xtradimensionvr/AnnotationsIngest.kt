@@ -8,6 +8,8 @@ import graphics.scenery.numerics.Random
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import java.util.*
 import kotlin.collections.ArrayList
+import kotlin.math.ceil
+
 
 class AnnotationsIngest(h5adPath: String) {
     val reader: IHDF5Reader = HDF5Factory.openForReading(h5adPath)
@@ -21,32 +23,55 @@ class AnnotationsIngest(h5adPath: String) {
     private val cscIndices: MDIntArray = reader.int32().readMDArray("/layers/X_csc/indices")
     private val cscIndptr: MDIntArray = reader.int32().readMDArray("/layers/X_csc/indptr")
 
-    private val numGenes = reader.string().readArrayRaw("/var/index").size
-    private val numCells = reader.string().readArrayRaw("/obs/index").size
+    val numGenes = reader.string().readArrayRaw("/var/index").size
+    val numCells = reader.string().readArrayRaw("/obs/index").size
 
-    init{
-        println(reader.getGroupMembers("/obs"))
+    val nonZeroGenes = ArrayList<Int>()
+
+    init {
+        val ratioList = ArrayList<Float>()
+        for (geneIndex in 0 until numGenes) {
+            ratioList.add((cscIndptr[geneIndex + 1] - cscIndptr[geneIndex]).toFloat() / numCells.toFloat())
+
+            if (ratioList[geneIndex] > 0.2) {
+                nonZeroGenes.add(geneIndex)
+            }
+        }
+        println(nonZeroGenes.size)
+        println(numGenes)
     }
 
-    fun fetchGeneExpression(): Pair<ArrayList<String>, ArrayList<FloatArray>> {
-        val randGenesIndices = ArrayList<Int>()
-        val randGenesNames = arrayListOf<String>()
-
-        for (i in 0..12) {
-            randGenesNames.add(geneNames.second[Random.randomFromRange(0f, numGenes.toFloat()).toInt()] as String)
+    fun fetchGeneExpression(genes: ArrayList<Int> = arrayListOf()): Triple<ArrayList<String>, ArrayList<FloatArray>, ArrayList<Int>> {
+        if (genes.isEmpty()) {
+            for (i in 0..10) {
+                genes.add(Random.randomFromRange(0f, numGenes.toFloat()).toInt())
+            }
         }
-        for (i in randGenesNames)
-            randGenesIndices.add(geneNames.second.indexOf(i))
+        val expressions = (genes.map { cscReader(it) } as ArrayList<FloatArray>)
 
-        val geneExpression = ArrayList<FloatArray>()
-        for (i in randGenesIndices) {
-            geneExpression.add(cscReader(i))
+        // normalize between 0 and 10
+        val maxList = ArrayList<Float>()  // save in list for access by color map labels
+        for (gene in 0 until genes.size) {
+            val max = ceil(expressions[gene].maxOrNull()!!)
+                when {
+                    max == 0f -> maxList.add(10f)
+                    max > 0f -> {
+                        maxList.add(max)
+                        for (expr in 0 until numCells) {
+                            expressions[gene][expr] *= (10 / maxList[gene])
+                        }
+                    }
+                }
         }
-        return Pair(randGenesNames, geneExpression)
+
+        val names = genes.map { geneNames[it] } as ArrayList<String>
+        println(names)
+
+        return Triple(names, expressions, maxList.map {it.toInt()} as ArrayList<Int>)
     }
 
     fun umapReader3D(): ArrayList<ArrayList<Float>> {
-        val UMAP = arrayListOf<ArrayList<Float>>()
+        val umap = arrayListOf<ArrayList<Float>>()
 
         var tripletCounter = 0
         val cellUMAP = ArrayList<Float>()
@@ -56,7 +81,7 @@ class AnnotationsIngest(h5adPath: String) {
                 cellUMAP.add(coordinate)
                 tripletCounter += 1
             } else {
-                UMAP.add(
+                umap.add(
                     arrayListOf(
                         cellUMAP[0],
                         cellUMAP[1],
@@ -68,12 +93,12 @@ class AnnotationsIngest(h5adPath: String) {
                 cellUMAP.add(coordinate)
             }
         }
-        UMAP.add(arrayListOf(cellUMAP[0], cellUMAP[1], cellUMAP[2])) // add final sub-array
+        umap.add(arrayListOf(cellUMAP[0], cellUMAP[1], cellUMAP[2])) // add final sub-array
 
-        return UMAP
+        return umap
     }
 
-    fun h5adAnnotationReader(hdfPath: String, asString: Boolean = true): Pair<Type, ArrayList<*>> {
+    fun h5adAnnotationReader(hdfPath: String, asString: Boolean = true): ArrayList<*> {
         /**
          * reads any 1 dimensional annotation (ie obs, var, uns from scanPy output), checking if a categorical map exists for them
          **/
@@ -81,7 +106,6 @@ class AnnotationsIngest(h5adPath: String) {
             throw InputMismatchException("this function is only for reading obs, var, and uns")
 
         val data = ArrayList<Any>()
-        var type = ""
         val categoryMap = hashMapOf<Int, String>()
         val annotation = hdfPath.substring(5) // returns just the annotation requested
 
@@ -89,59 +113,50 @@ class AnnotationsIngest(h5adPath: String) {
             reader.getDataSetInformation(hdfPath).toString().contains("STRING") -> {// String
                 for (i in reader.string().readArray(hdfPath))
                     data.add(i)
-                type = "String"
             }
             reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(1)") && asString ->
                 try {
-                    for ((counter, category) in reader.string().readArray("/uns/" + annotation + "_categorical").withIndex())
+                    for ((counter, category) in reader.string().readArray("/uns/" + annotation + "_categorical")
+                        .withIndex())
                         categoryMap[counter] = category
 
                     for (i in reader.int8().readArray(hdfPath))
                         categoryMap[i.toInt()]?.let { data.add(it) }
-                    type = "String"
 
                 } catch (e: HDF5SymbolTableException) { // int8 but not mapped to categorical
                     for (i in reader.int8().readArray(hdfPath))
                         categoryMap[i.toInt()]?.let { data.add(it) }
-                    type = "Byte"
                 }
             reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(1)") && !asString -> {// Byte
                 for (i in reader.int8().readArray(hdfPath))
                     data.add(i)
-                type = "Byte"
             }
             reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(2)") -> {// Short
                 for (i in reader.int16().readArray(hdfPath))
                     data.add(i)
-                type = "Short"
             }
             reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(4)") -> {// Int
                 for (i in reader.int32().readArray(hdfPath))
                     data.add(i)
-                type = "Int"
             }
             reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(8)") -> {// Long
                 for (i in reader.int64().readArray(hdfPath))
                     data.add(i)
-                type = "Long"
-                }
+            }
             reader.getDataSetInformation(hdfPath).toString().contains("FLOAT(4)") -> {// Float
                 for (i in reader.float32().readArray(hdfPath))
                     data.add(i)
-                type = "Float"
-                }
+            }
             reader.getDataSetInformation(hdfPath).toString().contains("FLOAT(8)") -> {// Double
                 for (i in reader.float64().readArray(hdfPath))
                     data.add(i)
-                type = "Double"
-                }
+            }
             reader.getDataSetInformation(hdfPath).toString().contains("BOOLEAN") -> {// Boolean
                 for (i in reader.int8().readArray(hdfPath))
                     data.add(i)
-                type = "Bool"
-                }
+            }
         }
-        return Pair(type, data)
+        return data
     }
 
     /**
@@ -153,10 +168,10 @@ class AnnotationsIngest(h5adPath: String) {
 
         // slice pointer array to give the number of non-zeros in the row
         val start = csrIndptr[row]
-        val end = csrIndptr[row+1]
+        val end = csrIndptr[row + 1]
 
         // from start index until (excluding) end index, substitute non-zero values into empty array
-        for(i in start until end){
+        for (i in start until end) {
             exprArray[csrIndices[i]] = csrData[i]
         }
         return exprArray
@@ -165,19 +180,15 @@ class AnnotationsIngest(h5adPath: String) {
     /**
      * return dense column of gene expression values for a chosen column / gene
      */
-    private fun cscReader(col: GeneIndex = 0): FloatArray {
+    fun cscReader(col: GeneIndex = 0): FloatArray {
         val exprArray = FloatArray(numCells)
 
         val start = cscIndptr[col]
-        val end = cscIndptr[col+1]
+        val end = cscIndptr[col + 1]
 
-        for(i in start until end){
+        for (i in start until end) {
             exprArray[cscIndices[i]] = cscData[i]
         }
         return exprArray
     }
-}
-
-fun main(){
-    AnnotationsIngest("/home/luke/PycharmProjects/VRCaller/file_conversion/bbknn_processed.h5ad")
 }

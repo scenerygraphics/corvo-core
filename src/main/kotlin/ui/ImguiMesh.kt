@@ -36,7 +36,7 @@ class ImguiMesh(hub: Hub, val plot: XPlot) : Mesh("Menu") {
 
     var showDemoWindow = false
 
-    var hideMe = false
+    var hideMe = true
 
     // Setup Dear ImGui context
     val ctx = Context()
@@ -89,7 +89,7 @@ class ImguiMesh(hub: Hub, val plot: XPlot) : Mesh("Menu") {
         //            dsl.withFont(this@Imgui.font) {
         //        ImGui.showDemoWindow(::showDemoWindow)
         //                ImGui.setNextWindowSize(size)
-        println("hideMe=$hideMe")
+//        println("hideMe=$hideMe")
         if (hideMe) {
             dsl.window("Annotations") {
                 for (i in plot.annotationList.indices) {
@@ -97,17 +97,17 @@ class ImguiMesh(hub: Hub, val plot: XPlot) : Mesh("Menu") {
                     if (ImGui.checkbox(ann, checkboxes, i)) {
                         println("selected $i")
 
-                        plot.annKeyList[plot.annotationPicker].visible = false
-                        plot.labelList[plot.annotationPicker].visible = false
-
-                        plot.annotationPicker = i
-
-                        plot.annKeyList[plot.annotationPicker].visible = true
-                        plot.labelList[plot.annotationPicker].visible = true
-
-                        GlobalScope.launch(Dispatchers.Default) {
-                            plot.updateInstancingColor()
-                        }
+//                        plot.annKeyList[plot.annotationPicker].visible = false
+//                        plot.labelList[plot.annotationPicker].visible = false
+//
+//                        plot.annotationPicker = i
+//
+//                        plot.annKeyList[plot.annotationPicker].visible = true
+//                        plot.labelList[plot.annotationPicker].visible = true
+//
+//                        GlobalScope.launch(Dispatchers.Default) {
+//                            plot.updateInstancingColor()
+//                        }
                     }
                 }
                 //                }

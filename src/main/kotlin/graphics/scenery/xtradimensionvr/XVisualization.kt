@@ -8,6 +8,7 @@ import graphics.scenery.controls.TrackerRole
 import graphics.scenery.textures.Texture
 import graphics.scenery.utils.Image
 import graphics.scenery.utils.extensions.times
+import graphics.scenery.utils.extensions.xyz
 import graphics.scenery.utils.extensions.xyzw
 import org.scijava.ui.behaviour.ClickBehaviour
 import kotlin.concurrent.thread
@@ -39,8 +40,10 @@ var annotationPicker = 0
 
 var annotationMode = true
 
-val rightLaser = Cylinder(0.01f, 2.0f, 10)
-val leftLaser = Cylinder(0.01f, 2.0f, 10)
+//val rightLaser = Cylinder(0.01f, 2.0f, 10)
+val rightLaser = Icosphere(0.2f, 5)
+//val leftLaser = Cylinder(0.01f, 2.0f, 10)
+val leftLaser = Icosphere(0.2f, 5)
 
 private lateinit var cam: Camera
 
@@ -64,7 +67,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
 //        val filename = resource[0]
-        plot = XPlot("/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad")
+        plot = XPlot("marrow_vr_processed.h5ad")
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
@@ -78,7 +81,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             position = Vector3f(0f, 0f, 0f)
 //            position = Vector3f(0.0f, 1.65f, 5.0f)
             perspectiveCamera(70.0f, windowWidth, windowHeight, 0.1f, 1000.0f)
-            this.addChild(Sphere(1f, 1)) // cam bounding box
+            this.addChild(Sphere(3f, 1)) // cam bounding box
             scene.addChild(this)
         }
 
@@ -116,23 +119,23 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
-        thread {
-            cam.update.add {
-                for (i in 1..plot.masterMap.size) {
-                    plot.masterMap[i]?.instances?.forEach {
-                        if (cam.children.first().intersects(it)) {
-                            it.metadata["selected"] = true
-                            it.material.diffuse = Vector3f(1f, 0f, 0f)
-                            for (master in 1..plot.masterMap.size)
-                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                            plot.updateInstancingLambdas()
-                            for (master in 1..plot.masterMap.size)
-                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                        }
-                    }
-                }
-            }
-        }
+//        thread {
+//            cam.update.add {
+//                for (i in 1..plot.masterMap.size) {
+//                    plot.masterMap[i]?.instances?.forEach {
+//                        if (cam.children.first().intersects(it)) {
+//                            it.metadata["selected"] = true
+//                            it.material.diffuse = Vector3f(1f, 0f, 0f)
+//                            for (master in 1..plot.masterMap.size)
+//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//                            plot.updateInstancingLambdas()
+//                            for (master in 1..plot.masterMap.size)
+//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//                        }
+//                    }
+//                }
+//            }
+//        }
         scene.addChild(plot)
     }
 
@@ -237,12 +240,16 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         return cyl
     }
 
-    private fun initializeLaser(laserName: Cylinder) {
-        laserName.material.diffuse = Vector3f(0.9f, 0.0f, 0.0f)
-        laserName.material.metallic = 0.001f
-        laserName.material.roughness = 0.18f
-        laserName.rotation.rotateX(-Math.PI.toFloat() / 1.5f) // point laser forwards
+    private fun initializeLaser(laserName: Icosphere) {
+        laserName.material.diffuse = Vector3f(0.2f, 0.2f, 0.2f)
+        laserName.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
+        laserName.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
+        laserName.material.roughness = 0.1f
+        laserName.material.metallic = 0.000001f
+//        laserName.rotation.rotateY(-Math.PI.toFloat() / 3f) // point laser forwards
+        laserName.position = Vector3f(0f, 0.2f, -0.35f)
         laserName.visible = true
+
     }
 
     override fun inputSetup() {
@@ -479,22 +486,19 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         hmd.addKeyBinding("unmarkPoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger)
 
         hmd.addBehaviour("extendLaser", ClickBehaviour { _, _ ->
-            val scale = rightLaser.scale
-            scale.y *= 1.10f
-            rightLaser.scale = scale
-            leftLaser.scale = scale
+            rightLaser.scale *= 1.10f
+            leftLaser.scale = rightLaser.scale
         })
         hmd.addKeyBinding("extendLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Up) //K
 
         hmd.addBehaviour("shrinkLaser", ClickBehaviour { _, _ ->
             val scale = rightLaser.scale
-            scale.y /= 1.1f
-            rightLaser.scale = scale
-            leftLaser.scale = scale
+            rightLaser.scale /= 1.1f
+            leftLaser.scale = rightLaser.scale
         })
         hmd.addKeyBinding("shrinkLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
 
-        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
+        hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
             if (!currentlyFetching) {
                 thread {
                     currentlyFetching = true
@@ -553,8 +557,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         })
-//        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
-        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
+        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
+//        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
     }
 
     companion object {

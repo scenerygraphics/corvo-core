@@ -21,12 +21,13 @@ import kotlin.math.*
  * jar python interaction (qt applet?)
  * get imgui working
  * billboard
+ * most differentially expressed gene for each cluster
+ * simplify controls
  *
  * serious performance hit from so many textboards? I observe around -5-7 fps
  * performance hit from toggling visibility of keys? many intersections and non-instanced nodes
  * instance key spheres? Instance textboards?
  * Textboard color off
- * hanging in vr every second or so
  * must catch and be able to encode annotations that are not categoricals! Then will work for any dataset!
  *
  * proximity with invisible sphere .Intersect then show
@@ -50,7 +51,6 @@ class XPlot(filePath: String) : Node() {
     private val spatialCoords = annFetcher.umapReader3D()
 
     var annotationList = ArrayList<String>()
-    var metaOnlyAnnList = ArrayList<String>()
 
     // give annotations you would like (maybe with checkboxes, allow to enter the names of their annotations)
     // list of annotations
@@ -58,12 +58,10 @@ class XPlot(filePath: String) : Node() {
         for (ann in annFetcher.reader.getGroupMembers("/obs")) {
             try {
                 val info = annFetcher.reader.getDataSetInformation("/uns/" + ann + "_categorical")
-                if (info.toString().toCharArray().size < 17)
+                if (info.toString().toCharArray().size < 17) {
                     annotationList.add(ann)
-                else
-                    metaOnlyAnnList.add(ann)
+                }
             } catch (e: HDF5SymbolTableException) {
-                metaOnlyAnnList.add(ann)
                 logger.info("$ann is not color encodable and will exist only as metadata")
             }
         }
@@ -72,7 +70,6 @@ class XPlot(filePath: String) : Node() {
 
     private var annotationArray = ArrayList<FloatArray>() //used to color spheres, normalized
     private val rawAnnotations = ArrayList<ArrayList<*>>()
-    private val metaOnlyRawAnnotations = ArrayList<ArrayList<*>>()
     private val typeList =
         ArrayList<String>() //grow list of annotation datatypes (used currently for metadata check for labels)
 
@@ -111,8 +108,6 @@ class XPlot(filePath: String) : Node() {
             })
             annKeyList.add(createSphereKey(ann))
         }
-//        for (ann in metaOnlyAnnList)
-//            metaOnlyRawAnnotations.add(annFetcher.h5adAnnotationReader("/obs/$ann", false))
     }
 
     //generate master spheres for every 10k cells for performance

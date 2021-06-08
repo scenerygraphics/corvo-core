@@ -43,7 +43,7 @@ class AnnotationsIngest(h5adPath: String) {
 
     fun fetchGeneExpression(genes: ArrayList<Int> = arrayListOf()): Triple<ArrayList<String>, ArrayList<FloatArray>, ArrayList<Int>> {
         if (genes.isEmpty()) {
-            for (i in 0..10) {
+            for (i in 0..50) {
                 genes.add(Random.randomFromRange(0f, numGenes.toFloat()).toInt())
             }
         }

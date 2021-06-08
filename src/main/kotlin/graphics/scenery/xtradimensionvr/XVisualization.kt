@@ -22,6 +22,7 @@ import kotlin.math.sqrt
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
  * VM options in Run Configurations
  * implement ttest
+ * remove csr matrix and move csc out of layers
  * implement selection sphere instead of laser
  * UI: search for genes, change colormaps, choose annotations, choose test method, choose obsm entry
  * @author Luke Hyman <lukejhyman@gmail.com>
@@ -67,7 +68,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
 //        val filename = resource[0]
-        plot = XPlot("marrow_vr_processed.h5ad")
+        plot = XPlot("/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad")
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
@@ -519,13 +520,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     }
                     when {
                         selectedList.size == 0 || backgroundList.size == 0 -> {
-                            val buffer = plot.annFetcher.fetchGeneExpression()
-                            genePicker = 0
-                            geneNames.clear()
-                            geneExpr.clear()
-                            geneNames = buffer.first
-                            geneExpr = buffer.second
-                            maxExprList = buffer.third
+//                            val buffer = plot.annFetcher.fetchGeneExpression()
+//                            genePicker = 0
+//                            geneNames.clear()
+//                            geneExpr.clear()
+//                            geneNames = buffer.first
+//                            geneExpr = buffer.second
+//                            maxExprList = buffer.third
                         }
                         else -> {
                             val buffer = plot.annFetcher.fetchGeneExpression(

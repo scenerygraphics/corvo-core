@@ -23,16 +23,12 @@ import kotlin.math.*
  * billboard
  * most differentially expressed gene for each cluster
  * simplify controls
- *
+ * make clusters selectable (highlight on intersection? Select cluster on key?)
  * serious performance hit from so many textboards? I observe around -5-7 fps
  * performance hit from toggling visibility of keys? many intersections and non-instanced nodes
  * instance key spheres? Instance textboards?
- * Textboard color off
- * must catch and be able to encode annotations that are not categoricals! Then will work for any dataset!
- *
- * proximity with invisible sphere .Intersect then show
+ * display p values and log fold change next to gene
  * VR controller example
- * camera show information
  *
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
@@ -128,11 +124,12 @@ class XPlot(filePath: String) : Node() {
     }
 
     private fun loadDataset() {
+        val sphereSize = 0.018f
 
         // hashmap to emulate at run time variable declaration
         // allows for dynamically growing number of master spheres with size of dataset
         for (i in 1..masterCount) {
-            val masterTemp = Icosphere(0.018f * positionScaling, 1) // sphere properties
+            val masterTemp = Icosphere(sphereSize * positionScaling, 1) // sphere properties
             masterMap[i] = addMasterProperties(masterTemp, i)
         }
         logger.info("hashmap looks like: $masterMap")
@@ -150,16 +147,10 @@ class XPlot(filePath: String) : Node() {
                 resettingCounter = 0
             }
 
-            val s = Icosphere(0.02f * positionScaling, 1) // add as icosphere so intersection works
+            val s = Icosphere(sphereSize * positionScaling, 1) // add as icosphere so intersection works
 
             for ((annCount, annotation) in annotationList.withIndex())  //add all annotations as metadata (for label center of mass)
                 s.metadata[annotation] = rawAnnotations[annCount][counter]
-
-//            for ((annCount, annotation) in metaOnlyAnnList.withIndex())
-//                s.metadata[annotation] = metaOnlyRawAnnotations[annCount][counter]
-            if (s.metadata["cell_ontology_class"] == 3.toByte()) {
-                s.metadata["selected"] = true
-            }
 
             s.metadata["index"] = counter  // used to identify row of the cell
             s.parent = masterMap[parentIterator]
@@ -327,7 +318,7 @@ class XPlot(filePath: String) : Node() {
         val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical")
 
         val rootPosY = 10f
-        val rootPosX = -5.5f
+        val rootPosX = -8.5f
         val scale = 0.6f
 
         val sizeList = arrayListOf<Int>()
@@ -366,6 +357,25 @@ class XPlot(filePath: String) : Node() {
         var charSum = 0
         val mapSize = if (mapping.size > 1) mapping.size - 1 else 1
 
+//        val parent = Icosphere(scale / 2, 2)
+//        parent.metadata["MaxInstanceUpdateCount"] = AtomicInteger(1)
+//        parent.material = ShaderMaterial(
+//            Shaders.ShadersFromFiles(
+//                arrayOf(
+//                    "DefaultDeferredInstanced.frag",
+//                    "DefaultDeferredInstancedColor.vert"
+//                ), XPlot::class.java
+//            )
+//        ) //overrides the shader
+
+//        parent.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
+//        parent.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
+//        parent.material.roughness = 0.19f
+//        parent.material.metallic = 0.0001f
+//
+//        parent.instancedProperties["ModelMatrix"] = { parent.world }
+//        parent.instancedProperties["Color"] = { parent.material.diffuse.xyzw() }
+
         for ((colorIncrement, cat) in mapping.withIndex()) {
 
             val key = TextBoard()
@@ -382,12 +392,20 @@ class XPlot(filePath: String) : Node() {
             key.transparent = 1
             key.scale = Vector3f(scale)
 
-            val sphere = Icosphere(scale / 2, 3)
-            sphere.material.diffuse = rgbColorSpectrum.sample(colorIncrement.toFloat() / mapSize).xyz()
+
+            val sphere = Icosphere(scale / 2, 2)
+//            val sphere = Mesh()
             sphere.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
             sphere.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
             sphere.material.roughness = 0.19f
             sphere.material.metallic = 0.0001f
+//            sphere.parent = parent
+//            parent.instances.add(sphere)
+            sphere.material.diffuse = rgbColorSpectrum.sample(colorIncrement.toFloat() / mapSize).xyz()
+//            sphere.instancedProperties["Color"] = {
+//                rgbColorSpectrum.sample(colorIncrement.toFloat() / mapSize).xyz()
+//            }
+//            sphere.instancedProperties["ModelMatrix"] = { sphere.world }
 
             if (lenIndex == -1) {
                 key.position = Vector3f(rootPosX + scale, rootPosY - (overflow + 1) * scale, -11f)
@@ -402,6 +420,7 @@ class XPlot(filePath: String) : Node() {
                     -11f
                 )
             }
+
             m.addChild(sphere)
             m.addChild(key)
             overflow++
@@ -414,6 +433,7 @@ class XPlot(filePath: String) : Node() {
 
             }
         }
+//        m.addChild(parent)
         m.visible = false
         addChild(m)
         return m
@@ -447,102 +467,6 @@ class XPlot(filePath: String) : Node() {
         return master
     }
 
-    fun hypergeometricTest(selectedCells: TIntHashSet, backgroundCells: TIntHashSet): ArrayList<Int> {
-        /**
-         * could filter out genes with more than 80% zeros
-         * return list of strings of 10 most highly expressed genes in the selection relative to background expression.
-         * if no cells are selected, all p values are zero - fold change is always zero as selected is zero -> empty gene list
-         */
-        val logRatioMap = HashMap<Int, Double>()
-
-        for (geneIndex in 0 until annFetcher.numGenes) {
-
-            val expression = annFetcher.cscReader(geneIndex)
-            val nonzeroExpression = TIntHashSet()
-
-            for ((cell, expr) in expression.withIndex()) {
-                when {
-                    expr > 0 -> nonzeroExpression.add(cell)
-                }
-            }
-
-            val intersection = TIntHashSet(selectedCells)
-            intersection.retainAll(nonzeroExpression)  //intersection of selected cells and cells expressing the gene
-
-            if ((1 - HypergeometricDistribution(
-                    null,
-                    annFetcher.numCells,
-                    nonzeroExpression.size(),
-                    selectedCells.size()
-                ).cumulativeProbability(intersection.size())).toFloat() <= 0.05f
-            ) {
-                val selectedExpressions = ArrayList<Double>()
-                val backgroundExpressions = ArrayList<Double>()
-
-                for (cell in selectedCells) {
-                    selectedExpressions.add(expression[cell].toDouble())
-                }
-                for (cell in backgroundCells) {
-                    backgroundExpressions.add(expression[cell].toDouble())
-                }
-                val foldChange =
-                    abs(
-                        log2(
-                            Median().evaluate(selectedExpressions.toDoubleArray()) / Median().evaluate(
-                                backgroundExpressions.toDoubleArray()
-                            )
-                        )
-                    )
-                if (foldChange > 0.7) {
-                    logRatioMap[geneIndex] = foldChange
-                }
-            }
-        }
-
-        val maxGenesList = ArrayList<Int>()
-        for (i in 0..10) {
-            val maxKey = logRatioMap.maxByOrNull { it.value }?.key
-            if (maxKey != null) {
-                maxGenesList.add(maxKey)
-            }
-            logRatioMap.remove(maxKey)
-        }
-
-        return maxGenesList
-    }
-
-    fun welchTTest(selectedCells: ArrayList<Int>, backgroundCells: ArrayList<Int>): ArrayList<Int> {
-        // looking for biggest t, ie the most significant difference in the two distributions
-        val pMap = HashMap<Int, Double>()
-        val maxGenesList = ArrayList<Int>()
-
-        for (geneIndex in annFetcher.nonZeroGenes) {
-            val expression = annFetcher.cscReader(geneIndex)
-
-            val selectedArray = ArrayList<Double>()
-            val backgroundArray = ArrayList<Double>()
-
-            selectedCells.forEach { selectedArray.add(expression[it].toDouble()) }
-
-            backgroundCells.forEach { backgroundArray.add(expression[it].toDouble()) }
-
-            pMap[geneIndex] =
-                MannWhitneyUTest().mannWhitneyUTest(selectedArray.toDoubleArray(), backgroundArray.toDoubleArray())
-        }
-
-        for (i in 0..9) {
-            val maxKey = pMap.minByOrNull { it.value }?.key
-            if (maxKey != null) {
-                maxGenesList.add(maxKey)
-            }
-            pMap.remove(maxKey)
-        }
-
-        return maxGenesList
-
-//        TTest().tTest(selectedArray.toDoubleArray(), backgroundArray.toDoubleArray())
-    }
-
     fun maxDiffExpressedGenes(
         selectedCells: ArrayList<Int>,
         backgroundCells: ArrayList<Int>,
@@ -553,6 +477,7 @@ class XPlot(filePath: String) : Node() {
         val maxGenesList = ArrayList<Int>()
 
         for (geneIndex in annFetcher.nonZeroGenes) {
+
             val expression = annFetcher.cscReader(geneIndex)
 
             val selectedArray = ArrayList<Double>()

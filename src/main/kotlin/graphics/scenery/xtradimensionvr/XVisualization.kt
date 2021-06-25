@@ -21,9 +21,8 @@ import kotlin.math.sqrt
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
  * VM options in Run Configurations
- * implement ttest
  * remove csr matrix and move csc out of layers
- * implement selection sphere instead of laser
+ * scanpy python interface
  * UI: search for genes, change colormaps, choose annotations, choose test method, choose obsm entry
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
@@ -120,23 +119,23 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
-//        thread {
-//            cam.update.add {
-//                for (i in 1..plot.masterMap.size) {
-//                    plot.masterMap[i]?.instances?.forEach {
-//                        if (cam.children.first().intersects(it)) {
-//                            it.metadata["selected"] = true
-//                            it.material.diffuse = Vector3f(1f, 0f, 0f)
-//                            for (master in 1..plot.masterMap.size)
-//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//                            plot.updateInstancingLambdas()
-//                            for (master in 1..plot.masterMap.size)
-//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//                        }
-//                    }
-//                }
-//            }
-//        }
+        thread {
+            cam.update.add {
+                for (i in 1..plot.masterMap.size) {
+                    plot.masterMap[i]?.instances?.forEach {
+                        if (cam.children.first().intersects(it)) {
+                            it.metadata["selected"] = true
+                            it.material.diffuse = Vector3f(1f, 0f, 0f)
+                            for (master in 1..plot.masterMap.size)
+                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+                            plot.updateInstancingLambdas()
+                            for (master in 1..plot.masterMap.size)
+                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+                        }
+                    }
+                }
+            }
+        }
         scene.addChild(plot)
     }
 
@@ -499,7 +498,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         hmd.addKeyBinding("shrinkLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
 
-        hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
+
+        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
+//        hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
             if (!currentlyFetching) {
                 thread {
                     currentlyFetching = true
@@ -558,8 +559,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         })
-        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
-//        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
+//        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
+        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
     }
 
     companion object {

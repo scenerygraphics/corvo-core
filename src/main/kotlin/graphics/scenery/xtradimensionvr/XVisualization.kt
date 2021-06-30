@@ -42,6 +42,7 @@ var annotationMode = true
 
 //val rightLaser = Cylinder(0.01f, 2.0f, 10)
 val rightLaser = Icosphere(0.2f, 5)
+
 //val leftLaser = Cylinder(0.01f, 2.0f, 10)
 val leftLaser = Icosphere(0.2f, 5)
 
@@ -67,7 +68,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
 //        val filename = resource[0]
-        plot = XPlot("/home/luke/PycharmProjects/VRCaller/file_conversion/liver_vr_processed.h5ad")
+        plot = XPlot("marrow_vr_processed.h5ad")
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
@@ -119,23 +120,23 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
-        thread {
-            cam.update.add {
-                for (i in 1..plot.masterMap.size) {
-                    plot.masterMap[i]?.instances?.forEach {
-                        if (cam.children.first().intersects(it)) {
-                            it.metadata["selected"] = true
-                            it.material.diffuse = Vector3f(1f, 0f, 0f)
-                            for (master in 1..plot.masterMap.size)
-                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                            plot.updateInstancingLambdas()
-                            for (master in 1..plot.masterMap.size)
-                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-                        }
-                    }
-                }
-            }
-        }
+//        thread {
+//            cam.update.add {
+//                for (i in 1..plot.masterMap.size) {
+//                    plot.masterMap[i]?.instances?.forEach {
+//                        if (cam.children.first().intersects(it)) {
+//                            it.metadata["selected"] = true
+//                            it.material.diffuse = Vector3f(1f, 0f, 0f)
+//                            for (master in 1..plot.masterMap.size)
+//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//                            plot.updateInstancingLambdas()
+//                            for (master in 1..plot.masterMap.size)
+//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//                        }
+//                    }
+//                }
+//            }
+//        }
         scene.addChild(plot)
     }
 
@@ -429,7 +430,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
         })
-        hmd.addKeyBinding("toggleMode",  TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //X
+        hmd.addKeyBinding("toggleMode", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //X
 
         inputHandler?.addBehaviour("toggleMode", ClickBehaviour { _, _ ->
             GlobalScope.launch(Dispatchers.Default) {
@@ -485,6 +486,26 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         hmd.addKeyBinding("unmarkPoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger)
 
+//        hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
+//
+//            for (label in plot.labelList[annotationPicker].children.withIndex()) {
+//                if (label.value.children.first().intersects(rightLaser)) {
+//                    for (i in 1..plot.masterMap.size) {
+//                        plot.masterMap[i]?.instances?.forEach {
+//                            if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte()) {
+//
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//
+//            plot.updateInstancingLambdas()
+//            for (master in 1..plot.masterMap.size)
+//                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//        })
+//        hmd.addKeyBinding("markPoints", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
+
         hmd.addBehaviour("extendLaser", ClickBehaviour { _, _ ->
             rightLaser.scale *= 1.10f
             leftLaser.scale = rightLaser.scale
@@ -499,8 +520,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         hmd.addKeyBinding("shrinkLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
 
 
-        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
-//        hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
+//        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
+        hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
             if (!currentlyFetching) {
                 thread {
                     currentlyFetching = true
@@ -533,8 +554,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                             val buffer = plot.annFetcher.fetchGeneExpression(
                                 plot.maxDiffExpressedGenes(
                                     selectedList,
-                                    backgroundList,
-                                    "TTest"
+                                    backgroundList
                                 )
                             )
                             genePicker = 0
@@ -559,8 +579,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         })
-//        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
-        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
+        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
+//        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
     }
 
     companion object {

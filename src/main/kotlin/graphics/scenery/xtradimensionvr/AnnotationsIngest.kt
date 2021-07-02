@@ -15,13 +15,9 @@ class AnnotationsIngest(h5adPath: String) {
     val reader: IHDF5Reader = HDF5Factory.openForReading(h5adPath)
     private val geneNames = h5adAnnotationReader("/var/index")
 
-    private val csrData: MDFloatArray = reader.float32().readMDArray("/X/data")
-    private val csrIndices: MDIntArray = reader.int32().readMDArray("/X/indices")
-    private val csrIndptr: MDIntArray = reader.int32().readMDArray("/X/indptr")
-
-    private val cscData: MDFloatArray = reader.float32().readMDArray("/layers/X_csc/data")
-    private val cscIndices: MDIntArray = reader.int32().readMDArray("/layers/X_csc/indices")
-    private val cscIndptr: MDIntArray = reader.int32().readMDArray("/layers/X_csc/indptr")
+    private val cscData: MDFloatArray = reader.float32().readMDArray("/X/data")
+    private val cscIndices: MDIntArray = reader.int32().readMDArray("/X/indices")
+    private val cscIndptr: MDIntArray = reader.int32().readMDArray("/X/indptr")
 
     val numGenes = reader.string().readArrayRaw("/var/index").size
     val numCells = reader.string().readArrayRaw("/obs/index").size
@@ -157,24 +153,6 @@ class AnnotationsIngest(h5adPath: String) {
             }
         }
         return data
-    }
-
-    /**
-     * return dense row of gene expression values for a chosen row / cell
-     */
-    private fun csrReader(row: CellIndex = 0): FloatArray {
-        // init float array of zeros the length of the number of genes
-        val exprArray = FloatArray(numGenes)
-
-        // slice pointer array to give the number of non-zeros in the row
-        val start = csrIndptr[row]
-        val end = csrIndptr[row + 1]
-
-        // from start index until (excluding) end index, substitute non-zero values into empty array
-        for (i in start until end) {
-            exprArray[csrIndices[i]] = csrData[i]
-        }
-        return exprArray
     }
 
     /**

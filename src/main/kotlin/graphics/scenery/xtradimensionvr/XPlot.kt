@@ -232,7 +232,7 @@ class XPlot(filePath: String) : Node() {
 
                     !annotationMode -> colormap.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[0][genePicker] / 10)
 
-                    else -> Vector4f(1f, 0f, 0f, 1f)
+                        else -> Vector4f(1f, 0f, 0f, 1f)
 
                 }
             }

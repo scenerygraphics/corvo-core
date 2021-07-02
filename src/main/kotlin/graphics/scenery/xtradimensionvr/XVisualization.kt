@@ -455,14 +455,47 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         inputHandler?.addKeyBinding("toggleMode", "X")
 
+//        hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
+//            for (i in 1..plot.masterMap.size) {
+//                plot.masterMap[i]?.instances?.forEach {
+//                    if (rightLaser.intersects(it)) {
+//                        it.metadata["selected"] = true
+//                        it.material.diffuse = Vector3f(1f, 0f, 0f)
+//                        for (master in 1..plot.masterMap.size)
+//                            (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//                    }
+//                }
+//            }
+//            plot.updateInstancingLambdas()
+//            for (master in 1..plot.masterMap.size)
+//                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//        })
+//        hmd.addKeyBinding("markPoints", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
+//
+//        hmd.addBehaviour("unmarkPoints", ClickBehaviour { _, _ ->
+//            for (i in 1..plot.masterMap.size) {
+//                plot.masterMap[i]?.instances?.forEach {
+//                    if (leftLaser.intersects(it)) {
+//                        it.metadata["selected"] = false
+//                    }
+//                }
+//            }
+//            plot.updateInstancingLambdas()
+//            for (master in 1..plot.masterMap.size)
+//                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+//        })
+//        hmd.addKeyBinding("unmarkPoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger)
+
         hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
-            for (i in 1..plot.masterMap.size) {
-                plot.masterMap[i]?.instances?.forEach {
-                    if (rightLaser.intersects(it)) {
-                        it.metadata["selected"] = true
-                        it.material.diffuse = Vector3f(1f, 0f, 0f)
-                        for (master in 1..plot.masterMap.size)
-                            (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+            for (label in plot.labelList[annotationPicker].children.withIndex()) {
+                if (label.value.children.first().intersects(rightLaser)) {
+                    for (i in 1..plot.masterMap.size) {
+                        plot.masterMap[i]?.instances?.forEach {
+                            if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte()) {
+                                it.metadata["selected"] = true
+//                                it.material.diffuse = Vector3f(1f, 0f, 0f)
+                            }
+                        }
                     }
                 }
             }
@@ -473,10 +506,14 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         hmd.addKeyBinding("markPoints", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
 
         hmd.addBehaviour("unmarkPoints", ClickBehaviour { _, _ ->
-            for (i in 1..plot.masterMap.size) {
-                plot.masterMap[i]?.instances?.forEach {
-                    if (leftLaser.intersects(it)) {
-                        it.metadata["selected"] = false
+            for (label in plot.labelList[annotationPicker].children.withIndex()) {
+                if (label.value.children.first().intersects(leftLaser)) {
+                    for (i in 1..plot.masterMap.size) {
+                        plot.masterMap[i]?.instances?.forEach {
+                            if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte()) {
+                                it.metadata["selected"] = false
+                            }
+                        }
                     }
                 }
             }
@@ -485,26 +522,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
         })
         hmd.addKeyBinding("unmarkPoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger)
-
-//        hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
-//
-//            for (label in plot.labelList[annotationPicker].children.withIndex()) {
-//                if (label.value.children.first().intersects(rightLaser)) {
-//                    for (i in 1..plot.masterMap.size) {
-//                        plot.masterMap[i]?.instances?.forEach {
-//                            if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte()) {
-//
-//                            }
-//                        }
-//                    }
-//                }
-//            }
-//
-//            plot.updateInstancingLambdas()
-//            for (master in 1..plot.masterMap.size)
-//                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//        })
-//        hmd.addKeyBinding("markPoints", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
 
         hmd.addBehaviour("extendLaser", ClickBehaviour { _, _ ->
             rightLaser.scale *= 1.10f
@@ -521,6 +538,69 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
 
 //        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
+        hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
+            if (!currentlyFetching) {
+                thread {
+                    currentlyFetching = true
+//                Thread.currentThread().priority = Thread.MIN_PRIORITY
+                    geneBoard.text = "fetching..."
+
+                    val selectedList = ArrayList<Int>()
+                    val backgroundList = ArrayList<Int>()
+
+                    for (i in 1..plot.masterMap.size) {
+                        plot.masterMap[i]?.instances?.forEach {
+                            if (it.metadata["selected"] == true) {
+                                selectedList.add(it.metadata["index"] as Int)
+                            } else {
+                                backgroundList.add(it.metadata["index"] as Int)
+                            }
+                        }
+                    }
+                    when {
+                        selectedList.size == 0 || backgroundList.size == 0 -> {
+//                            val buffer = plot.annFetcher.fetchGeneExpression()
+//                            genePicker = 0
+//                            geneNames.clear()
+//                            geneExpr.clear()
+//                            geneNames = buffer.first
+//                            geneExpr = buffer.second
+//                            maxExprList = buffer.third
+                        }
+                        else -> {
+                            val buffer = plot.annFetcher.fetchGeneExpression(
+                                plot.maxDiffExpressedGenes(
+                                    selectedList,
+                                    backgroundList,
+                                    "TTest"
+                                )
+                            )
+                            genePicker = 0
+                            geneNames.clear()
+                            geneExpr.clear()
+                            geneNames = buffer.first
+                            geneExpr = buffer.second
+                            maxExprList = buffer.third
+                        }
+                    }
+
+                    for (i in 1..plot.masterMap.size) {
+                        plot.masterMap[i]?.instances?.forEach {
+                            it.metadata["selected"] = false
+                        }
+                    }
+
+                    plot.updateInstancingArrays()
+                    geneBoard.text = "Gene: " + geneNames[genePicker]
+                    maxTick.text = maxExprList[genePicker].toString()
+                    currentlyFetching = false
+                }
+            }
+        })
+        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
+//        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
+
+        //        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
         hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
             if (!currentlyFetching) {
                 thread {

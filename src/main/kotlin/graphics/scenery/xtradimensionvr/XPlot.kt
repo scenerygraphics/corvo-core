@@ -17,17 +17,13 @@ import kotlin.collections.set
 import kotlin.math.*
 
 /**.
- * cellxgene interactivity - start fixing selection and marking tools
- * jar python interaction (qt applet?)
- * get imgui working
- * billboard
- * most differentially expressed gene for each cluster
+ * billboard textboards
+ * most differentially expressed gene fore ach cluster
+ * display p values and log fold change next to gene
  * simplify controls
- * make clusters selectable (highlight on intersection? Select cluster on key?)
  * serious performance hit from so many textboards? I observe around -5-7 fps
  * performance hit from toggling visibility of keys? many intersections and non-instanced nodes
  * instance key spheres? Instance textboards?
- * display p values and log fold change next to gene
  * VR controller example
  *
  * @author Luke Hyman <lukejhyman@gmail.com>

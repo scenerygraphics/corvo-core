@@ -8,7 +8,6 @@ import graphics.scenery.controls.TrackerRole
 import graphics.scenery.textures.Texture
 import graphics.scenery.utils.Image
 import graphics.scenery.utils.extensions.times
-import graphics.scenery.utils.extensions.xyz
 import graphics.scenery.utils.extensions.xyzw
 import org.scijava.ui.behaviour.ClickBehaviour
 import kotlin.concurrent.thread
@@ -21,9 +20,6 @@ import kotlin.math.sqrt
 /**
  * To run at full VR HMD res, set system property -Dscenery.Renderer.ForceUndecoratedWindow=true in the
  * VM options in Run Configurations
- * remove csr matrix and move csc out of layers
- * scanpy python interface
- * UI: search for genes, change colormaps, choose annotations, choose test method, choose obsm entry
  * @author Luke Hyman <lukejhyman@gmail.com>
  */
 var currentlyFetching = false
@@ -41,10 +37,10 @@ var annotationPicker = 0
 var annotationMode = true
 
 //val rightLaser = Cylinder(0.01f, 2.0f, 10)
-val rightLaser = Icosphere(0.2f, 5)
+val rightSelector = Icosphere(0.2f, 5)
 
 //val leftLaser = Cylinder(0.01f, 2.0f, 10)
-val leftLaser = Icosphere(0.2f, 5)
+val leftSelector = Icosphere(0.2f, 5)
 
 private lateinit var cam: Camera
 
@@ -88,6 +84,11 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
         loadEnvironment()
 
+        val testLabel = TextBoard()
+        testLabel.text = "text"
+        testLabel.position = Vector3f(1f, 1f, 1f)
+
+
         thread {
             while (!running) {
                 Thread.sleep(200)
@@ -98,10 +99,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     device.model?.let {
                         hmd.attachToNode(device, it, cam)
                         if (device.role == TrackerRole.RightHand) {
-                            it.addChild(rightLaser)
+                            it.addChild(rightSelector)
                         }
                         if (device.role == TrackerRole.LeftHand) {
-                            it.addChild(leftLaser)
+                            it.addChild(leftSelector)
                         }
                     }
                 }
@@ -192,8 +193,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         scene.addChild(y)
 
         // give lasers texture and set them to be visible (could use to have different lasers/colors/styles and switch between them)
-        initializeLaser(rightLaser)
-        initializeLaser(leftLaser)
+        initializeSelector(rightSelector)
+        initializeSelector(leftSelector)
 
         val colorMapScale = Box(Vector3f(5.0f, 1.0f, 0f))
         val minTick = TextBoard()
@@ -241,15 +242,15 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         return cyl
     }
 
-    private fun initializeLaser(laserName: Icosphere) {
-        laserName.material.diffuse = Vector3f(0.2f, 0.2f, 0.2f)
-        laserName.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
-        laserName.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
-        laserName.material.roughness = 0.1f
-        laserName.material.metallic = 0.000001f
+    private fun initializeSelector(selectorName: Icosphere) {
+        selectorName.material.diffuse = Vector3f(0.2f, 0.2f, 0.2f)
+        selectorName.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
+        selectorName.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
+        selectorName.material.roughness = 0.1f
+        selectorName.material.metallic = 0.000001f
 //        laserName.rotation.rotateY(-Math.PI.toFloat() / 3f) // point laser forwards
-        laserName.position = Vector3f(0f, 0.2f, -0.35f)
-        laserName.visible = true
+        selectorName.position = Vector3f(0f, 0.2f, -0.35f)
+        selectorName.visible = true
 
     }
 
@@ -488,7 +489,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
         hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
             for (label in plot.labelList[annotationPicker].children.withIndex()) {
-                if (label.value.children.first().intersects(rightLaser)) {
+                if (label.value.children.first().intersects(rightSelector)) {
                     for (i in 1..plot.masterMap.size) {
                         plot.masterMap[i]?.instances?.forEach {
                             if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte()) {
@@ -507,7 +508,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
         hmd.addBehaviour("unmarkPoints", ClickBehaviour { _, _ ->
             for (label in plot.labelList[annotationPicker].children.withIndex()) {
-                if (label.value.children.first().intersects(leftLaser)) {
+                if (label.value.children.first().intersects(leftSelector)) {
                     for (i in 1..plot.masterMap.size) {
                         plot.masterMap[i]?.instances?.forEach {
                             if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte()) {
@@ -524,15 +525,15 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         hmd.addKeyBinding("unmarkPoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger)
 
         hmd.addBehaviour("extendLaser", ClickBehaviour { _, _ ->
-            rightLaser.scale *= 1.10f
-            leftLaser.scale = rightLaser.scale
+            rightSelector.scale *= 1.10f
+            leftSelector.scale = rightSelector.scale
         })
         hmd.addKeyBinding("extendLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Up) //K
 
         hmd.addBehaviour("shrinkLaser", ClickBehaviour { _, _ ->
-            val scale = rightLaser.scale
-            rightLaser.scale /= 1.1f
-            leftLaser.scale = rightLaser.scale
+            val scale = rightSelector.scale
+            rightSelector.scale /= 1.1f
+            leftSelector.scale = rightSelector.scale
         })
         hmd.addKeyBinding("shrinkLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
 

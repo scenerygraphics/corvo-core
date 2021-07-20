@@ -25,12 +25,14 @@ class AnnotationsIngest(h5adPath: String) {
     val nonZeroGenes = ArrayList<Int>()
 
     init {
+        println(reader.getDataSetInformation("uns/cell_ontology_class_logfoldchanges"))
+
         val ratioList = ArrayList<Float>()
         for (geneIndex in 0 until numGenes) {
             ratioList.add((cscIndptr[geneIndex + 1] - cscIndptr[geneIndex]).toFloat() / numCells.toFloat())
 
             if (ratioList[geneIndex] > 0.2) {
-                nonZeroGenes.add(geneIndex)
+               nonZeroGenes.add(geneIndex)
             }
         }
         println(nonZeroGenes.size)
@@ -67,6 +69,9 @@ class AnnotationsIngest(h5adPath: String) {
     }
 
     fun umapReader3D(): ArrayList<ArrayList<Float>> {
+        /**
+         * read the 3D /obsm category to an ArrayList object
+         **/
         val umap = arrayListOf<ArrayList<Float>>()
 
         var tripletCounter = 0
@@ -83,7 +88,7 @@ class AnnotationsIngest(h5adPath: String) {
                         cellUMAP[1],
                         cellUMAP[2]
                     )
-                ) // actual values instead of pointer to object
+                ) // actual values instead of pointer to cellUMAP object
                 cellUMAP.clear()
                 tripletCounter = 1 // zero for first loop, then 1, as first entry is added in else clause
                 cellUMAP.add(coordinate)
@@ -94,71 +99,71 @@ class AnnotationsIngest(h5adPath: String) {
         return umap
     }
 
-    fun h5adAnnotationReader(hdfPath: String, asString: Boolean = true): ArrayList<*> {
+    fun h5adAnnotationReader(hdf5Path: String, asString: Boolean = true): ArrayList<*> {
         /**
          * reads any 1 dimensional annotation (ie obs, var, uns from scanPy output), checking if a categorical map exists for them
          **/
-        if (hdfPath[4].toString() != "/")
-            throw InputMismatchException("this function is only for reading obs, var, and uns")
+        if (hdf5Path[4].toString() != "/")
+            throw InputMismatchException("this function is only for reading arrays from /obs, /var, or /uns")
 
         val data = ArrayList<Any>()
         val categoryMap = hashMapOf<Int, String>()
-        val annotation = hdfPath.substring(5) // returns just the annotation requested
+        val annotation = hdf5Path.substring(5) // returns just the annotation requested
 
         when {
-            reader.getDataSetInformation(hdfPath).toString().contains("STRING") -> {// String
-                for (i in reader.string().readArray(hdfPath))
+            reader.getDataSetInformation(hdf5Path).toString().contains("STRING") -> {// String
+                for (i in reader.string().readArray(hdf5Path))
                     data.add(i)
             }
-            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(1)") && asString ->
+            reader.getDataSetInformation(hdf5Path).toString().contains("INTEGER(1)") && asString ->
                 try {
                     for ((counter, category) in reader.string().readArray("/uns/" + annotation + "_categorical")
                         .withIndex())
                         categoryMap[counter] = category
 
-                    for (i in reader.int8().readArray(hdfPath))
+                    for (i in reader.int8().readArray(hdf5Path))
                         categoryMap[i.toInt()]?.let { data.add(it) }
 
                 } catch (e: HDF5SymbolTableException) { // int8 but not mapped to categorical
-                    for (i in reader.int8().readArray(hdfPath))
+                    for (i in reader.int8().readArray(hdf5Path))
                         categoryMap[i.toInt()]?.let { data.add(it) }
                 }
-            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(1)") && !asString -> {// Byte
-                for (i in reader.int8().readArray(hdfPath))
+            reader.getDataSetInformation(hdf5Path).toString().contains("INTEGER(1)") && !asString -> {// Byte
+                for (i in reader.int8().readArray(hdf5Path))
                     data.add(i)
             }
-            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(2)") -> {// Short
-                for (i in reader.int16().readArray(hdfPath))
+            reader.getDataSetInformation(hdf5Path).toString().contains("INTEGER(2)") -> {// Short
+                for (i in reader.int16().readArray(hdf5Path))
                     data.add(i)
             }
-            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(4)") -> {// Int
-                for (i in reader.int32().readArray(hdfPath))
+            reader.getDataSetInformation(hdf5Path).toString().contains("INTEGER(4)") -> {// Int
+                for (i in reader.int32().readArray(hdf5Path))
                     data.add(i)
             }
-            reader.getDataSetInformation(hdfPath).toString().contains("INTEGER(8)") -> {// Long
-                for (i in reader.int64().readArray(hdfPath))
+            reader.getDataSetInformation(hdf5Path).toString().contains("INTEGER(8)") -> {// Long
+                for (i in reader.int64().readArray(hdf5Path))
                     data.add(i)
             }
-            reader.getDataSetInformation(hdfPath).toString().contains("FLOAT(4)") -> {// Float
-                for (i in reader.float32().readArray(hdfPath))
+            reader.getDataSetInformation(hdf5Path).toString().contains("FLOAT(4)") -> {// Float
+                for (i in reader.float32().readArray(hdf5Path))
                     data.add(i)
             }
-            reader.getDataSetInformation(hdfPath).toString().contains("FLOAT(8)") -> {// Double
-                for (i in reader.float64().readArray(hdfPath))
+            reader.getDataSetInformation(hdf5Path).toString().contains("FLOAT(8)") -> {// Double
+                for (i in reader.float64().readArray(hdf5Path))
                     data.add(i)
             }
-            reader.getDataSetInformation(hdfPath).toString().contains("BOOLEAN") -> {// Boolean
-                for (i in reader.int8().readArray(hdfPath))
+            reader.getDataSetInformation(hdf5Path).toString().contains("BOOLEAN") -> {// Boolean
+                for (i in reader.int8().readArray(hdf5Path))
                     data.add(i)
             }
         }
         return data
     }
 
-    /**
-     * return dense column of gene expression values for a chosen column / gene
-     */
     fun cscReader(col: GeneIndex = 0): FloatArray {
+        /**
+         * return dense column of gene expression values for a chosen column / gene
+         */
         val exprArray = FloatArray(numCells)
 
         val start = cscIndptr[col]
@@ -168,5 +173,21 @@ class AnnotationsIngest(h5adPath: String) {
             exprArray[cscIndices[i]] = cscData[i]
         }
         return exprArray
+    }
+
+    fun precompGenesReader(obs: String, cat: Int = Int.MAX_VALUE){
+        val names = arrayListOf<ArrayList<String>>()
+        val pvals = arrayListOf<Float>()
+        val logfoldchanges = arrayListOf<Float>()
+
+        for(name in h5adAnnotationReader("/uns/" + obs + "_names").withIndex()){
+            if(cat == Int.MAX_VALUE){  //fetch all cats
+                // split into new array every 10 loops
+            }
+            else {
+                // extract only the 10 entries from 10*cat-1:10*cat + 10
+            }
+        }
+
     }
 }

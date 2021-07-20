@@ -13,6 +13,7 @@ import org.scijava.ui.behaviour.ClickBehaviour
 import kotlin.concurrent.thread
 import org.joml.Vector3f
 import kotlinx.coroutines.*
+import org.joml.Vector4f
 import java.util.concurrent.atomic.AtomicInteger
 import kotlin.collections.ArrayList
 import kotlin.math.sqrt
@@ -64,7 +65,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
 //        val filename = resource[0]
-        plot = XPlot("marrow_vr_processed.h5ad")
+        plot = XPlot("tabula-muris-senis-facs-processed-official-annotations-Aort_vr_processed.h5ad")
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
@@ -85,9 +86,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         loadEnvironment()
 
         val testLabel = TextBoard()
-        testLabel.text = "text"
-        testLabel.position = Vector3f(1f, 1f, 1f)
-
+        testLabel.transparent = 0
+        testLabel.fontColor = Vector4f(0f)
+        testLabel.backgroundColor = Vector4f(0.5f)
+        testLabel.text = "switch view"
+        testLabel.position = Vector3f(0.01f, 0.01f, 0.03f)
+        testLabel.scale = Vector3f(0.012f)
+        testLabel.rotation.rotateX(-Math.PI.toFloat() / 2f)
 
         thread {
             while (!running) {
@@ -100,6 +105,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         hmd.attachToNode(device, it, cam)
                         if (device.role == TrackerRole.RightHand) {
                             it.addChild(rightSelector)
+                            it.addChild(testLabel)
                         }
                         if (device.role == TrackerRole.LeftHand) {
                             it.addChild(leftSelector)
@@ -456,43 +462,12 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         inputHandler?.addKeyBinding("toggleMode", "X")
 
-//        hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
-//            for (i in 1..plot.masterMap.size) {
-//                plot.masterMap[i]?.instances?.forEach {
-//                    if (rightLaser.intersects(it)) {
-//                        it.metadata["selected"] = true
-//                        it.material.diffuse = Vector3f(1f, 0f, 0f)
-//                        for (master in 1..plot.masterMap.size)
-//                            (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//                    }
-//                }
-//            }
-//            plot.updateInstancingLambdas()
-//            for (master in 1..plot.masterMap.size)
-//                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//        })
-//        hmd.addKeyBinding("markPoints", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
-//
-//        hmd.addBehaviour("unmarkPoints", ClickBehaviour { _, _ ->
-//            for (i in 1..plot.masterMap.size) {
-//                plot.masterMap[i]?.instances?.forEach {
-//                    if (leftLaser.intersects(it)) {
-//                        it.metadata["selected"] = false
-//                    }
-//                }
-//            }
-//            plot.updateInstancingLambdas()
-//            for (master in 1..plot.masterMap.size)
-//                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//        })
-//        hmd.addKeyBinding("unmarkPoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger)
-
         hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
             for (label in plot.labelList[annotationPicker].children.withIndex()) {
                 if (label.value.children.first().intersects(rightSelector)) {
                     for (i in 1..plot.masterMap.size) {
                         plot.masterMap[i]?.instances?.forEach {
-                            if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte()) {
+                            if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte() || it.metadata[plot.annotationList[annotationPicker]] == label.index.toShort()) {
                                 it.metadata["selected"] = true
 //                                it.material.diffuse = Vector3f(1f, 0f, 0f)
                             }
@@ -511,7 +486,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 if (label.value.children.first().intersects(leftSelector)) {
                     for (i in 1..plot.masterMap.size) {
                         plot.masterMap[i]?.instances?.forEach {
-                            if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte()) {
+                            if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte() || it.metadata[plot.annotationList[annotationPicker]] == label.index.toShort()) {
                                 it.metadata["selected"] = false
                             }
                         }
@@ -524,82 +499,21 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         hmd.addKeyBinding("unmarkPoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger)
 
-        hmd.addBehaviour("extendLaser", ClickBehaviour { _, _ ->
-            rightSelector.scale *= 1.10f
-            leftSelector.scale = rightSelector.scale
-        })
-        hmd.addKeyBinding("extendLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Up) //K
-
-        hmd.addBehaviour("shrinkLaser", ClickBehaviour { _, _ ->
-            val scale = rightSelector.scale
-            rightSelector.scale /= 1.1f
-            leftSelector.scale = rightSelector.scale
-        })
-        hmd.addKeyBinding("shrinkLaser", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
-
-
-//        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
-        hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
-            if (!currentlyFetching) {
-                thread {
-                    currentlyFetching = true
-//                Thread.currentThread().priority = Thread.MIN_PRIORITY
-                    geneBoard.text = "fetching..."
-
-                    val selectedList = ArrayList<Int>()
-                    val backgroundList = ArrayList<Int>()
-
-                    for (i in 1..plot.masterMap.size) {
-                        plot.masterMap[i]?.instances?.forEach {
-                            if (it.metadata["selected"] == true) {
-                                selectedList.add(it.metadata["index"] as Int)
-                            } else {
-                                backgroundList.add(it.metadata["index"] as Int)
-                            }
-                        }
-                    }
-                    when {
-                        selectedList.size == 0 || backgroundList.size == 0 -> {
-//                            val buffer = plot.annFetcher.fetchGeneExpression()
-//                            genePicker = 0
-//                            geneNames.clear()
-//                            geneExpr.clear()
-//                            geneNames = buffer.first
-//                            geneExpr = buffer.second
-//                            maxExprList = buffer.third
-                        }
-                        else -> {
-                            val buffer = plot.annFetcher.fetchGeneExpression(
-                                plot.maxDiffExpressedGenes(
-                                    selectedList,
-                                    backgroundList,
-                                    "TTest"
-                                )
-                            )
-                            genePicker = 0
-                            geneNames.clear()
-                            geneExpr.clear()
-                            geneNames = buffer.first
-                            geneExpr = buffer.second
-                            maxExprList = buffer.third
-                        }
-                    }
-
-                    for (i in 1..plot.masterMap.size) {
-                        plot.masterMap[i]?.instances?.forEach {
-                            it.metadata["selected"] = false
-                        }
-                    }
-
-                    plot.updateInstancingArrays()
-                    geneBoard.text = "Gene: " + geneNames[genePicker]
-                    maxTick.text = maxExprList[genePicker].toString()
-                    currentlyFetching = false
-                }
+        hmd.addBehaviour("extendSelector", ClickBehaviour { _, _ ->
+            if (rightSelector.scale[0] <= 1.8f) {
+                rightSelector.scale *= 1.10f
+                leftSelector.scale = rightSelector.scale
             }
         })
-        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
-//        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
+        hmd.addKeyBinding("extendSelector", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Up) //K
+
+        hmd.addBehaviour("shrinkSelector", ClickBehaviour { _, _ ->
+            if (rightSelector.scale[0] >= 0.05f) {
+                rightSelector.scale /= 1.1f
+                leftSelector.scale = rightSelector.scale
+            }
+        })
+        hmd.addKeyBinding("shrinkSelector", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
 
         //        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
         hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
@@ -632,10 +546,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 //                            maxExprList = buffer.third
                         }
                         else -> {
+                            println(selectedList.size)
+                            println(backgroundList.size)
                             val buffer = plot.annFetcher.fetchGeneExpression(
                                 plot.maxDiffExpressedGenes(
                                     selectedList,
-                                    backgroundList
+                                    backgroundList,
+                                    "TTest"
                                 )
                             )
                             genePicker = 0

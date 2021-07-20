@@ -1,13 +1,10 @@
 package graphics.scenery.xtradimensionvr
 
-import gnu.trove.set.hash.TIntHashSet
 import graphics.scenery.*
 import graphics.scenery.backends.Shaders
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.volumes.Colormap
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
-import org.apache.commons.math3.distribution.HypergeometricDistribution
-import org.apache.commons.math3.stat.descriptive.rank.Median
 import org.apache.commons.math3.stat.inference.MannWhitneyUTest
 import org.apache.commons.math3.stat.inference.TTest
 import org.joml.Vector3f
@@ -38,8 +35,7 @@ class XPlot(filePath: String) : Node() {
     private var positionScaling = 0.3f
     private val colormap = Colormap.get(encoding)
 
-    val annFetcher =
-        AnnotationsIngest(filePath)
+    val annFetcher = AnnotationsIngest(filePath)
     private val spatialCoords = annFetcher.umapReader3D()
 
     var annotationList = ArrayList<String>()
@@ -57,7 +53,11 @@ class XPlot(filePath: String) : Node() {
                 logger.info("$ann is not color encodable and will exist only as metadata")
             }
         }
-        println(annotationList)
+        // start on cell_ontology_class annotation if present
+        annotationPicker = annotationList.indexOf("cell_ontology_class")
+        if (annotationPicker == -1) {
+            annotationPicker = 0
+        }
     }
 
     private var annotationArray = ArrayList<FloatArray>() //used to color spheres, normalized
@@ -92,7 +92,7 @@ class XPlot(filePath: String) : Node() {
                         val max: Short? = (raw as ArrayList<Short>).maxOrNull()
                         if (max != null && max > 0f) {
                             for (i in raw.indices)
-                                norm[i] = (raw[i] as Short).toFloat() / max
+                                norm[i] = (raw[i]).toFloat() / max
                         }
                     }
                 }
@@ -102,7 +102,7 @@ class XPlot(filePath: String) : Node() {
         }
     }
 
-    //generate master spheres for every 10k cells for performance
+    //generate master spheres for every 10k cells (rendering and parsing performance improvement)
     private val masterSplit = 10_000
     private val masterCount = ceil(spatialCoords.size.toFloat() / masterSplit).toInt()
     val masterMap = hashMapOf<Int, Icosphere>()
@@ -116,7 +116,7 @@ class XPlot(filePath: String) : Node() {
         loadDataset()
         updateInstancingArrays()
         updateInstancingLambdas()
-        annKeyList[0].visible = true
+        annKeyList[annotationPicker].visible = true
     }
 
     private fun loadDataset() {
@@ -224,9 +224,9 @@ class XPlot(filePath: String) : Node() {
                 when {
                     s.metadata["selected"] == true -> s.material.diffuse.xyzw()
 
-                    annotationMode -> rgbColorSpectrum.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[1][annotationPicker])
+                    annotationMode -> rgbColorSpectrum.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[1][annotationPicker] * 0.99f)
 
-                    !annotationMode -> colormap.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[0][genePicker] / 10)
+                    !annotationMode -> colormap.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[0][genePicker] / 10.1f)
 
                         else -> Vector4f(1f, 0f, 0f, 1f)
 
@@ -253,7 +253,7 @@ class XPlot(filePath: String) : Node() {
             t.text = label.replace("ï", "i")
             t.transparent = 0
             t.fontColor = Vector3f(0f, 0f, 0f).xyzw()
-            t.backgroundColor = rgbColorSpectrum.sample(count.toFloat() / mapSize)
+            t.backgroundColor = rgbColorSpectrum.sample((count.toFloat() / mapSize) * 0.99f)
 
             when (type) {
                 "Byte" -> t.position = fetchCellLabelPosition(annotation, count.toByte())
@@ -397,7 +397,7 @@ class XPlot(filePath: String) : Node() {
             sphere.material.metallic = 0.0001f
 //            sphere.parent = parent
 //            parent.instances.add(sphere)
-            sphere.material.diffuse = rgbColorSpectrum.sample(colorIncrement.toFloat() / mapSize).xyz()
+            sphere.material.diffuse = rgbColorSpectrum.sample((colorIncrement.toFloat() / mapSize) * 0.99f).xyz()
 //            sphere.instancedProperties["Color"] = {
 //                rgbColorSpectrum.sample(colorIncrement.toFloat() / mapSize).xyz()
 //            }

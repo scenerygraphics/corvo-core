@@ -38,27 +38,8 @@ class XPlot(filePath: String) : Node() {
     val annFetcher = AnnotationsIngest(filePath)
     private val spatialCoords = annFetcher.umapReader3D()
 
-    var annotationList = ArrayList<String>()
-
     // give annotations you would like (maybe with checkboxes, allow to enter the names of their annotations)
     // list of annotations
-    init {
-        for (ann in annFetcher.reader.getGroupMembers("/obs")) {
-            try {
-                val info = annFetcher.reader.getDataSetInformation("/uns/" + ann + "_categorical")
-                if (info.toString().toCharArray().size < 17) {
-                    annotationList.add(ann)
-                }
-            } catch (e: HDF5SymbolTableException) {
-                logger.info("$ann is not color encodable and will exist only as metadata")
-            }
-        }
-        // start on cell_ontology_class annotation if present
-        annotationPicker = annotationList.indexOf("cell_ontology_class")
-        if (annotationPicker == -1) {
-            annotationPicker = 0
-        }
-    }
 
     private var annotationArray = ArrayList<FloatArray>() //used to color spheres, normalized
     private val rawAnnotations = ArrayList<ArrayList<*>>()

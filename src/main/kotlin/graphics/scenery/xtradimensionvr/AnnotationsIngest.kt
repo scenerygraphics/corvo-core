@@ -4,12 +4,16 @@ import ch.systemsx.cisd.base.mdarray.MDFloatArray
 import ch.systemsx.cisd.base.mdarray.MDIntArray
 import ch.systemsx.cisd.hdf5.HDF5Factory
 import ch.systemsx.cisd.hdf5.IHDF5Reader
+import graphics.scenery.backends.Renderer.Companion.logger
 import graphics.scenery.numerics.Random
+import hdf.hdf5lib.exceptions.HDF5LibraryException
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.ceil
 
+
+var annotationList = ArrayList<String>()
 
 class AnnotationsIngest(h5adPath: String) {
     val reader: IHDF5Reader = HDF5Factory.openForReading(h5adPath)
@@ -24,19 +28,51 @@ class AnnotationsIngest(h5adPath: String) {
 
     val nonZeroGenes = ArrayList<Int>()
 
+    val nCatList = ArrayList<Int>()
+    val flatNamesList = ArrayList<ArrayList<String>>()
+    val flatPvalsList = ArrayList<ArrayList<Float>>()
+    val flatLogfoldchanges = ArrayList<ArrayList<Float>>()
+
     init {
-        println(reader.getDataSetInformation("uns/cell_ontology_class_logfoldchanges"))
+        for (ann in reader.getGroupMembers("/obs")) {
+            try {
+                val info = reader.getDataSetInformation("/uns/" + ann + "_categorical")
+                if (info.toString().toCharArray().size < 17) {
+                    annotationList.add(ann)
+                }
+            } catch (e: HDF5SymbolTableException) {
+                logger.info("$ann is not color encodable and will exist only as metadata")
+            }
+        }
+        // start on cell_ontology_class annotation if present
+        annotationPicker = annotationList.indexOf("cell_ontology_class")
+        if (annotationPicker == -1) {
+            annotationPicker = 0
+        }
 
         val ratioList = ArrayList<Float>()
         for (geneIndex in 0 until numGenes) {
             ratioList.add((cscIndptr[geneIndex + 1] - cscIndptr[geneIndex]).toFloat() / numCells.toFloat())
 
             if (ratioList[geneIndex] > 0.2) {
-               nonZeroGenes.add(geneIndex)
+                nonZeroGenes.add(geneIndex)
             }
         }
         println(nonZeroGenes.size)
         println(numGenes)
+
+        for (obs in annotationList) {
+            nCatList.add(h5adAnnotationReader("/uns/" + obs + "_categorical").size)  // still add as 1 indicates no gene info
+            try  {
+                flatNamesList.add(h5adAnnotationReader("/uns/" + obs + "_names") as ArrayList<String>)
+                flatPvalsList.add(h5adAnnotationReader("/uns/" + obs + "_pvals") as ArrayList<Float>)
+                flatLogfoldchanges.add(h5adAnnotationReader("/uns/" + obs + "_logfoldchanges") as ArrayList<Float>)
+            } catch (e: HDF5SymbolTableException) {
+                flatNamesList.add(arrayListOf())
+                flatPvalsList.add(arrayListOf())
+                flatLogfoldchanges.add(arrayListOf())
+            }
+        }
     }
 
     fun fetchGeneExpression(genes: ArrayList<Int> = arrayListOf()): Triple<ArrayList<String>, ArrayList<FloatArray>, ArrayList<Int>> {
@@ -51,21 +87,21 @@ class AnnotationsIngest(h5adPath: String) {
         val maxList = ArrayList<Float>()  // save in list for access by color map labels
         for (gene in 0 until genes.size) {
             val max = ceil(expressions[gene].maxOrNull()!!)
-                when {
-                    max == 0f -> maxList.add(10f)
-                    max > 0f -> {
-                        maxList.add(max)
-                        for (expr in 0 until numCells) {
-                            expressions[gene][expr] *= (10 / maxList[gene])
-                        }
+            when {
+                max == 0f -> maxList.add(10f)
+                max > 0f -> {
+                    maxList.add(max)
+                    for (expr in 0 until numCells) {
+                        expressions[gene][expr] *= (10 / maxList[gene])
                     }
                 }
+            }
         }
 
         val names = genes.map { geneNames[it] } as ArrayList<String>
         println(names)
 
-        return Triple(names, expressions, maxList.map {it.toInt()} as ArrayList<Int>)
+        return Triple(names, expressions, maxList.map { it.toInt() } as ArrayList<Int>)
     }
 
     fun umapReader3D(): ArrayList<ArrayList<Float>> {
@@ -175,19 +211,35 @@ class AnnotationsIngest(h5adPath: String) {
         return exprArray
     }
 
-    fun precompGenesReader(obs: String, cat: Int = Int.MAX_VALUE){
-        val names = arrayListOf<ArrayList<String>>()
-        val pvals = arrayListOf<Float>()
-        val logfoldchanges = arrayListOf<Float>()
+    fun precompGenesReader(obs: String, cat: Int = Int.MAX_VALUE): Triple<ArrayList<ArrayList<String>>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>> {
+        val nGenes = 10
+        val obsIndex = annotationList.indexOf(obs)
+        val nCat = nCatList[obsIndex]
 
-        for(name in h5adAnnotationReader("/uns/" + obs + "_names").withIndex()){
-            if(cat == Int.MAX_VALUE){  //fetch all cats
-                // split into new array every 10 loops
-            }
-            else {
-                // extract only the 10 entries from 10*cat-1:10*cat + 10
+        val names = arrayListOf<ArrayList<String>>()
+        val pvals = arrayListOf<ArrayList<Float>>()
+        val logfoldchanges = arrayListOf<ArrayList<Float>>()
+
+        if (flatNamesList[obsIndex].isNotEmpty()) {
+            val flatNames = flatNamesList[obsIndex]
+            val flatPvals = flatPvalsList[obsIndex]
+            val flatLogfoldchanges = flatLogfoldchanges[obsIndex]
+
+            if (cat == Int.MAX_VALUE) {  //fetch all cats
+                for (i in 0 until nCat) {
+                    names.add(flatNames.slice(i * nGenes until i * nGenes + nGenes) as ArrayList<String>)
+                    pvals.add(flatPvals.slice(i * nGenes until i * nGenes + nGenes) as ArrayList<Float>)
+                    logfoldchanges.add(flatLogfoldchanges.slice(i * nGenes until i * nGenes + nGenes) as ArrayList<Float>)
+                }
+            } else {  //fetch single cat
+                names.add(flatNames.slice(cat * nGenes until cat * nGenes + nGenes) as ArrayList<String>)
+                pvals.add(flatPvals.slice(cat * nGenes until cat * nGenes + nGenes) as ArrayList<Float>)
+                logfoldchanges.add(flatLogfoldchanges.slice(cat * nGenes until cat * nGenes + nGenes) as ArrayList<Float>)
             }
         }
-
+        return Triple(names, pvals, logfoldchanges)
     }
 }
+
+// attach genes as labels to controller when selected, background color of cluster?
+// attach genes to bottom of list when additional clusters are selected?

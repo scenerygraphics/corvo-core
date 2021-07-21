@@ -320,7 +320,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     if (plot.annKeyList.size > 0)
                         plot.annKeyList[annotationPicker].visible = false
                     annotationPicker += 1
-                    annotationPicker %= plot.annotationList.size
+                    annotationPicker %= annotationList.size
                     if (plot.annKeyList.size > 0)
                         plot.annKeyList[annotationPicker].visible = true
                 } else if (!annotationMode && geneNames.size > 1) {
@@ -342,7 +342,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     if (plot.annKeyList.size > 0)
                         plot.annKeyList[annotationPicker].visible = false
                     annotationPicker += 1
-                    annotationPicker %= plot.annotationList.size
+                    annotationPicker %= annotationList.size
                     if (plot.annKeyList.size > 0)
                         plot.annKeyList[annotationPicker].visible = true
                 } else if (!annotationMode && geneNames.size > 1) {
@@ -366,7 +366,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     if (annotationPicker > 0) {
                         annotationPicker -= 1
                     } else {
-                        annotationPicker = plot.annotationList.size - 1
+                        annotationPicker = annotationList.size - 1
                     }
                     if (plot.annKeyList.size > 0)
                         plot.annKeyList[annotationPicker].visible = true
@@ -394,7 +394,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     if (annotationPicker > 0) {
                         annotationPicker -= 1
                     } else {
-                        annotationPicker = plot.annotationList.size - 1
+                        annotationPicker = annotationList.size - 1
                     }
                     if (plot.annKeyList.size > 0)
                         plot.annKeyList[annotationPicker].visible = true
@@ -467,7 +467,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 if (label.value.children.first().intersects(rightSelector)) {
                     for (i in 1..plot.masterMap.size) {
                         plot.masterMap[i]?.instances?.forEach {
-                            if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte() || it.metadata[plot.annotationList[annotationPicker]] == label.index.toShort()) {
+                            if (it.metadata[annotationList[annotationPicker]] == label.index.toByte() || it.metadata[annotationList[annotationPicker]] == label.index.toShort()) {
                                 it.metadata["selected"] = true
 //                                it.material.diffuse = Vector3f(1f, 0f, 0f)
                             }
@@ -486,7 +486,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 if (label.value.children.first().intersects(leftSelector)) {
                     for (i in 1..plot.masterMap.size) {
                         plot.masterMap[i]?.instances?.forEach {
-                            if (it.metadata[plot.annotationList[annotationPicker]] == label.index.toByte() || it.metadata[plot.annotationList[annotationPicker]] == label.index.toShort()) {
+                            if (it.metadata[annotationList[annotationPicker]] == label.index.toByte() || it.metadata[annotationList[annotationPicker]] == label.index.toShort()) {
                                 it.metadata["selected"] = false
                             }
                         }

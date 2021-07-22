@@ -4,7 +4,6 @@ import graphics.scenery.*
 import graphics.scenery.backends.Shaders
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.volumes.Colormap
-import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import org.apache.commons.math3.stat.inference.MannWhitneyUTest
 import org.apache.commons.math3.stat.inference.TTest
 import org.joml.Vector3f
@@ -48,7 +47,7 @@ class XPlot(filePath: String) : Node() {
 
     val annKeyList = ArrayList<Mesh>()
     val labelList = ArrayList<Mesh>()
-    private val rgbColorSpectrum = Colormap.get("jet")
+    val rgbColorSpectrum = Colormap.get("jet")
 
     init {
         for (ann in annotationList) {

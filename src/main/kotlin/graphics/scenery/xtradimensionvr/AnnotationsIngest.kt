@@ -6,7 +6,6 @@ import ch.systemsx.cisd.hdf5.HDF5Factory
 import ch.systemsx.cisd.hdf5.IHDF5Reader
 import graphics.scenery.backends.Renderer.Companion.logger
 import graphics.scenery.numerics.Random
-import hdf.hdf5lib.exceptions.HDF5LibraryException
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import java.util.*
 import kotlin.collections.ArrayList
@@ -211,19 +210,18 @@ class AnnotationsIngest(h5adPath: String) {
         return exprArray
     }
 
-    fun precompGenesReader(obs: String, cat: Int = Int.MAX_VALUE): Triple<ArrayList<ArrayList<String>>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>> {
+    fun precompGenesReader(obs: Int, cat: Int = Int.MAX_VALUE): Pair<Int, Triple<ArrayList<ArrayList<String>>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>>> {
         val nGenes = 10
-        val obsIndex = annotationList.indexOf(obs)
-        val nCat = nCatList[obsIndex]
+        val nCat = nCatList[obs]
 
         val names = arrayListOf<ArrayList<String>>()
         val pvals = arrayListOf<ArrayList<Float>>()
         val logfoldchanges = arrayListOf<ArrayList<Float>>()
 
-        if (flatNamesList[obsIndex].isNotEmpty()) {
-            val flatNames = flatNamesList[obsIndex]
-            val flatPvals = flatPvalsList[obsIndex]
-            val flatLogfoldchanges = flatLogfoldchanges[obsIndex]
+        if (flatNamesList[obs].isNotEmpty()) {
+            val flatNames = flatNamesList[obs]
+            val flatPvals = flatPvalsList[obs]
+            val flatLogfoldchanges = flatLogfoldchanges[obs]
 
             if (cat == Int.MAX_VALUE) {  //fetch all cats
                 for (i in 0 until nCat) {
@@ -237,7 +235,7 @@ class AnnotationsIngest(h5adPath: String) {
                 logfoldchanges.add(flatLogfoldchanges.slice(cat * nGenes until cat * nGenes + nGenes) as ArrayList<Float>)
             }
         }
-        return Triple(names, pvals, logfoldchanges)
+        return Pair(nCat, Triple(names, pvals, logfoldchanges))
     }
 }
 

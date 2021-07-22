@@ -8,6 +8,7 @@ import graphics.scenery.controls.TrackerRole
 import graphics.scenery.textures.Texture
 import graphics.scenery.utils.Image
 import graphics.scenery.utils.extensions.times
+import graphics.scenery.utils.extensions.xyz
 import graphics.scenery.utils.extensions.xyzw
 import org.scijava.ui.behaviour.ClickBehaviour
 import kotlin.concurrent.thread
@@ -56,6 +57,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     // init here so can be accessed by input commands
     private val geneBoard = TextBoard()
     private val maxTick = TextBoard()
+
+    val geneTagMesh = HashMap<Int, Mesh>()
 
     override fun init() {
         hmd = OpenVRHMD(useCompositor = true)
@@ -127,6 +130,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
+
 //        thread {
 //            cam.update.add {
 //                for (i in 1..plot.masterMap.size) {
@@ -164,22 +168,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             lights.add(light)
             scene.addChild(light)
         }
-
-        // Make a headlight for the camera
-        val headlight = PointLight(2.0f)
-        headlight.position = Vector3f(0f, 0f, -1f).mul(25.0f)
-        headlight.emissionColor = Vector3f(1.0f, 1.0f, 1.0f)
-        headlight.intensity = 0.5f
-        headlight.name = "headlight"
-
-        val lightSphere = Icosphere(1.0f, 2)
-        headlight.addChild(lightSphere)
-        lightSphere.material.diffuse = headlight.emissionColor
-        lightSphere.material.specular = headlight.emissionColor
-        lightSphere.material.ambient = headlight.emissionColor
-        lightSphere.material.wireframe = true
-        lightSphere.visible = false
-        cam.addChild(headlight)
 
         val floor = InfinitePlane()
         floor.baseLineWidth = 1.5f
@@ -463,21 +451,70 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         inputHandler?.addKeyBinding("toggleMode", "X")
 
         hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
+            val selectedClusters = arrayListOf<Int>()
             for (label in plot.labelList[annotationPicker].children.withIndex()) {
                 if (label.value.children.first().intersects(rightSelector)) {
                     for (i in 1..plot.masterMap.size) {
                         plot.masterMap[i]?.instances?.forEach {
                             if (it.metadata[annotationList[annotationPicker]] == label.index.toByte() || it.metadata[annotationList[annotationPicker]] == label.index.toShort()) {
                                 it.metadata["selected"] = true
-//                                it.material.diffuse = Vector3f(1f, 0f, 0f)
                             }
                         }
                     }
+                    selectedClusters.add(label.index)
                 }
             }
             plot.updateInstancingLambdas()
             for (master in 1..plot.masterMap.size)
                 (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+
+            val clusterData =
+                ArrayList<Pair<Int, Triple<ArrayList<ArrayList<String>>, ArrayList<ArrayList<Float>>, ArrayList<ArrayList<Float>>>>>()
+
+            if (selectedClusters.isNotEmpty()) {
+                hmd.getTrackedDevices(TrackedDeviceType.Controller).forEach { device ->
+                    if (device.value.role == TrackerRole.LeftHand) {
+                        geneTagMesh.forEach {
+                            device.value.model?.removeChild(it.value)
+                        }
+                    }
+                }
+                geneTagMesh.clear()
+                val scale = 0.02f
+
+                for (cluster in selectedClusters.withIndex()) {
+
+                    val clusterMesh = Mesh()
+                    clusterData.add(plot.annFetcher.precompGenesReader(annotationPicker, cluster.value))
+                    val backC = ((cluster.value.toFloat()) / (clusterData[cluster.index].first.toFloat() - 1)) * 0.99f
+
+                    for (i in 0 until clusterData[cluster.index].second.first[0].size) {
+                        val geneTag = TextBoard()
+                        geneTag.text =
+                                    clusterData[cluster.index].second.first[0][i] +
+                                    ", p: " + clusterData[cluster.index].second.second[0][i].toString() +
+                                    ", f.c.: " + clusterData[cluster.index].second.third[0][i].toString()
+
+                        geneTag.scale = Vector3f(scale)
+                        geneTag.position = Vector3f(0.05f, 0.01f, (i * scale) + (cluster.index * scale * clusterData[cluster.index].second.first[0].size))
+                        geneTag.rotation.rotateX(-Math.PI.toFloat() / 2f)
+
+                        geneTag.transparent = 0
+                        geneTag.fontColor = Vector4f(0f)
+                        geneTag.backgroundColor = plot.rgbColorSpectrum.sample(backC)
+
+                        clusterMesh.addChild(geneTag)
+                    }
+                    geneTagMesh[cluster.value] = clusterMesh
+                }
+                hmd.getTrackedDevices(TrackedDeviceType.Controller).forEach { device ->
+                    if (device.value.role == TrackerRole.LeftHand) {
+                        geneTagMesh.forEach {
+                            device.value.model?.addChild(it.value)
+                        }
+                    }
+                }
+            }
         })
         hmd.addKeyBinding("markPoints", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
 
@@ -500,7 +537,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         hmd.addKeyBinding("unmarkPoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger)
 
         hmd.addBehaviour("extendSelector", ClickBehaviour { _, _ ->
-            if (rightSelector.scale[0] <= 1.8f) {
+            if (rightSelector.scale[0] <= 1.7f) {
                 rightSelector.scale *= 1.10f
                 leftSelector.scale = rightSelector.scale
             }

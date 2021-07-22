@@ -23,7 +23,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("graphics.scenery:scenery:e1e0b7e4fc")
+    implementation("graphics.scenery:scenery:0cec01e1cb")  //e1e0b7e4fc stable
     implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when (current()) {
         WINDOWS -> "windows"

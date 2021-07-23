@@ -452,12 +452,15 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
         hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
             val selectedClusters = arrayListOf<Int>()
+            println(selectedClusters)
             for (label in plot.labelList[annotationPicker].children.withIndex()) {
                 if (label.value.children.first().intersects(rightSelector)) {
                     for (i in 1..plot.masterMap.size) {
                         plot.masterMap[i]?.instances?.forEach {
                             if (it.metadata[annotationList[annotationPicker]] == label.index.toByte() || it.metadata[annotationList[annotationPicker]] == label.index.toShort()) {
                                 it.metadata["selected"] = true
+                            } else {
+                                it.metadata["selected"] = false
                             }
                         }
                     }
@@ -480,30 +483,39 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     }
                 }
                 geneTagMesh.clear()
+
                 val scale = 0.02f
 
                 for (cluster in selectedClusters.withIndex()) {
 
                     val clusterMesh = Mesh()
                     clusterData.add(plot.annFetcher.precompGenesReader(annotationPicker, cluster.value))
-                    val backC = ((cluster.value.toFloat()) / (clusterData[cluster.index].first.toFloat() - 1)) * 0.99f
 
-                    for (i in 0 until clusterData[cluster.index].second.first[0].size) {
-                        val geneTag = TextBoard()
-                        geneTag.text =
-                                    clusterData[cluster.index].second.first[0][i] +
-                                    ", p: " + clusterData[cluster.index].second.second[0][i].toString() +
-                                    ", f.c.: " + clusterData[cluster.index].second.third[0][i].toString()
+                    if (clusterData[cluster.index].second.first.isNotEmpty()) {
+                        val backC =
+                            ((cluster.value.toFloat()) / (clusterData[cluster.index].first.toFloat() - 1)) * 0.99f
 
-                        geneTag.scale = Vector3f(scale)
-                        geneTag.position = Vector3f(0.05f, 0.01f, (i * scale) + (cluster.index * scale * clusterData[cluster.index].second.first[0].size))
-                        geneTag.rotation.rotateX(-Math.PI.toFloat() / 2f)
+                        for (i in 0 until clusterData[cluster.index].second.first[0].size) {
+                            val geneTag = TextBoard()
+                            geneTag.text =
+                                clusterData[cluster.index].second.first[0][i] +
+                                        ", p: " + clusterData[cluster.index].second.second[0][i].toString() +
+                                        ", f.c.: " + clusterData[cluster.index].second.third[0][i].toString()
 
-                        geneTag.transparent = 0
-                        geneTag.fontColor = Vector4f(0f)
-                        geneTag.backgroundColor = plot.rgbColorSpectrum.sample(backC)
+                            geneTag.scale = Vector3f(scale)
+                            geneTag.position = Vector3f(
+                                0.05f,
+                                0.01f,
+                                (i * scale) + (cluster.index * scale * clusterData[cluster.index].second.first[0].size)
+                            )
+                            geneTag.rotation.rotateX(-Math.PI.toFloat() / 2f)
 
-                        clusterMesh.addChild(geneTag)
+                            geneTag.transparent = 0
+                            geneTag.fontColor = Vector4f(0f)
+                            geneTag.backgroundColor = plot.rgbColorSpectrum.sample(backC)
+
+                            clusterMesh.addChild(geneTag)
+                        }
                     }
                     geneTagMesh[cluster.value] = clusterMesh
                 }

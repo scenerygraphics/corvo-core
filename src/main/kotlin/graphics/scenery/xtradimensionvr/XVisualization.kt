@@ -616,6 +616,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                             }
                         }
                     }
+
+                    println(selectedList.size)
+                    println(backgroundList.size)
                     when {
                         selectedList.size == 0 || backgroundList.size == 0 -> {
                         }

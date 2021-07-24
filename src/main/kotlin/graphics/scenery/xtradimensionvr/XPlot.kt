@@ -204,6 +204,8 @@ class XPlot(filePath: String) : Node() {
                 when {
                     s.metadata["selected"] == true -> s.material.diffuse.xyzw()
 
+                    s.metadata["selected_testing"] == true -> s.material.diffuse.xyzw()
+
                     annotationMode -> rgbColorSpectrum.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[1][annotationPicker] * 0.99f)
 
                     !annotationMode -> colormap.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[0][genePicker] / 10.1f)

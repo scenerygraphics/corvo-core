@@ -16,7 +16,7 @@ var annotationList = ArrayList<String>()
 
 class AnnotationsIngest(h5adPath: String) {
     val reader: IHDF5Reader = HDF5Factory.openForReading(h5adPath)
-    private val geneNames = h5adAnnotationReader("/var/index")
+    val geneNames = h5adAnnotationReader("/var/index")
 
     private val cscData: MDFloatArray = reader.float32().readMDArray("/X/data")
     private val cscIndices: MDIntArray = reader.int32().readMDArray("/X/indices")

@@ -32,6 +32,8 @@ class AnnotationsIngest(h5adPath: String) {
     val flatPvalsList = ArrayList<ArrayList<Float>>()
     val flatLogfoldchanges = ArrayList<ArrayList<Float>>()
 
+    val categoryNames = ArrayList<ArrayList<String>>()
+
     init {
         for (ann in reader.getGroupMembers("/obs")) {
             try {
@@ -39,10 +41,12 @@ class AnnotationsIngest(h5adPath: String) {
                 if (info.toString().toCharArray().size < 17) {
                     annotationList.add(ann)
                 }
+                categoryNames.add(h5adAnnotationReader("/uns/" + ann + "_categorical") as ArrayList<String>)
             } catch (e: HDF5SymbolTableException) {
                 logger.info("$ann is not color encodable and will exist only as metadata")
             }
         }
+        println(categoryNames)
         // start on cell_ontology_class annotation if present
         annotationPicker = annotationList.indexOf("cell_ontology_class")
         if (annotationPicker == -1) {
@@ -62,7 +66,7 @@ class AnnotationsIngest(h5adPath: String) {
 
         for (obs in annotationList) {
             nCatList.add(h5adAnnotationReader("/uns/" + obs + "_categorical").size)  // still add as 1 indicates no gene info
-            try  {
+            try {
                 flatNamesList.add(h5adAnnotationReader("/uns/" + obs + "_names") as ArrayList<String>)
                 flatPvalsList.add(h5adAnnotationReader("/uns/" + obs + "_pvals") as ArrayList<Float>)
                 flatLogfoldchanges.add(h5adAnnotationReader("/uns/" + obs + "_logfoldchanges") as ArrayList<Float>)

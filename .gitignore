@@ -45,4 +45,7 @@ core
 ToDo_Scenery_dimensionalR
 *.hdf5
 *.h5ad
+*.wav
+
+model
 

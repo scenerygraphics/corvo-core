@@ -8,17 +8,15 @@ import graphics.scenery.controls.TrackerRole
 import graphics.scenery.textures.Texture
 import graphics.scenery.utils.Image
 import graphics.scenery.utils.extensions.times
-import graphics.scenery.utils.extensions.xyz
 import graphics.scenery.utils.extensions.xyzw
-import org.scijava.ui.behaviour.ClickBehaviour
-import kotlin.concurrent.thread
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import org.joml.Vector3f
-import kotlinx.coroutines.*
 import org.joml.Vector4f
-import org.nd4j.weightinit.impl.XavierUniformInitScheme
-import org.w3c.dom.Text
+import org.scijava.ui.behaviour.ClickBehaviour
 import java.util.concurrent.atomic.AtomicInteger
-import kotlin.collections.ArrayList
+import kotlin.concurrent.thread
 import kotlin.math.sqrt
 
 /**
@@ -56,10 +54,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     lateinit var hmd: OpenVRHMD
     lateinit var plot: XPlot
     lateinit var ui: Xui
+    lateinit var audioDecoder: AudioDecoder
 
     // init here so can be accessed by input commands
     val geneBoard = TextBoard("SourceSansPro-Light.ttf")
     val maxTick = TextBoard("SourceSansPro-Light.ttf")
+
+    val speechGene = TextBoard()
 
     override fun init() {
         hmd = OpenVRHMD(useCompositor = true)
@@ -81,13 +82,14 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         cam = DetachedHeadCamera(hmd)
         with(cam) {
             position = Vector3f(0f, 0f, 0f)
-//            position = Vector3f(0.0f, 1.65f, 5.0f)
             perspectiveCamera(70.0f, windowWidth, windowHeight, 0.1f, 1000.0f)
             this.addChild(Sphere(3f, 1)) // cam bounding box
             scene.addChild(this)
         }
 
         ui = Xui(this)
+        audioDecoder = AudioDecoder(this)
+
         loadEnvironment()
 
         val testLabel = TextBoard("SourceSansPro-Light.ttf")
@@ -99,7 +101,18 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         testLabel.scale = Vector3f(0.012f)
         testLabel.rotation.rotateX(-Math.PI.toFloat() / 2f)
 
-        scene.addChild(Box(Vector3f(0.12f, 0.04f, 0.02f)))
+        speechGene.transparent = 0
+        speechGene.fontColor = Vector4f(0f)
+        speechGene.backgroundColor = Vector4f(0.5f)
+//        speechGene.text = "init"
+        speechGene.position = Vector3f(0.01f, 0.01f, 0.03f)
+        speechGene.scale = Vector3f(0.012f)
+        speechGene.rotation.rotateX(-Math.PI.toFloat() / 2f)
+
+//        val testArrow = Arrow()
+////        testArrow.setPosition(floatArrayOf(0f, 0f, 0f))
+//        testArrow.vector = Vector3f(1f)
+//        scene.addChild(testArrow)
 
         thread {
             while (!running) {
@@ -119,6 +132,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                             it.addChild(ui.resetUI)
 //                            it.addChild(ui.loadGenesUI)
                             it.addChild(ui.switchSelectionModeUI)
+                            it.addChild(speechGene)
                         }
                     }
                 }
@@ -156,6 +170,14 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 //            }
 //        }
         scene.addChild(plot)
+
+//        val selectBg = BoundingGrid()
+//        selectBg.node = rightSelector
+//        for (board in plot.labelList[annotationPicker].children) {
+//            val selectBg = BoundingGrid()
+//            selectBg.node = board
+//        }
+
     }
 
     private fun loadEnvironment() {
@@ -253,27 +275,41 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 //        laserName.rotation.rotateY(-Math.PI.toFloat() / 3f) // point laser forwards
         selectorName.position = Vector3f(0f, 0.2f, -0.35f)
         selectorName.visible = true
-
     }
 
     override fun inputSetup() {
         super.inputSetup()
         // see [OpenVRhmd?.toAWTKeyCode] for key bindings
 
-//        inputHandler?.let { handler ->
-//            hashMapOf(
-//                "move_forward" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Up),
-//                "move_back" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Down),
-//                "move_left" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Left),
-//                "move_right" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Right)
-//            ).forEach { (name, key) ->
-//                handler.getBehaviour(name)?.let { b ->
-//                    logger.info("Adding behaviour $name bound to $key to HMD")
-//                    hmd.addBehaviour(name, b)
-//                    hmd.addKeyBinding(name, key)
+        inputHandler?.let { handler ->
+            hashMapOf(
+                "move_forward" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Up),
+                "move_back" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Down),
+                "move_left" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Left),
+                "move_right" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Right)
+            ).forEach { (name, key) ->
+                handler.getBehaviour(name)?.let { b ->
+                    logger.info("Adding behaviour $name bound to $key to HMD")
+                    hmd.addBehaviour(name, b)
+                    hmd.addKeyBinding(name, key)
+                }
+            }
+        }
+
+//        hmd.addBehaviour("record", ClickBehaviour { _, _ ->
+//            if (!listener.liveFlag) {
+//                thread {
+//                    val result = listener.recognize()
 //                }
+//            } else {
+//
 //            }
-//        }
+//
+//        })
+//        hmd.addKeyBinding("record", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //H
+
+        hmd.addBehaviour("record_drag", PressAndRelease(this))
+        hmd.addKeyBinding("record_drag", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //H
 
         hmd.addBehaviour("increase_size", ClickBehaviour { _, _ ->
             dotMesh.children.forEach { it ->
@@ -390,8 +426,16 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             GlobalScope.launch(Dispatchers.Default) {
 //                Thread.currentThread().priority = Thread.MIN_PRIORITY
 
-                if (rightSelector.intersects(ui.resetUI.children.first())) {
-                    println("resetUI")
+                if (rightSelector.intersects(ui.resetUI)) {
+
+                    thread {
+                        ui.resetUI.backgroundColor = Vector3f(1.00f, 0.33f, 0.00f).xyzw()
+                        Thread.sleep(200)
+                        if (ui.resetUI.backgroundColor == Vector3f(1.00f, 0.33f, 0.00f).xyzw()) {
+                            ui.resetUI.backgroundColor = Vector4f(0.7f)
+                        }
+                    }
+
                     // all reset routines
                     hmd.getTrackedDevices(TrackedDeviceType.Controller).forEach { device ->
                         if (device.value.role == TrackerRole.LeftHand) {
@@ -413,8 +457,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     for (master in 1..plot.masterMap.size)
                         (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
 
-                } else if (rightSelector.intersects(ui.switchSelectionModeUI.children.first())) {
-                    println("switch")
+                } else if (rightSelector.intersects(ui.switchSelectionModeUI)) {
                     if (ui.switchSelectionModeUIState == 0) {
                         ui.switchSelectionModeUIState = 1
                         ui.switchSelectionModeUI.backgroundColor = Vector3f(0.73f, 1.00f, 0.60f).xyzw()
@@ -427,12 +470,11 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
                 } else {
                     if (ui.switchSelectionModeUIState == 0) {
-                        println("select auto")
                         var selectedCluster = -1
 
                         // breaks once first intersecting label is encountered and saves index to 'var selectedCluster'
                         for (label in plot.labelList[annotationPicker].children.withIndex()) {
-                            if (label.value.children.first().intersects(rightSelector)) {
+                            if (label.value.intersects(rightSelector)) {
                                 selectedCluster = label.index
                                 break
                             }
@@ -440,7 +482,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         ui.dispGenes(selectedCluster)
 
                     } else {
-                        println("select custom")
                         for (i in 1..plot.masterMap.size) {
                             plot.masterMap[i]?.instances?.forEach {
                                 if (rightSelector.intersects(it)) {

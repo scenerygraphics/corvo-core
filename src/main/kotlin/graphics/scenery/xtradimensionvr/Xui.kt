@@ -1,5 +1,6 @@
 package graphics.scenery.xtradimensionvr
 
+import graphics.scenery.BoundingGrid
 import graphics.scenery.Box
 import graphics.scenery.Mesh
 import graphics.scenery.TextBoard
@@ -7,7 +8,6 @@ import graphics.scenery.controls.TrackedDeviceType
 import graphics.scenery.controls.TrackerRole
 import org.joml.Vector3f
 import org.joml.Vector4f
-import org.w3c.dom.Text
 import java.util.*
 import kotlin.collections.ArrayList
 
@@ -32,7 +32,7 @@ class Xui(parent: XVisualization) {
         // define features of category label (display selected category on controller)
         categoryLabel.scale = Vector3f(scale)
         categoryLabel.position = Vector3f(
-            0.25f,
+            0.1f,
             0f,
             0f
         )
@@ -46,28 +46,24 @@ class Xui(parent: XVisualization) {
 
     fun dispMainUI() {
         val buttonArray = arrayListOf(resetUI, switchSelectionModeUI)
-        resetUI.text = "reset selection"
+        resetUI.text = "reset"
 //        loadGenesUI.text = "load genes"
-        switchSelectionModeUI.text = "custom selection"
+        switchSelectionModeUI.text = "switch selector"
 
         for (button in buttonArray.withIndex()) {
-            button.value.scale = Vector3f(scale * 2)
+            button.value.scale = Vector3f(scale)
             button.value.position = Vector3f(
-                0.05f,
+                (-button.index * 0.18f) + 0.05f,
                 0f,
-                button.index * scale * 8
+                0f
             )
             button.value.rotation.rotateX(-Math.PI.toFloat() / 2f)
             button.value.transparent = 0
             button.value.fontColor = Vector4f(0f)
             button.value.backgroundColor = Vector4f(0.7f)
 
-            val intBox = Box(Vector3f(0.08f / scale, 0.0002f, 0.2f))
-            intBox.position = Vector3f(2f, 0.5f, 0f)
-            intBox.boundingBox
-            intBox.visible = true
-
-            button.value.addChild(intBox)
+//            val bg = BoundingGrid()
+//            bg.node = button.value
         }
 
     }
@@ -105,7 +101,7 @@ class Xui(parent: XVisualization) {
 
                     geneTag.scale = Vector3f(scale)
                     geneTag.position = Vector3f(
-                        0.25f,
+                        0.1f,
                         0f,
                         (i * scale) + (scale * 1.15f)
                     )
@@ -143,7 +139,5 @@ class Xui(parent: XVisualization) {
             ///////////////////////////////////////
         }
     }
-
-    
 
 }

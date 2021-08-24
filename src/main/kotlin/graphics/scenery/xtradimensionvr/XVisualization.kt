@@ -60,13 +60,15 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     val geneBoard = TextBoard("SourceSansPro-Light.ttf")
     val maxTick = TextBoard("SourceSansPro-Light.ttf")
 
-    val speechGene = TextBoard()
+    val dialogue = TextBoard("SourceSansPro-Light.ttf")
+    val micButton = Box(Vector3f(0.015f, 0f, 0.015f))
+    val genesToLoad = TextBoard("SourceSansPro-Light.ttf")
 
     override fun init() {
         hmd = OpenVRHMD(useCompositor = true)
 
         if (!hmd.initializedAndWorking()) {
-            logger.info("Visualization is running without a hmd and may have limited interactivity")
+            logger.info("Visualization is running without an hmd and may have limited interactivity")
         }
 
 //        val filename = resource[0]
@@ -101,13 +103,29 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         testLabel.scale = Vector3f(0.012f)
         testLabel.rotation.rotateX(-Math.PI.toFloat() / 2f)
 
-        speechGene.transparent = 0
-        speechGene.fontColor = Vector4f(0f)
-        speechGene.backgroundColor = Vector4f(0.5f)
-//        speechGene.text = "init"
-        speechGene.position = Vector3f(0.01f, 0.01f, 0.03f)
-        speechGene.scale = Vector3f(0.012f)
-        speechGene.rotation.rotateX(-Math.PI.toFloat() / 2f)
+        dialogue.transparent = 0
+        dialogue.fontColor = Vector4f(0f)
+        dialogue.backgroundColor = Vector4f(0.5f)
+        dialogue.position = Vector3f(0.03f, 0.01f, 0.02f)
+        dialogue.scale = Vector3f(0.012f)
+        dialogue.rotation.rotateX(-Math.PI.toFloat() / 2f)
+
+        genesToLoad.transparent = 0
+        genesToLoad.fontColor = Vector4f(0f)
+        genesToLoad.backgroundColor = Vector4f(0.5f)
+        genesToLoad.position = Vector3f(0.03f, 0.01f, 0.03f)
+        genesToLoad.scale = Vector3f(0.012f)
+        genesToLoad.rotation.rotateX(-Math.PI.toFloat() / 2f)
+
+
+        micButton.material.textures["diffuse"] =
+            Texture.fromImage(Image.fromResource("volumes/mic_image.jpg", this::class.java))
+        micButton.material.metallic = 0.3f
+        micButton.material.roughness = 0.9f
+        micButton.material.diffuse = Vector3f(0.5f)
+        micButton.position = Vector3f(0f, 0.01f, 0.02f)
+
+
 
 //        val testArrow = Arrow()
 ////        testArrow.setPosition(floatArrayOf(0f, 0f, 0f))
@@ -132,7 +150,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                             it.addChild(ui.resetUI)
 //                            it.addChild(ui.loadGenesUI)
                             it.addChild(ui.switchSelectionModeUI)
-                            it.addChild(speechGene)
+                            it.addChild(dialogue)
+                            it.addChild(micButton)
+                            it.addChild(genesToLoad)
                         }
                     }
                 }
@@ -152,23 +172,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             }
         }
 
-//        thread {
-//            cam.update.add {
-//                for (i in 1..plot.masterMap.size) {
-//                    plot.masterMap[i]?.instances?.forEach {
-//                        if (cam.children.first().intersects(it)) {
-//                            it.metadata["selected"] = true
-//                            it.material.diffuse = Vector3f(1f, 0f, 0f)
-//                            for (master in 1..plot.masterMap.size)
-//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//                            plot.updateInstancingLambdas()
-//                            for (master in 1..plot.masterMap.size)
-//                                (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-//                        }
-//                    }
-//                }
-//            }
-//        }
         scene.addChild(plot)
 
 //        val selectBg = BoundingGrid()

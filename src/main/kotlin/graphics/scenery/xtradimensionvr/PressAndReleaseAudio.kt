@@ -9,23 +9,27 @@ import javax.sound.sampled.AudioFileFormat
 import kotlin.concurrent.thread
 
 
-class PressAndRelease(private val parent: XVisualization) : DragBehaviour {
+class PressAndReleaseAudio(private val parent: XVisualization) : DragBehaviour {
 
     var noRescale = false
 
     override fun init(x: Int, y: Int) {
 
         thread {
+
+            // don't launch decoder if not gracefully shut down
             if (!parent.audioDecoder.inProgressFlag) {
-                parent.micButton.position = Vector3f(0f, 0.018f, 0.02f)
-                parent.micButton.scale.x *= 1.3f
-                parent.micButton.scale.z *= 1.3f
+                parent.ui.micButton.position = Vector3f(0f, 0.018f, 0.02f)
+                parent.ui.micButton.scale.x *= 1.3f
+                parent.ui.micButton.scale.z *= 1.3f
+
+                noRescale = false
+
                 parent.audioDecoder.liveFlag = true
                 parent.audioDecoder.decodeLiveVosk()
             }
             else {
-                // decoding still in progress, please wait and try again
-                noRescale = true
+                noRescale = true  // don't give visual signal that recording is in progress to avoid confusion
             }
         }
 
@@ -37,9 +41,9 @@ class PressAndRelease(private val parent: XVisualization) : DragBehaviour {
         parent.audioDecoder.liveFlag = false
 
         if (!noRescale) {
-            parent.micButton.position = Vector3f(0f, 0.01f, 0.02f)
-            parent.micButton.scale.x /= 1.3f
-            parent.micButton.scale.z /= 1.3f
+            parent.ui.micButton.position = Vector3f(0f, 0.01f, 0.02f)
+            parent.ui.micButton.scale.x /= 1.3f
+            parent.ui.micButton.scale.z /= 1.3f
             noRescale = false
         }
 

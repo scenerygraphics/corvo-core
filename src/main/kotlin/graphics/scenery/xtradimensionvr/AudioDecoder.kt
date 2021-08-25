@@ -8,18 +8,15 @@ import java.io.BufferedInputStream
 import java.io.ByteArrayOutputStream
 import java.io.FileInputStream
 import java.io.IOException
-import java.lang.Exception
 import javax.sound.sampled.*
 
 
 class AudioDecoder(val parent: XVisualization) {
 
-    private val model = Model("model")
+    private val model = Model("model_max_en")
     private val rc = Recognizer(model, 32000f)
     private val format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 16000f, 16, 2, 4, 44100f, false)
     private val info = DataLine.Info(TargetDataLine::class.java, format)
-
-    val requestedGenesList = ArrayList<String>()
 
     var liveFlag = false
     var decodingFlag = false
@@ -30,6 +27,7 @@ class AudioDecoder(val parent: XVisualization) {
         "one" to 1,
         "two" to 2,
         "to" to 2,
+        "too" to 2,
         "three" to 3,
         "four" to 4,
         "for" to 4,
@@ -61,6 +59,10 @@ class AudioDecoder(val parent: XVisualization) {
         "twenty nine" to 29,
         "thirty" to 30
     )
+    private val phonesToSymbols = hashMapOf(
+        "dash" to "-"
+    // issue - some gene names are capitalized after the dash!!!!!
+    )
 
     init {
         LibVosk.setLogLevel(LogLevel.DEBUG)
@@ -87,6 +89,9 @@ class AudioDecoder(val parent: XVisualization) {
                 for (word in utterance.withIndex()) {
                     if (phonesToNum.containsKey(word.value)) {
                         utterance[word.index] = phonesToNum[word.value].toString()
+                    }
+                    if (phonesToSymbols.containsKey(word.value)) {
+                        utterance[word.index] = phonesToSymbols[word.value].toString()
                     }
                 }
                 utterance[0] = utterance[0].toUpperCase()
@@ -119,28 +124,39 @@ class AudioDecoder(val parent: XVisualization) {
 
                         val utterance = recognizer.result.toString().drop(14).dropLast(3).split(" ").toMutableList()
 
+//                        parent.ui.dialogue.text = recognizer.result.toString().drop(14).dropLast(3)
+
                         for (word in utterance.withIndex()) {
                             if (phonesToNum.containsKey(word.value)) {
                                 utterance[word.index] = phonesToNum[word.value].toString()
                             }
+                            if (phonesToSymbols.containsKey(word.value)) {
+                                utterance[word.index] = phonesToSymbols[word.value].toString()
+                            }
                         }
-                        utterance[0] = utterance[0].toUpperCase()
-                        requestedGenesList.add(utterance.joinToString(""))
-                        parent.genesToLoad.text = requestedGenesList.joinToString(", ")
+                        utterance[0] = utterance[0].capitalize()
+
+                        // add to list of requested genes in Xui class
+                        parent.ui.transcription.text = utterance.joinToString(" ")
+                        parent.ui.addDecodedGene(utterance.joinToString(""))
+
+//                        parent.ui.genesToLoad.text = requestedGenesList.joinToString(", ")
+                        // load as separate text board, color coded as to whether they could be found with .indexOf()
+                        // add button to load valid genes in
+                        // sometimes doesn't stream in partial results, but loads the final result successfully
 
                         decodingFlag = false
 
                     } else {
                         if (recognizer.partialResult[18].toString().isNotBlank()) {
                             decodingFlag = true
-                            parent.dialogue.text = recognizer.partialResult.drop(17).dropLast(3)
+                            parent.ui.transcription.text = recognizer.partialResult.drop(17).dropLast(3)
                         }
 
                     }
                 }
                 microphone.close()
                 inProgressFlag = false
-                println(requestedGenesList)
 
             } catch (e: Exception) {
                 e.printStackTrace()
@@ -149,8 +165,6 @@ class AudioDecoder(val parent: XVisualization) {
 
 
     }
-
-
 
 
 }

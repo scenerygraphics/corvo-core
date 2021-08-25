@@ -242,6 +242,3 @@ class AnnotationsIngest(h5adPath: String) {
         return Pair(nCat, Triple(names, pvals, logfoldchanges))
     }
 }
-
-// attach genes as labels to controller when selected, background color of cluster?
-// attach genes to bottom of list when additional clusters are selected?

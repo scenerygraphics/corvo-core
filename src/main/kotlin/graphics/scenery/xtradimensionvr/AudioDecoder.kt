@@ -13,7 +13,7 @@ import javax.sound.sampled.*
 
 class AudioDecoder(val parent: XVisualization) {
 
-    private val model = Model("model_max_en")
+    private val model = Model("vosk-model-en-us-aspire-0.2")
     private val rc = Recognizer(model, 32000f)
     private val format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 16000f, 16, 2, 4, 44100f, false)
     private val info = DataLine.Info(TargetDataLine::class.java, format)
@@ -46,21 +46,22 @@ class AudioDecoder(val parent: XVisualization) {
         "sixteen" to 16,
         "seventeen" to 17,
         "eighteen" to 18,
-        "nineteen" to 1,
+        "nineteen" to 19,
         "twenty" to 20,
-        "twenty one" to 21,
-        "twenty two" to 22,
-        "twenty three" to 23,
-        "twenty four" to 24,
-        "twenty five" to 25,
-        "twenty six" to 26,
-        "twenty seven" to 27,
-        "twenty eight" to 28,
-        "twenty nine" to 29,
-        "thirty" to 30
+//        "twenty one" to 21,
+//        "twenty two" to 22,
+//        "twenty three" to 23,
+//        "twenty four" to 24,
+//        "twenty five" to 25,
+//        "twenty six" to 26,
+//        "twenty seven" to 27,
+//        "twenty eight" to 28,
+//        "twenty nine" to 29,
+//        "thirty" to 30
     )
     private val phonesToSymbols = hashMapOf(
-        "dash" to "-"
+        "dash" to "-",
+        "and" to "n"
     // issue - some gene names are capitalized after the dash!!!!!
     )
 
@@ -140,10 +141,9 @@ class AudioDecoder(val parent: XVisualization) {
                         parent.ui.transcription.text = utterance.joinToString(" ")
                         parent.ui.addDecodedGene(utterance.joinToString(""))
 
-//                        parent.ui.genesToLoad.text = requestedGenesList.joinToString(", ")
-                        // load as separate text board, color coded as to whether they could be found with .indexOf()
-                        // add button to load valid genes in
                         // sometimes doesn't stream in partial results, but loads the final result successfully
+                        // load custom selected cells genes using load genes sphere
+                        // make reset last priority
 
                         decodingFlag = false
 

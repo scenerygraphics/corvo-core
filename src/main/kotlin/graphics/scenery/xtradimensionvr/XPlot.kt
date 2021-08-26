@@ -292,7 +292,7 @@ class XPlot(filePath: String) : Node() {
         val m = Mesh()
         val mapping = annFetcher.h5adAnnotationReader("/uns/" + annotation + "_categorical")
 
-        val rootPosY = 10f
+        val rootPosY = 15f
         val rootPosX = -8.5f
         val scale = 0.6f
 

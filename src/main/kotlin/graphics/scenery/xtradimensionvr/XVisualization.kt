@@ -46,7 +46,7 @@ val rightSelector = Icosphere(0.2f, 5)
 
 private lateinit var cam: Camera
 
-val encoding = "plasma"
+val encoding = "viridis"
 
 class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     SceneryBase("XVisualization", 2560, 1440, wantREPL = false) {
@@ -68,7 +68,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
 //        val filename = resource[0]
-        plot = XPlot("tabula-muris-senis-facs-processed-official-annotations-Aort_vr_processed.h5ad")
+        plot = XPlot("tabula-muris-senis-facs-processed-official-annotations_vr_processed.h5ad")
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
@@ -81,7 +81,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         with(cam) {
             position = Vector3f(0f, 0f, 0f)
             perspectiveCamera(70.0f, windowWidth, windowHeight, 0.1f, 1000.0f)
-            this.addChild(Sphere(5f, 1)) // cam bounding box
+            this.addChild(Sphere(3f, 1)) // cam bounding box
             scene.addChild(this)
         }
 
@@ -144,6 +144,12 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
     private fun loadEnvironment() {
 
+        //boundaries of our world
+        val hull = Box(Vector3f(50.0f, 50.0f, 50.0f), insideNormals = true)
+        hull.material.diffuse = Vector3f(0.2f, 0.2f, 0.2f)
+        hull.material.cullingMode = Material.CullingMode.Front
+        scene.addChild(hull)
+
         val tetrahedron = arrayOfNulls<Vector3f>(4)
         tetrahedron[0] = Vector3f(1.0f, 0f, -1.0f / sqrt(2.0).toFloat())
         tetrahedron[1] = Vector3f(-1.0f, 0f, -1.0f / sqrt(2.0).toFloat())
@@ -155,7 +161,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             val light = PointLight(150.0f)
             light.position = tetrahedron[i]!!.mul(25.0f)
             light.emissionColor = Vector3f(1.0f, 1.0f, 1.0f)
-            light.intensity = 1.0f
+            light.intensity = 1f
             lights.add(light)
             scene.addChild(light)
         }
@@ -239,16 +245,83 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         selectorName.visible = true
     }
 
+    private fun fetchCurrentSelection() {
+        if (!currentlyFetching && ui.switchSelectionModeUIState == 1) {
+            thread {
+                currentlyFetching = true
+//                Thread.currentThread().priority = Thread.MIN_PRIORITY
+                geneBoard.text = "fetching..."
+
+                (ui.loadGenesUI.children.first() as TextBoard).backgroundColor =
+                    Vector3f(0.30f, 0.65f, 1.00f).xyzw()
+                (ui.loadGenesUI.children.last() as Icosphere).material.diffuse =
+                    Vector3f(0.30f, 0.65f, 1.00f)
+                (ui.loadGenesUI.children.first() as TextBoard).text = "loading gene expressions..."
+
+                val selectedList = ArrayList<Int>()
+                val backgroundList = ArrayList<Int>()
+
+                for (i in 1..plot.masterMap.size) {
+                    plot.masterMap[i]?.instances?.forEach {
+                        if (it.metadata["selected"] == true) {
+                            selectedList.add(it.metadata["index"] as Int)
+                        } else {
+                            backgroundList.add(it.metadata["index"] as Int)
+                        }
+                    }
+                }
+
+                println(selectedList.size)
+                println(backgroundList.size)
+                when {
+                    selectedList.size == 0 || backgroundList.size == 0 -> {
+                    }
+                    else -> {
+                        val buffer = plot.annFetcher.fetchGeneExpression(
+                            plot.maxDiffExpressedGenes(
+                                selectedList,
+                                backgroundList,
+                                "TTest"
+                            )
+                        )
+                        genePicker = 0
+                        geneNames.clear()
+                        geneExpr.clear()
+                        geneNames = buffer.first
+                        geneExpr = buffer.second
+                        maxExprList = buffer.third
+                    }
+                }
+
+                for (i in 1..plot.masterMap.size) {
+                    plot.masterMap[i]?.instances?.forEach {
+                        it.metadata["selected"] = false
+                    }
+                }
+
+                plot.updateInstancingArrays()
+                geneBoard.text = "Gene: " + geneNames[genePicker]
+                maxTick.text = maxExprList[genePicker].toString()
+
+                (ui.loadGenesUI.children.first() as TextBoard).backgroundColor = Vector4f(0.7f)
+                (ui.loadGenesUI.children.last() as Icosphere).material.diffuse = Vector3f(0.5f)
+                (ui.loadGenesUI.children.first() as TextBoard).text = "load genes"
+
+                currentlyFetching = false
+            }
+        }
+    }
+
     override fun inputSetup() {
         super.inputSetup()
         // see [OpenVRhmd?.toAWTKeyCode] for key bindings
 
         inputHandler?.let { handler ->
             hashMapOf(
-                "move_forward" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Up),
-                "move_back" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Down),
-                "move_left" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Left),
-                "move_right" to OpenVRHMD.keyBinding(TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Right)
+                "move_forward" to OpenVRHMD.keyBinding(TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Up),
+                "move_back" to OpenVRHMD.keyBinding(TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down),
+                "move_left" to OpenVRHMD.keyBinding(TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Left),
+                "move_right" to OpenVRHMD.keyBinding(TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Right)
             ).forEach { (name, key) ->
                 handler.getBehaviour(name)?.let { b ->
                     logger.info("Adding behaviour $name bound to $key to HMD")
@@ -258,17 +331,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             }
         }
 
-//        hmd.addBehaviour("record", ClickBehaviour { _, _ ->
-//            if (!listener.liveFlag) {
-//                thread {
-//                    val result = listener.recognize()
-//                }
-//            } else {
-//
-//            }
-//
-//        })
-//        hmd.addKeyBinding("record", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //H
 
         hmd.addBehaviour("record_drag", PressAndReleaseAudio(this))
         hmd.addKeyBinding("record_drag", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //H
@@ -285,11 +347,14 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 it.scale *= 1.02f
             }
 
+            // scale sphere checking for intersection with textboards
+            cam.children.first().scale *= 1.02f
+
             for (master in 1..plot.masterMap.size) {
                 (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
         })
-        hmd.addKeyBinding("increase_size", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Right) //L
+        hmd.addKeyBinding("increase_size", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Right) //L
 
         hmd.addBehaviour("decrease_size", ClickBehaviour { _, _ ->
             dotMesh.children.forEach { it ->
@@ -302,11 +367,14 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             textBoardMesh.children.forEach {
                 it.scale /= 1.02f
             }
+
+            cam.children.first().scale /= 1.02f
+
             for (master in 1..plot.masterMap.size) {
                 (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
             }
         })
-        hmd.addKeyBinding("decrease_size", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Left) //H
+        hmd.addKeyBinding("decrease_size", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Left) //H
 
         hmd.addBehaviour("toggle_forward", ClickBehaviour { _, _ ->
             GlobalScope.launch(Dispatchers.Default) {
@@ -404,11 +472,81 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             GlobalScope.launch(Dispatchers.Default) {
 //                Thread.currentThread().priority = Thread.MIN_PRIORITY
 
-                if ((rightSelector.intersects((ui.resetUI.children.first() as TextBoard))) || (rightSelector.intersects(
-                        (ui.resetUI.children.last() as Icosphere)
-                    ))
-                ) {
+                if (rightSelector.intersects((ui.switchSelectionModeUI.children.last() as Icosphere))) {
+                    if (ui.switchSelectionModeUIState == 0) {
+                        (ui.switchSelectionModeUI.children.first() as TextBoard).text = "selecting individual cells"
 
+                        ui.switchSelectionModeUIState = 1
+
+                        (ui.switchSelectionModeUI.children.first() as TextBoard).backgroundColor =
+                            Vector3f(0.73f, 1.00f, 0.60f).xyzw()
+                        (ui.switchSelectionModeUI.children.last() as Icosphere).material.diffuse =
+                            Vector3f(0.73f, 1.00f, 0.60f)
+
+                        rightSelector.material.diffuse = Vector3f(0.73f, 1.00f, 0.60f)
+                    } else {
+                        (ui.switchSelectionModeUI.children.first() as TextBoard).text = "selecting clusters"
+
+                        ui.switchSelectionModeUIState = 0
+
+                        (ui.switchSelectionModeUI.children.first() as TextBoard).backgroundColor = Vector4f(0.7f)
+                        (ui.switchSelectionModeUI.children.last() as Icosphere).material.diffuse = Vector3f(0.5f)
+
+                        rightSelector.material.diffuse = Vector3f(0.2f)
+                    }
+                } else if (rightSelector.intersects((ui.loadGenesUI.children.last() as Icosphere))) {
+
+                    if (ui.switchSelectionModeUIState == 0) {
+                        if (ui.requestedGenesIndices.isNotEmpty() && !currentlyFetching) {  // only if genes have been dictated
+                            currentlyFetching = true
+                            // remove potential preloaded gene boards and the dictated words / genes
+                            hmd.getTrackedDevices(TrackedDeviceType.Controller).forEach { device ->
+                                if (device.value.role == TrackerRole.LeftHand) {
+                                    device.value.model?.removeChild(ui.geneTagMesh)
+                                    device.value.model?.removeChild(ui.categoryLabel)
+                                }
+                            }
+
+                            // turn sphere / textboard blue to indicate successful interaction
+                            thread {
+                                (ui.loadGenesUI.children.first() as TextBoard).backgroundColor =
+                                    Vector3f(0.30f, 0.65f, 1.00f).xyzw()
+                                (ui.loadGenesUI.children.last() as Icosphere).material.diffuse =
+                                    Vector3f(0.30f, 0.65f, 1.00f)
+                                (ui.loadGenesUI.children.first() as TextBoard).text = "loading gene expressions..."
+                                Thread.sleep(400)
+                                (ui.loadGenesUI.children.first() as TextBoard).backgroundColor = Vector4f(0.7f)
+                                (ui.loadGenesUI.children.last() as Icosphere).material.diffuse = Vector3f(0.5f)
+                                (ui.loadGenesUI.children.first() as TextBoard).text = "load genes"
+                            }
+
+                            // fetch the viable genes, currently stored in ui.requestedGenesIndices
+                            thread {
+                                val buffer = plot.annFetcher.fetchGeneExpression(ui.requestedGenesIndices)
+                                genePicker = 0
+                                geneNames.clear()
+                                geneExpr.clear()
+                                geneNames = buffer.first
+                                geneExpr = buffer.second
+                                maxExprList = buffer.third
+
+                                plot.updateInstancingArrays()
+                                geneBoard.text = "Gene: " + geneNames[genePicker]
+                                maxTick.text = maxExprList[genePicker].toString()
+
+                                ui.requestedGenesIndices.clear()
+                                ui.requestedGenesNames.clear()
+                                ui.genesToLoad.children.forEach {
+                                    ui.genesToLoad.removeChild(it)
+                                }
+                                currentlyFetching = false
+                            }
+                        }
+                    } else {
+                        fetchCurrentSelection()
+                    }
+
+                } else if (rightSelector.intersects((ui.resetUI.children.last() as Icosphere))) {
                     thread {
                         (ui.resetUI.children.first() as TextBoard).backgroundColor =
                             Vector3f(1.00f, 0.33f, 0.00f).xyzw()
@@ -439,86 +577,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     plot.updateInstancingLambdas()
                     for (master in 1..plot.masterMap.size)
                         (plot.masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-
-                } else if ((rightSelector.intersects((ui.switchSelectionModeUI.children.first() as TextBoard))) || (rightSelector.intersects(
-                        (ui.switchSelectionModeUI.children.last() as Icosphere)
-                    ))
-                ) {
-                    if (ui.switchSelectionModeUIState == 0) {
-                        (ui.switchSelectionModeUI.children.first() as TextBoard).text = "selecting individual cells"
-
-                        ui.switchSelectionModeUIState = 1
-
-                        (ui.switchSelectionModeUI.children.first() as TextBoard).backgroundColor =
-                            Vector3f(0.73f, 1.00f, 0.60f).xyzw()
-                        (ui.switchSelectionModeUI.children.last() as Icosphere).material.diffuse =
-                            Vector3f(0.73f, 1.00f, 0.60f)
-
-                        rightSelector.material.diffuse = Vector3f(0.73f, 1.00f, 0.60f)
-                    } else {
-                        (ui.switchSelectionModeUI.children.first() as TextBoard).text = "selecting clusters"
-
-                        ui.switchSelectionModeUIState = 0
-
-                        (ui.switchSelectionModeUI.children.first() as TextBoard).backgroundColor = Vector4f(0.7f)
-                        (ui.switchSelectionModeUI.children.last() as Icosphere).material.diffuse = Vector3f(0.5f)
-
-                        rightSelector.material.diffuse = Vector3f(0.2f)
-                    }
-                } else if ((rightSelector.intersects((ui.loadGenesUI.children.first() as TextBoard))) || (rightSelector.intersects(
-                        (ui.loadGenesUI.children.last() as Icosphere)
-                    ))
-                ) {
-
-                    if (ui.requestedGenesIndices.isNotEmpty() && !currentlyFetching) {  // only if genes have been dictated
-                        currentlyFetching = true
-                        // remove potential preloaded gene boards and the dictated words / genes
-                        hmd.getTrackedDevices(TrackedDeviceType.Controller).forEach { device ->
-                            if (device.value.role == TrackerRole.LeftHand) {
-                                device.value.model?.removeChild(ui.geneTagMesh)
-                                device.value.model?.removeChild(ui.categoryLabel)
-                            }
-                        }
-
-                        // turn sphere / textboard blue to indicate successful interaction
-                        thread {
-                            (ui.loadGenesUI.children.first() as TextBoard).backgroundColor =
-                                Vector3f(0.30f, 0.65f, 1.00f).xyzw()
-                            (ui.loadGenesUI.children.last() as Icosphere).material.diffuse =
-                                Vector3f(0.30f, 0.65f, 1.00f)
-                            (ui.loadGenesUI.children.first() as TextBoard).text = "Loading Genes Expressions..."
-                            Thread.sleep(400)
-                            (ui.loadGenesUI.children.first() as TextBoard).backgroundColor = Vector4f(0.7f)
-                            (ui.loadGenesUI.children.last() as Icosphere).material.diffuse = Vector3f(0.5f)
-                            (ui.loadGenesUI.children.first() as TextBoard).text = "Load Genes"
-                        }
-
-                        // fetch the viable genes, currently stored in ui.requestedGenesIndices
-                        thread {
-                            println("requested: " + ui.requestedGenesNames)
-                            println("requested indices: " + ui.requestedGenesIndices)
-                            val buffer = plot.annFetcher.fetchGeneExpression(ui.requestedGenesIndices)
-                            genePicker = 0
-                            geneNames.clear()
-                            geneExpr.clear()
-                            geneNames = buffer.first
-                            geneExpr = buffer.second
-                            maxExprList = buffer.third
-
-                            println("delivered: " + geneNames)
-
-                            plot.updateInstancingArrays()
-                            geneBoard.text = "Gene: " + geneNames[genePicker]
-                            maxTick.text = maxExprList[genePicker].toString()
-
-                            ui.requestedGenesIndices.clear()
-                            ui.requestedGenesNames.clear()
-                            ui.genesToLoad.children.forEach {
-                                ui.genesToLoad.removeChild(it)
-                            }
-                            currentlyFetching = false
-                        }
-                    }
 
                 } else {
                     if (ui.switchSelectionModeUIState == 0) {
@@ -553,18 +611,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         hmd.addKeyBinding("markPoints", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
 
-//        hmd.addBehaviour("unmarkPoints", ClickBehaviour { _, _ ->
-//
-//        })
-//        hmd.addKeyBinding("unmarkPoints", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Trigger)
-
         hmd.addBehaviour("extendSelector", ClickBehaviour { _, _ ->
             if (rightSelector.scale[0] <= 1.7f) {
                 rightSelector.scale *= 1.10f
 //                leftSelector.scale = rightSelector.scale
             }
         })
-        hmd.addKeyBinding("extendSelector", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Up) //K
+        hmd.addKeyBinding("extendSelector", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Up) //K
 
         hmd.addBehaviour("shrinkSelector", ClickBehaviour { _, _ ->
             if (rightSelector.scale[0] >= 0.05f) {
@@ -572,66 +625,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 //                leftSelector.scale = rightSelector.scale
             }
         })
-        hmd.addKeyBinding("shrinkSelector", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Down) //J
+        hmd.addKeyBinding("shrinkSelector", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Down) //J
 
-        //        inputHandler?.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
-        hmd.addBehaviour("fetchCurrentSelection", ClickBehaviour { _, _ ->
-            if (!currentlyFetching) {
-                thread {
-                    currentlyFetching = true
-//                Thread.currentThread().priority = Thread.MIN_PRIORITY
-                    geneBoard.text = "fetching..."
-
-                    val selectedList = ArrayList<Int>()
-                    val backgroundList = ArrayList<Int>()
-
-                    for (i in 1..plot.masterMap.size) {
-                        plot.masterMap[i]?.instances?.forEach {
-                            if (it.metadata["selected"] == true) {
-                                selectedList.add(it.metadata["index"] as Int)
-                            } else {
-                                backgroundList.add(it.metadata["index"] as Int)
-                            }
-                        }
-                    }
-
-                    println(selectedList.size)
-                    println(backgroundList.size)
-                    when {
-                        selectedList.size == 0 || backgroundList.size == 0 -> {
-                        }
-                        else -> {
-                            val buffer = plot.annFetcher.fetchGeneExpression(
-                                plot.maxDiffExpressedGenes(
-                                    selectedList,
-                                    backgroundList,
-                                    "TTest"
-                                )
-                            )
-                            genePicker = 0
-                            geneNames.clear()
-                            geneExpr.clear()
-                            geneNames = buffer.first
-                            geneExpr = buffer.second
-                            maxExprList = buffer.third
-                        }
-                    }
-
-                    for (i in 1..plot.masterMap.size) {
-                        plot.masterMap[i]?.instances?.forEach {
-                            it.metadata["selected"] = false
-                        }
-                    }
-
-                    plot.updateInstancingArrays()
-                    geneBoard.text = "Gene: " + geneNames[genePicker]
-                    maxTick.text = maxExprList[genePicker].toString()
-                    currentlyFetching = false
-                }
-            }
-        })
-        hmd.addKeyBinding("fetchCurrentSelection", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu)
-//        inputHandler?.addKeyBinding("fetchCurrentSelection", "G")
     }
 
     companion object {

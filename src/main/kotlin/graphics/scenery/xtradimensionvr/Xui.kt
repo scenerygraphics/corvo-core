@@ -94,11 +94,7 @@ class Xui(private val parent: XVisualization) {
 
         // define features of category label (display selected category on controller)
         categoryLabel.scale = Vector3f(scale)
-        categoryLabel.position = Vector3f(
-            0.1f,
-            0f,
-            0f
-        )
+        categoryLabel.position = Vector3f(0.1f, 0f, 0f)
 
         dispMainUI()
     }
@@ -108,13 +104,16 @@ class Xui(private val parent: XVisualization) {
         (switchSelectionModeUI.children.first() as TextBoard).text = "switch selector"
         (loadGenesUI.children.first() as TextBoard).text = "load genes"
 
-        resetUI.children.first().position = Vector3f(-triSize + (scale / sqrt(2f)), -0.025f, triSize - triOffset - (scale / sqrt(2f)))
+        resetUI.children.first().position =
+            Vector3f(-triSize + (scale / sqrt(2f)), -0.025f, triSize - triOffset - (scale / sqrt(2f)))
         resetUI.children.last().position = Vector3f(-triSize, -0.025f, triSize - triOffset)
 
-        switchSelectionModeUI.children.first().position = Vector3f(triSize + (scale / sqrt(2f)), -0.025f, triSize - triOffset - (scale / sqrt(2f)))
+        switchSelectionModeUI.children.first().position =
+            Vector3f(triSize + (scale / sqrt(2f)), -0.025f, triSize - triOffset - (scale / sqrt(2f)))
         switchSelectionModeUI.children.last().position = Vector3f(triSize, -0.025f, triSize - triOffset)
 
-        loadGenesUI.children.first().position = Vector3f((scale / sqrt(2f)), -0.025f, -triSize - triOffset - (scale / sqrt(2f)))
+        loadGenesUI.children.first().position =
+            Vector3f((scale / sqrt(2f)), -0.025f, -triSize - triOffset - (scale / sqrt(2f)))
         loadGenesUI.children.last().position = Vector3f(0f, -0.025f, -triSize - triOffset)
 
     }

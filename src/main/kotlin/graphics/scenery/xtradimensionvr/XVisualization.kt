@@ -68,7 +68,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
 //        val filename = resource[0]
-        plot = XPlot("tabula-muris-senis-facs-processed-official-annotations_vr_processed.h5ad")
+        plot = XPlot("tabula-muris-senis-facs-processed-official-annotations-Aort_vr_processed.h5ad")
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
@@ -468,7 +468,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         })
         hmd.addKeyBinding("toggleMode", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //X
 
-        hmd.addBehaviour("markPoints", ClickBehaviour { _, _ ->
+        hmd.addBehaviour("interact", ClickBehaviour { _, _ ->
             GlobalScope.launch(Dispatchers.Default) {
 //                Thread.currentThread().priority = Thread.MIN_PRIORITY
 
@@ -609,7 +609,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         })
-        hmd.addKeyBinding("markPoints", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
+        hmd.addKeyBinding("interact", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
 
         hmd.addBehaviour("extendSelector", ClickBehaviour { _, _ ->
             if (rightSelector.scale[0] <= 1.7f) {

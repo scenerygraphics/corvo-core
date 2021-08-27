@@ -9,9 +9,15 @@ import java.io.ByteArrayOutputStream
 import java.io.FileInputStream
 import java.io.IOException
 import javax.sound.sampled.*
+import org.json.JSONArray
+import org.json.JSONObject
+import org.json.JSONString
+import org.json.JSONStringer
 
 
-class AudioDecoder(val parent: XVisualization) {
+class AudioDecoder(private val parent: XVisualization) {
+
+    private val g = "[\"a\", \"b\", \"c\", \"d\"]"
 
     private val model = Model("vosk-model-en-us-aspire-0.2")
     private val rc = Recognizer(model, 32000f)
@@ -67,6 +73,7 @@ class AudioDecoder(val parent: XVisualization) {
 
     init {
         LibVosk.setLogLevel(LogLevel.DEBUG)
+        rc.setMaxAlternatives(3)
     }
 
     @Throws(IOException::class, UnsupportedAudioFileException::class)
@@ -123,9 +130,14 @@ class AudioDecoder(val parent: XVisualization) {
                     out.write(b, 0, numBytesRead)
                     if (recognizer.acceptWaveForm(b, numBytesRead)) {
 
-                        val utterance = recognizer.result.toString().drop(14).dropLast(3).split(" ").toMutableList()
+//                        println(recognizer.result.drop(21).dropLast(1))
 
-//                        parent.ui.dialogue.text = recognizer.result.toString().drop(14).dropLast(3)
+                        val j = JSONArray(recognizer.result.drop(21).dropLast(1))
+                        println(j.query("/0/text"))
+                        println(j.query("/1/text"))
+                        // can  now fetch n best results. Check all combinations of the word
+
+                        val utterance = recognizer.result.toString().drop(14).dropLast(3).split(" ").toMutableList()
 
                         for (word in utterance.withIndex()) {
                             if (phonesToNum.containsKey(word.value)) {
@@ -137,7 +149,7 @@ class AudioDecoder(val parent: XVisualization) {
                         }
                         utterance[0] = utterance[0].capitalize()
 
-                        // add to list of requested genes in Xui class
+//                         add to list of requested genes in Xui class
                         parent.ui.transcription.text = utterance.joinToString(" ")
                         parent.ui.addDecodedGene(utterance.joinToString(""))
 

@@ -1,5 +1,6 @@
 import org.gradle.internal.os.OperatingSystem.*
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import java.net.URL
 
 plugins {
     java
@@ -12,7 +13,7 @@ plugins {
 group = "graphics.scenery"
 version = "0.1.0-SNAPSHOT"
 
-description = "xtra-dimension_vr"
+description = "corvo"
 
 repositories {
     mavenCentral()
@@ -43,7 +44,8 @@ dependencies {
     implementation("graphics.scenery:spirvcrossj:0.7.1-1.1.106.0")
     implementation("org.nd4j:nd4j-api:1.0.0-beta7")
     implementation("org.nd4j:nd4j-native-platform:1.0.0-beta7")
-    implementation("cisd:jhdf5:19.04.0")
+    implementation("org.slf4j:slf4j-api:1.7.30")
+//    implementation("cisd:jhdf5:19.04.0")
     implementation("org.apache.commons:commons-math3:3.6.1")
     implementation("net.sf.trove4j:trove4j:3.0.3")
     runtimeOnly("net.java.jinput", "jinput", version="2.0.9", classifier="natives-all")
@@ -52,13 +54,17 @@ dependencies {
     // needed for logging to work correctly, don't use log4j, it's overkill in this case.
     runtimeOnly("org.slf4j:slf4j-simple:1.7.30")
 
+
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
+
+    api(githubRelease("JaneliaSciComp", "jhdf5", "jhdf5-19.04.1_fatjar", "sis-base-18.09.0.jar"))
+    api(githubRelease("JaneliaSciComp", "jhdf5", "jhdf5-19.04.1_fatjar", "sis-jhdf5-1654327451.jar"))
 }
 
 application {
 //    mainClass.set("graphics.scenery.xtradimensionvr.XVisualizationKT")
     @Suppress("DEPRECATION")
-    mainClassName ="graphics.scenery.xtradimensionvr.XVisualization"
+    mainClassName ="graphics.scenery.corvo.XVisualization"
 }
 
 tasks {
@@ -80,4 +86,23 @@ tasks {
             attributes ("Class-Path" to "/libs/a.jar")
         }
     }
+}
+
+/**
+ * Downloads a [file] from the given GitHub release, with [organization], [repository], and [release] tag given.
+ */
+fun githubRelease(organization: String, repository: String, release: String, file: String): ConfigurableFileCollection {
+    val url = "https://github.com/$organization/$repository/releases/download/$release/$file"
+    val output = File("$projectDir/external-libs/$organization-$repository-$release-$file")
+    output.parentFile.mkdirs()
+
+    if(!output.exists()) {
+        val created = output.createNewFile()
+        val stream = URL(url).openStream()
+        val out = output.outputStream()
+        stream.copyTo(out)
+        out.close()
+        stream.close()
+    }
+    return files(output.absolutePath)
 }

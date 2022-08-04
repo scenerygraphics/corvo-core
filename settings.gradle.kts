@@ -1,2 +1,2 @@
-rootProject.name = "xtra-dimension_vr"
+rootProject.name = "corvo"
 //includeBuild("../scenery")

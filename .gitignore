@@ -45,4 +45,10 @@ core
 ToDo_Scenery_dimensionalR
 *.hdf5
 *.h5ad
+*.wav
 
+model
+model_max_en
+vosk-model-en-us-aspire-0.2
+vosk-model-small-en-us-0.15
+vosk*

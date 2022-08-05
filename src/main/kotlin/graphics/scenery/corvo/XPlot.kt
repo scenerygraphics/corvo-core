@@ -207,14 +207,11 @@ class XPlot(filePath: String) : Node() {
                 when {
                     s.metadata["selected"] == true -> s.material.diffuse.xyzw()
 
-                    s.metadata["selected_testing"] == true -> s.material.diffuse.xyzw()
-
                     annotationMode -> rgbColorSpectrum.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[1][annotationPicker] * 0.99f)
 
                     !annotationMode -> colormap.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[0][genePicker] / 10.1f)
 
                         else -> Vector4f(1f, 0f, 0f, 1f)
-
                 }
             }
             resettingCounter++
@@ -233,7 +230,7 @@ class XPlot(filePath: String) : Node() {
         val mapSize = if (mapping.size > 1) mapping.size - 1 else 1
 
         for ((count, label) in mapping.withIndex()) {
-            val t = TextBoard()
+            val t = TextBoard("SourceSansPro-Light.ttf")
 
             t.text = label.replace("ï", "i")
             t.transparent = 0
@@ -299,7 +296,7 @@ class XPlot(filePath: String) : Node() {
         val mapping = annFetcher.h5adAnnotationReader("/obs/$annotation/categories")
 
 
-        val rootPosY = 10f
+        val rootPosY = 15f
         val rootPosX = -8.5f
         val scale = 0.6f
 
@@ -326,7 +323,7 @@ class XPlot(filePath: String) : Node() {
             }
         }
 
-        val title = TextBoard()
+        val title = TextBoard("SourceSansPro-Light.ttf")
         title.transparent = 1
         title.text = annotation
         title.scale = Vector3f(scale * 2)
@@ -360,7 +357,7 @@ class XPlot(filePath: String) : Node() {
 
         for ((colorIncrement, cat) in mapping.withIndex()) {
 
-            val key = TextBoard()
+            val key = TextBoard("SourceSansPro-Regular.ttf")
             val tooLargeBy = cat.toString().toCharArray().size - (scale * 70)
 
             when {

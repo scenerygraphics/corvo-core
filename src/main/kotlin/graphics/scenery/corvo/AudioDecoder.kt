@@ -19,7 +19,7 @@ class AudioDecoder(private val parent: XVisualization) {
 
     private val g = "[\"a\", \"b\", \"c\", \"d\"]"
 
-    private val model = Model("vosk-model-en-us-aspire-0.2")
+    private val model = Model("vosk-model-small-en-us-0.15")
     private val rc = Recognizer(model, 32000f)
     private val format = AudioFormat(AudioFormat.Encoding.PCM_SIGNED, 16000f, 16, 2, 4, 44100f, false)
     private val info = DataLine.Info(TargetDataLine::class.java, format)

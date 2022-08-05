@@ -35,6 +35,8 @@ class AnnotationsIngest(h5adPath: String) {
     val flatPvalsList = ArrayList<ArrayList<Float>>()
     val flatLogfoldchanges = ArrayList<ArrayList<Float>>()
 
+    val categoryNames = ArrayList<ArrayList<String>>()
+
     init {
         // only color encode datasets with fewer than 1000 types. Only read coded annotations to avoid crash
         for (ann in reader.getGroupMembers("/obs")) {
@@ -48,6 +50,7 @@ class AnnotationsIngest(h5adPath: String) {
                 }
             }
         }
+        println(categoryNames)
         // start on cell_ontology_class annotation if present
         annotationPicker = annotationList.indexOf("cell_ontology_class")
         if (annotationPicker == -1) {
@@ -236,6 +239,3 @@ class AnnotationsIngest(h5adPath: String) {
         return Pair(nCat, Triple(names, pvals, logfoldchanges))
     }
 }
-
-// attach genes as labels to controller when selected, background color of cluster?
-// attach genes to bottom of list when additional clusters are selected?

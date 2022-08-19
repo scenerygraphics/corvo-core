@@ -1,13 +1,20 @@
 import org.gradle.internal.os.OperatingSystem.*
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+import org.gradle.kotlin.dsl.api
 import java.net.URL
+import com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+
 
 plugins {
     java
     maven
     application
-    kotlin("jvm") version "1.4.20"
+//    kotlin("jvm") version "1.7.10" // "1.4.20"
     id("com.github.johnrengelman.shadow") version "6.0.0"
+
+    kotlin("jvm")
+    kotlin("kapt")
+    id("org.jetbrains.dokka")
 }
 
 group = "graphics.scenery"
@@ -24,11 +31,12 @@ repositories {
     maven("https://nexus.senbox.net/nexus/content/groups/public/")
     maven("https://oss.sonatype.org/content/repositories/snapshots")
     maven("https://alphacephei.com/maven/")
+    maven("https://repository.jboss.org/nexus/content/repositories/thirdparty-releases/")
 }
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("graphics.scenery:scenery:f11dc08b")  //e1e0b7e4fc stable (f79cfd58ae) (instancing impr. f11dc08b)
+    implementation("graphics.scenery:scenery:678dada")  // f11dc08b
     implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when (current()) {
         WINDOWS -> "windows"
@@ -61,6 +69,8 @@ dependencies {
     runtimeOnly("net.java.jinput", "jinput", version = "2.0.9", classifier = "natives-all")
     runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.1-1.1.106.0", classifier = lwjglNative)
 
+    runtimeOnly("org.slf4j:slf4j-simple:1.7.30")
+
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
 
     api(githubRelease("JaneliaSciComp", "jhdf5", "jhdf5-19.04.1_fatjar", "sis-base-18.09.0.jar"))
@@ -79,9 +89,21 @@ application {
 }
 
 tasks {
-    withType<KotlinCompile> {
-        kotlinOptions.jvmTarget = "11"
-        sourceCompatibility = "11"
+//    withType<KotlinCompile> {
+//        kotlinOptions.jvmTarget = "11"
+//        sourceCompatibility = "11"
+//    }
+
+    withType<KotlinCompile>().all {
+        kotlinOptions {
+            jvmTarget = project.properties["jvmTarget"]?.toString() ?: "11"
+            freeCompilerArgs += listOf("-Xinline-classes", "-opt-in=kotlin.RequiresOptIn")
+        }
+    }
+
+    withType<JavaCompile>().all {
+        targetCompatibility = project.properties["jvmTarget"]?.toString() ?: "11"
+        sourceCompatibility = project.properties["jvmTarget"]?.toString() ?: "11"
     }
 
     named<Test>("test") {

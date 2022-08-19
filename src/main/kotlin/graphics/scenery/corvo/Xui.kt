@@ -3,9 +3,9 @@ package graphics.scenery.corvo
 import graphics.scenery.Box
 import graphics.scenery.Icosphere
 import graphics.scenery.Mesh
-import graphics.scenery.TextBoard
 import graphics.scenery.controls.TrackedDeviceType
 import graphics.scenery.controls.TrackerRole
+import graphics.scenery.primitives.TextBoard
 import graphics.scenery.textures.Texture
 import graphics.scenery.utils.Image
 import graphics.scenery.utils.extensions.xyzw
@@ -48,14 +48,14 @@ class Xui(private val parent: XVisualization) {
             val sphere = Icosphere(scale, 3)
             val board = TextBoard("SourceSansPro-Light.ttf")
 
-            sphere.material.diffuse = Vector3f(0.5f)
-            sphere.material.ambient = Vector3f(0.3f)
-            sphere.material.specular = Vector3f(0.1f)
-            sphere.material.roughness = 0.1f
-            sphere.material.metallic = 0.000001f
+            sphere.material().diffuse = Vector3f(0.5f)
+            sphere.material().ambient = Vector3f(0.3f)
+            sphere.material().specular = Vector3f(0.1f)
+            sphere.material().roughness = 0.1f
+            sphere.material().metallic = 0.000001f
 
-            board.scale = Vector3f(scale)
-            board.rotation.rotateX(-Math.PI.toFloat() / 2f)
+            board.spatial().scale = Vector3f(scale)
+            board.spatial().rotation.rotateX(-Math.PI.toFloat() / 2f)
             board.transparent = 0
             board.fontColor = Vector4f(0f)
             board.backgroundColor = Vector4f(0.7f)
@@ -81,16 +81,16 @@ class Xui(private val parent: XVisualization) {
         testLabel.text = "switch view"
         testLabel.position = Vector3f(0.005f, 0.009f, 0.017f)
 
-        transcription.position = Vector3f(0.03f, 0.01f, 0.02f)
+        transcription.spatial().position = Vector3f(0.03f, 0.01f, 0.02f)
 
 //        genesToLoad.position = Vector3f(0.03f, 0.01f, 0.03f)
 
-        micButton.material.textures["diffuse"] =
+        micButton.material().textures["diffuse"] =
             Texture.fromImage(Image.fromResource("volumes/mic_image.jpg", this::class.java))
-        micButton.material.metallic = 0.3f
-        micButton.material.roughness = 0.9f
-        micButton.material.diffuse = Vector3f(0.5f)
-        micButton.position = Vector3f(0f, 0.01f, 0.02f)
+        micButton.material().metallic = 0.3f
+        micButton.material().roughness = 0.9f
+        micButton.material().diffuse = Vector3f(0.5f)
+        micButton.spatial().position = Vector3f(0f, 0.01f, 0.02f)
 
         // define features of category label (display selected category on controller)
         categoryLabel.scale = Vector3f(scale)

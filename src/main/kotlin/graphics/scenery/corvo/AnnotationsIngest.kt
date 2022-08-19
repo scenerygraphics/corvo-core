@@ -44,6 +44,7 @@ class AnnotationsIngest(h5adPath: String) {
                 try {
                     if (reader.getDataSetInformation("/obs/$ann/categories").toString().toCharArray().size < 17) {
                         annotationList.add(ann)
+                        categoryNames.add(h5adAnnotationReader("/obs/$ann/categories") as ArrayList<String>)
                     }
                 } catch (e: HDF5SymbolTableException) {
                     logger.info("$ann is not color encodable and will exist only as metadata")

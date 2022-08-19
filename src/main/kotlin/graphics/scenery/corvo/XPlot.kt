@@ -1,7 +1,11 @@
 package graphics.scenery.corvo
 
 import graphics.scenery.*
+import graphics.scenery.attribute.material.Material
 import graphics.scenery.backends.Shaders
+import graphics.scenery.numerics.Random
+import graphics.scenery.primitives.TextBoard
+import graphics.scenery.utils.LazyLogger
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.volumes.Colormap
 import org.apache.commons.math3.stat.inference.MannWhitneyUTest
@@ -14,22 +18,20 @@ import kotlin.math.*
 
 /**.
  * billboard textboards
- * most differentially expressed gene fore ach cluster
- * display p values and log fold change next to gene
  * simplify controls
- * serious performance hit from so many textboards? I observe around -5-7 fps
+ * performance hit from so many textboards? I observe around -5-7 fps
  * performance hit from toggling visibility of keys? many intersections and non-instanced nodes
  * instance key spheres? Instance textboards?
  * VR controller example
  *
- * @author Luke Hyman <lukejhyman@gmail.com>
+ * @author Luke Hyman <lukehcode@gmail.com>
  */
 
 var geneNames = ArrayList<String>()
 var geneExpr = ArrayList<FloatArray>()
 var maxExprList = ArrayList<Int>()
+class XPlot(filePath: String) : RichNode() {
 
-class XPlot(filePath: String) : Node() {
     // a scaling factor for better scale relative to user
     private var positionScaling = 0.3f
     private val colormap = Colormap.get(encoding)
@@ -49,10 +51,12 @@ class XPlot(filePath: String) : Node() {
     val labelList = ArrayList<Mesh>()
     val rgbColorSpectrum = Colormap.get("jet")
 
+    val container = RichNode("cell container")
+
     init {
 
         for (ann in annotationList) {
-            logger.info(ann)
+            logger.info("annotation: $ann")
 
             annotationArray.add(run {
                 val codes = annFetcher.h5adAnnotationReader("/obs/$ann/codes")
@@ -86,8 +90,7 @@ class XPlot(filePath: String) : Node() {
     //generate master spheres for every 10k cells (rendering and parsing performance improvement)
     private val masterSplit = 10_000
     private val masterCount = ceil(spatialCoords.size.toFloat() / masterSplit).toInt()
-    val masterMap = hashMapOf<Int, Icosphere>()
-
+    val instancedNodeMap = hashMapOf<Int, InstancedNode>()
     init {
         val buffer = annFetcher.fetchGeneExpression()
         geneNames = buffer.first
@@ -101,49 +104,48 @@ class XPlot(filePath: String) : Node() {
     }
 
     private fun loadDataset() {
-        val sphereSize = 0.018f
+        val sphereSize = 0.03f
 
-        // hashmap to emulate at run time variable declaration
+        // hashmap to emulate at run time variable declaration, for dynamically growing n
         // allows for dynamically growing number of master spheres with size of dataset
+        println(masterCount)
         for (i in 1..masterCount) {
             val masterTemp = Icosphere(sphereSize * positionScaling, 1) // sphere properties
-            masterMap[i] = addMasterProperties(masterTemp, i)
+            instancedNodeMap[i] = addMasterProperties(masterTemp, i)
         }
-        logger.info("hashmap looks like: $masterMap")
+        addChild(dotMesh)
+        logger.info("hashmap looks like: $instancedNodeMap")
 
         //create and add instances using their UMAP coordinates as position
+        val center = fetchCenterOfMass(spatialCoords)
+
         var resettingCounter = 0
         var parentIterator = 1
 
-        val center = fetchCenterOfMass(spatialCoords)
-
         for ((counter, coord) in spatialCoords.withIndex()) {
-//            println(coord)
             if (resettingCounter >= masterSplit) {
                 parentIterator++
                 logger.info("parentIterator: $parentIterator")
                 resettingCounter = 0
             }
-
-            val s = Icosphere(sphereSize * positionScaling, 1) // add as icosphere so intersection works
+            val s = instancedNodeMap[parentIterator]!!.addInstance()
 
             for ((annCount, annotation) in annotationList.withIndex()) {  //add all annotations as metadata (for label center of mass)
                 s.metadata[annotation] = codedAnnotations[annCount][counter]
             }
 
             s.metadata["index"] = counter  // used to identify row of the cell
-            s.parent = masterMap[parentIterator]
-            s.position =
+            s.parent = container
+            s.spatial().position =
                 (Vector3f(
                     (coord[0] - center[0]),
                     (coord[1] - center[1] + 10f),
                     (coord[2] - center[2])
                 )) * positionScaling
-            s.instancedProperties["ModelMatrix"] = { s.world }
-            masterMap[parentIterator]?.instances?.add(s)
+
             resettingCounter++
         }
-        addChild(dotMesh)
+        addChild(container)
 
 //      create labels for each annotation
         for ((typeCount, annotation) in annotationList.withIndex()) {
@@ -174,7 +176,7 @@ class XPlot(filePath: String) : Node() {
             for (annotation in annotationArray)
                 indexedAnnotations += annotation[i]
 
-            val s = masterMap[parentIterator]!!.instances[resettingCounter]
+            val s = instancedNodeMap[parentIterator]!!.instances[resettingCounter]
             s.metadata["colors"] = arrayOf(  // fix current state as metadata to avoid race conditions
                 indexedGeneExpression,
                 indexedAnnotations
@@ -183,7 +185,7 @@ class XPlot(filePath: String) : Node() {
             resettingCounter++
         }
         for (master in 1..masterCount) {
-            (masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+            (instancedNodeMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
         }
     }
 
@@ -201,23 +203,23 @@ class XPlot(filePath: String) : Node() {
                 parentIterator++
                 resettingCounter = 0
             }
-            val s = masterMap[parentIterator]!!.instances[resettingCounter]
-
+            val s = instancedNodeMap[parentIterator]!!.instances[resettingCounter]
+            s.instancedProperties["Color"] = { Vector4f(1f, 0f, 0f, 0f) }
             s.instancedProperties["Color"] = {
                 when {
-                    s.metadata["selected"] == true -> s.material.diffuse.xyzw()
+                    s.metadata["selected"] == true -> Vector4f(1.0f, 0f, 0f, 0f) //experimental replacement
 
                     annotationMode -> rgbColorSpectrum.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[1][annotationPicker] * 0.99f)
 
                     !annotationMode -> colormap.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[0][genePicker] / 10.1f)
 
-                        else -> Vector4f(1f, 0f, 0f, 1f)
+                    else -> Vector4f(1f, 0f, 0f, 1f)
                 }
             }
             resettingCounter++
         }
         for (master in 1..masterCount) {
-            (masterMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
+            (instancedNodeMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
         }
     }
 
@@ -242,7 +244,7 @@ class XPlot(filePath: String) : Node() {
                 "Short" -> t.position = fetchCellLabelPosition(annotation, count.toShort())
             }
 
-            t.scale = Vector3f(0.3f, 0.3f, 0.3f) * positionScaling
+            t.spatial().scale = Vector3f(0.3f, 0.3f, 0.3f) * positionScaling
 
             t.addChild(Sphere(0.1f, 1))
             m.addChild(t)
@@ -259,10 +261,10 @@ class XPlot(filePath: String) : Node() {
         var filteredLength = 0f
 
         for (master in 1..masterCount) {
-            for (instance in masterMap[master]!!.instances.filter { it.metadata[annotation] == type }) {
-                additiveMass[0] += instance.position.toFloatArray()[0]
-                additiveMass[1] += instance.position.toFloatArray()[1]
-                additiveMass[2] += instance.position.toFloatArray()[2]
+            for (instance in instancedNodeMap[master]!!.instances.filter { it.metadata[annotation] == type }) {
+                additiveMass[0] += instance.spatial().position.toFloatArray()[0]
+                additiveMass[1] += instance.spatial().position.toFloatArray()[1]
+                additiveMass[2] += instance.spatial().position.toFloatArray()[2]
 
                 filteredLength++
             }
@@ -374,13 +376,13 @@ class XPlot(filePath: String) : Node() {
 
             val sphere = Icosphere(scale / 2, 2)
 //            val sphere = Mesh()
-            sphere.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
-            sphere.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
-            sphere.material.roughness = 0.19f
-            sphere.material.metallic = 0.0001f
+            sphere.material().ambient = Vector3f(0.3f, 0.3f, 0.3f)
+            sphere.material().specular = Vector3f(0.1f, 0.1f, 0.1f)
+            sphere.material().roughness = 0.19f
+            sphere.material().metallic = 0.0001f
 //            sphere.parent = parent
 //            parent.instances.add(sphere)
-            sphere.material.diffuse = rgbColorSpectrum.sample((colorIncrement.toFloat() / mapSize) * 0.99f).xyz()
+            sphere.material().diffuse = rgbColorSpectrum.sample((colorIncrement.toFloat() / mapSize) * 0.99f).xyz()
 //            sphere.instancedProperties["Color"] = {
 //                rgbColorSpectrum.sample(colorIncrement.toFloat() / mapSize).xyz()
 //            }
@@ -418,32 +420,27 @@ class XPlot(filePath: String) : Node() {
         return m
     }
 
-    private fun addMasterProperties(master: Icosphere, masterNumber: Int): Icosphere {
-        /*
-       Generate an Icosphere used as Master for 10k instances.
-       Override shader to allow for varied color on instancing and makes color an instanced property.
-        */
-        master.metadata["MaxInstanceUpdateCount"] = AtomicInteger(1)
-//        (metadata["MaxInstanceUpdateCount"] as? AtomicInteger)?.getAndIncrement()
+    /**
+     Create master icospere and corresponding instancedNode for every 10k instances.
+     Override shader to allow for varied color on instancing and makes color an instanced property.
+     */
+    private fun addMasterProperties(master: Icosphere, masterNumber: Int): InstancedNode {
         master.name = "master$masterNumber"
-        master.material = ShaderMaterial(
+        master.setMaterial(ShaderMaterial(
             Shaders.ShadersFromFiles(
                 arrayOf(
                     "DefaultDeferredInstanced.frag",
                     "DefaultDeferredInstancedColor.vert"
                 ), XPlot::class.java
-            )
-        ) //overrides the shader
-        master.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
-        master.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
-//        master.material.roughness = 0.6f
-//        master.material.metallic = 0.8f //0.0001f
-        master.instancedProperties["ModelMatrix"] = { master.world }
-        master.instancedProperties["Color"] = { master.material.diffuse.xyzw() }
+            )))
 
-        dotMesh.addChild(master)
+        val instancedMaster = InstancedNode(master)
 
-        return master
+        instancedMaster.instancedProperties["Color"] = { master.material().diffuse.xyzw() }
+        instancedMaster.metadata["MaxInstanceUpdateCount"] = AtomicInteger(1)
+
+        dotMesh.addChild(instancedMaster)
+        return instancedMaster
     }
 
     fun maxDiffExpressedGenes(

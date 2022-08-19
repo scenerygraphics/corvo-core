@@ -10,7 +10,7 @@ target/
 
 # local gradle files and settings
 .gradle
-gradle.properties
+#gradle.properties
 
 # IntelliJ project files -- create by `gradle idea` - do not commit!
 .idea/
@@ -52,3 +52,8 @@ model_max_en
 vosk-model-en-us-aspire-0.2
 vosk-model-small-en-us-0.15
 vosk*
+
+external-libs
+
+scratch_pad.kt
+BloodCellsExample.kt

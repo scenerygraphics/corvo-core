@@ -38,11 +38,12 @@ class AnnotationsIngest(h5adPath: String) {
     val categoryNames = ArrayList<ArrayList<String>>()
 
     init {
+        val overflow = if (numCells < 1000) 16 else 17 // for num categories recognition in case dataset has fewer than 1000 cells
         // only color encode datasets with fewer than 1000 types. Only read coded annotations to avoid crash
         for (ann in reader.getGroupMembers("/obs")) {
             if (reader.exists("/obs/$ann/categories")) {
                 try {
-                    if (reader.getDataSetInformation("/obs/$ann/categories").toString().toCharArray().size < 17) {
+                    if (reader.getDataSetInformation("/obs/$ann/categories").toString().toCharArray().size < overflow) {
                         annotationList.add(ann)
                         categoryNames.add(h5adAnnotationReader("/obs/$ann/categories") as ArrayList<String>)
                     }

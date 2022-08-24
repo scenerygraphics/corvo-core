@@ -74,8 +74,8 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         if (!hmd.initializedAndWorking()) {
             logger.info("Visualization is running without a hmd and may have limited interactivity")
         }
-//        val filename = resource[0]
-        plot = XPlot("brain_vr_processed.h5ad")
+
+        plot = XPlot(resource[0])
 
         // Magic to get the VR to start up
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
@@ -93,7 +93,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         }
 
         ui = Xui(this)
-        audioDecoder = AudioDecoder(this)
+        audioDecoder = AudioDecoder(this, resource)
 
         loadEnvironment()
 
@@ -643,20 +643,21 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             }
         })
         hmd.addKeyBinding("shrinkSelector", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Down) //J
-
     }
 
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
+            val arg = arrayOf("aorta_raw_processed.h5ad", "vosk-model-small-en-us-0.15")
 //            System.setProperty("scenery.Renderer.Device", "3070")
             System.setProperty("scenery.Renderer", "VulkanRenderer")
             System.setProperty("scenery.Renderer.ForceUndecoratedWindow", "true")
-
-            XVisualization().main()
             if (args.isNotEmpty()) {
-                println(args[0])
+                for (arg in args.withIndex()){
+                    println("input ${arg.index}: $arg")
+                }
             }
+            XVisualization(args).main()
         }
     }
 }

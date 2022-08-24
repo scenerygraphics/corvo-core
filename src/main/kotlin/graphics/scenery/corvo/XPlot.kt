@@ -338,25 +338,6 @@ class XPlot(filePath: String) : RichNode() {
         var charSum = 0
         val mapSize = if (mapping.size > 1) mapping.size - 1 else 1
 
-//        val parent = Icosphere(scale / 2, 2)
-//        parent.metadata["MaxInstanceUpdateCount"] = AtomicInteger(1)
-//        parent.material = ShaderMaterial(
-//            Shaders.ShadersFromFiles(
-//                arrayOf(
-//                    "DefaultDeferredInstanced.frag",
-//                    "DefaultDeferredInstancedColor.vert"
-//                ), XPlot::class.java
-//            )
-//        ) //overrides the shader
-
-//        parent.material.ambient = Vector3f(0.3f, 0.3f, 0.3f)
-//        parent.material.specular = Vector3f(0.1f, 0.1f, 0.1f)
-//        parent.material.roughness = 0.19f
-//        parent.material.metallic = 0.0001f
-//
-//        parent.instancedProperties["ModelMatrix"] = { parent.world }
-//        parent.instancedProperties["Color"] = { parent.material.diffuse.xyzw() }
-
         for ((colorIncrement, cat) in mapping.withIndex()) {
 
             val key = TextBoard("SourceSansPro-Regular.ttf")

@@ -1,35 +1,34 @@
 
 # Corvo
-_Corvo_ is a Scenery-dependent module for the visualisation of dimensionally reduced datasets in VR. It is currently designed for 3D UMAP or tSNE plots, offering an additional dimension for the analysis of singlecell rna sequencing datasets.    
+_Corvo_ is a tool for the visualization of dimensionally reduced single-cell transcriptomics datasets in virtual reality. Built with the scenegraphing 
+and rendering library **Scenery** (https://github.com/scenerygraphics/scenery), both Corvo and its underlying infrastructure are open-source.
 
 ## Installation
-Scenery is written in Kotlin, which runs on the JVM. Please use a supporting IDE such as intelliJ IDEA. 
+Corvo is designed to be launched from CorvoLauncher (https://github.com/ljjh20/CorvoLauncher) with the accompanying data pre-processor and UI. 
+
+For development, clone the repository and launch with a JVM-compatible IDE. 
 
 ### Clone Repository
-Clone the repository into your local file system.
 ```
 git clone https://github.com/ljjh20/Corvo.git
 ```
 
 ### JDK Requirements
-Due to the deprecation of the Nashorn engine since Java 15, a specific version of OpenJDK is required. Download AdoptOpenJDK9-11.0.9 here:
+Corvo targets JDK-11. Please set the SDK and language level (Project Structure in IntelliJ) to version 11 (e.g. from AdoptOpenJDK or Temurin Eclipse).
 
-https://adoptopenjdk.net/?variant=openjdk11&jvmVariant=openj9
+## Usage
+You may want to dedicate additional RAM, using e.g. ```-Xmx16g``` for 16GB, in the VM options.
+### Datasets
+A large repository of compatible single-cell transcriptomics datasets are available from the Chan Zuckerberg Initiative: https://cellxgene.cziscience.com/datasets
 
-Extract the compressed folder and add it as your JDK (_File/Project Structure..._ in intelliJ IDEA). 
+However, these must be pre-processed with the **PreProcess** utility in **CorvoLauncher**:
 
-## Run 
-
-### Run Configurations
-Make sure to select _adopt-openj9-11 version 11.0.9_ as your JDK.
-
-You may also want to dedicate additional RAM, using e.g. ```-Xmx8g``` for 8GB.
+### Vosk Language Model
+You will need to download a Vosk English language model from: https://alphacephei.com/vosk/models and place it in the repository root.
 
 ### Launch
-The environment is launched by running **src/test/tests/graphics/scenery/corvo/XVisualization.kt**.
+Corvo is launched by running `main(arrayOf(<dataset path>, <language model path>))` in the companion object of **src/main/kotlin/graphics/scenery/corvo/XVisualization.kt**.
 
-A file system browser will appear. Two sample datasets are provided:
+## Features
+_Feature list to be added soon_
 
-Small: **GMB_cellAtlas_data.csv**
-
-Large: **TabulaMuris3Ddata.csv**

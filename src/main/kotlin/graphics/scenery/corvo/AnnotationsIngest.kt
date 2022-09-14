@@ -4,7 +4,6 @@ import ch.systemsx.cisd.base.mdarray.MDFloatArray
 import ch.systemsx.cisd.base.mdarray.MDIntArray
 import ch.systemsx.cisd.hdf5.HDF5Factory
 import ch.systemsx.cisd.hdf5.IHDF5Reader
-import graphics.scenery.backends.Renderer.Companion.logger
 import graphics.scenery.numerics.Random
 import graphics.scenery.utils.LazyLogger
 import hdf.hdf5lib.exceptions.HDF5SymbolTableException
@@ -19,7 +18,8 @@ class AnnotationsIngest(h5adPath: String) {
     val logger by LazyLogger()
     val reader: IHDF5Reader = HDF5Factory.openForReading(h5adPath)
 
-    val geneNames = h5adAnnotationReader("/var/feature_name/categories") //not robust, create UI selector
+    val feature_name = h5adAnnotationReader("/var/feature_name/categories") //not robust, create UI selector
+    val feature_id = h5adAnnotationReader("/var/feature_id")
 
     private val cscData: MDFloatArray = reader.float32().readMDArray("/X/data")
     private val cscIndices: MDIntArray = reader.int32().readMDArray("/X/indices")
@@ -68,29 +68,20 @@ class AnnotationsIngest(h5adPath: String) {
             }
         }
 
-        println(nonZeroGenes.size)
-        println(numGenes)
-
         for (obs in annotationList) {
             nCatList.add(h5adAnnotationReader("/obs/$obs/categories").size)  // still add as 1 indicates no gene info
             try  {  // created in genes_preprocessing branch of CorvoLauncher
                 flatNamesList.add(h5adAnnotationReader("/uns/" + obs + "_names") as ArrayList<String>)
                 flatPvalsList.add(h5adAnnotationReader("/uns/" + obs + "_pvals") as ArrayList<Float>)
                 flatLogfoldchanges.add(h5adAnnotationReader("/uns/" + obs + "_logfoldchanges") as ArrayList<Float>)
-            } catch (e: HDF5SymbolTableException) {
 
+            } catch (e: HDF5SymbolTableException) {
+                println("not encoded")
                 flatNamesList.add(arrayListOf())
                 flatPvalsList.add(arrayListOf())
                 flatLogfoldchanges.add(arrayListOf())
             }
         }
-//        for (i in annotationList){
-//            println(i)
-//        }
-
-//        println(Arrays.toString(reader.string().readArray("obs/FACS.selection/categories")))
-//        println(reader.int8().readArray("obs/FACS.selection/codes")[10].toInt())
-
     }
 
     fun fetchGeneExpression(genes: ArrayList<Int> = arrayListOf()): Triple<ArrayList<String>, ArrayList<FloatArray>, ArrayList<Int>> {
@@ -116,7 +107,7 @@ class AnnotationsIngest(h5adPath: String) {
             }
         }
 
-        val names = genes.map { geneNames[it] } as ArrayList<String>
+        val names = genes.map {feature_name[it]} as ArrayList<String>
 //        println(names)
 
         return Triple(names, expressions, maxList.map { it.toInt() } as ArrayList<Int>)

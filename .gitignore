@@ -55,5 +55,6 @@ vosk*
 
 external-libs
 
-scratch_pad.kt
+scratch_pad.*
+scratch_pad
 BloodCellsExample.kt

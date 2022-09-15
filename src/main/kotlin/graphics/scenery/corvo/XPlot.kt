@@ -1,11 +1,8 @@
 package graphics.scenery.corvo
 
 import graphics.scenery.*
-import graphics.scenery.attribute.material.Material
 import graphics.scenery.backends.Shaders
-import graphics.scenery.numerics.Random
 import graphics.scenery.primitives.TextBoard
-import graphics.scenery.utils.LazyLogger
 import graphics.scenery.utils.extensions.*
 import graphics.scenery.volumes.Colormap
 import org.apache.commons.math3.stat.inference.MannWhitneyUTest
@@ -129,6 +126,7 @@ class XPlot(filePath: String) : RichNode() {
                 resettingCounter = 0
             }
             val s = instancedNodeMap[parentIterator]!!.addInstance()
+            s.addChild(Sphere(0.01f, 1))
 
             for ((annCount, annotation) in annotationList.withIndex()) {  //add all annotations as metadata (for label center of mass)
                 s.metadata[annotation] = codedAnnotations[annCount][counter]
@@ -207,7 +205,7 @@ class XPlot(filePath: String) : RichNode() {
             s.instancedProperties["Color"] = { Vector4f(1f, 0f, 0f, 0f) }
             s.instancedProperties["Color"] = {
                 when {
-                    s.metadata["selected"] == true -> Vector4f(1.0f, 0f, 0f, 0f) //experimental replacement
+                    s.metadata["selected"] == true -> Vector4f(1.0f) //experimental replacement
 
                     annotationMode -> rgbColorSpectrum.sample((s.metadata["colors"] as Array<ArrayList<Float>>)[1][annotationPicker] * 0.99f)
 
@@ -240,8 +238,8 @@ class XPlot(filePath: String) : RichNode() {
             t.backgroundColor = rgbColorSpectrum.sample((count.toFloat() / mapSize) * 0.99f)
 
             when (type) {
-                "Byte" -> t.position = fetchCellLabelPosition(annotation, count.toByte())
-                "Short" -> t.position = fetchCellLabelPosition(annotation, count.toShort())
+                "Byte" -> t.spatial().position = fetchCellLabelPosition(annotation, count.toByte())
+                "Short" -> t.spatial().position = fetchCellLabelPosition(annotation, count.toShort())
             }
 
             t.spatial().scale = Vector3f(0.3f, 0.3f, 0.3f) * positionScaling
@@ -297,29 +295,26 @@ class XPlot(filePath: String) : RichNode() {
         val m = Mesh()
         val mapping = annFetcher.h5adAnnotationReader("/obs/$annotation/categories")
 
-
         val rootPosY = 15f
         val rootPosX = -8.5f
-        val scale = 0.6f
+        val keyScale = 0.6f
 
         val sizeList = arrayListOf<Int>()
-        val overflowLim = (22 / scale).toInt()
+        val overflowLim = (22 / keyScale).toInt()
         var overflow = 0
         var maxString = 0
 
         for (cat in mapping) {
-
             if (overflow < overflowLim) {
                 val len = cat.toString().toCharArray().size
                 if (len > maxString)
                     maxString = len
                 overflow++
-
             } else {
-                if (maxString < scale * 70)
+                if (maxString < keyScale * 70)
                     sizeList.add(maxString)
                 else
-                    sizeList.add((scale * 70).toInt())
+                    sizeList.add((keyScale * 70).toInt())
                 maxString = 0
                 overflow = 0
             }
@@ -328,9 +323,12 @@ class XPlot(filePath: String) : RichNode() {
         val title = TextBoard("SourceSansPro-Light.ttf")
         title.transparent = 1
         title.text = annotation
-        title.scale = Vector3f(scale * 2)
         title.fontColor = Vector3f(180 / 255f, 23 / 255f, 52 / 255f).xyzw()
-        title.position = Vector3f(rootPosX + scale, rootPosY, -11f)
+        title.spatial {
+            scale = Vector3f(keyScale * 2)
+            position = Vector3f(rootPosX + keyScale, rootPosY, -11f)
+        }
+
         m.addChild(title)
 
         overflow = 0
@@ -341,7 +339,7 @@ class XPlot(filePath: String) : RichNode() {
         for ((colorIncrement, cat) in mapping.withIndex()) {
 
             val key = TextBoard("SourceSansPro-Regular.ttf")
-            val tooLargeBy = cat.toString().toCharArray().size - (scale * 70)
+            val tooLargeBy = cat.toString().toCharArray().size - (keyScale * 70)
 
             when {
                 (tooLargeBy >= 0) ->
@@ -352,33 +350,28 @@ class XPlot(filePath: String) : RichNode() {
 
             key.fontColor = Vector3f(1f, 1f, 1f).xyzw()
             key.transparent = 1
-            key.scale = Vector3f(scale)
+            key.spatial().scale = Vector3f(keyScale)
 
 
-            val sphere = Icosphere(scale / 2, 2)
-//            val sphere = Mesh()
-            sphere.material().ambient = Vector3f(0.3f, 0.3f, 0.3f)
-            sphere.material().specular = Vector3f(0.1f, 0.1f, 0.1f)
-            sphere.material().roughness = 0.19f
-            sphere.material().metallic = 0.0001f
-//            sphere.parent = parent
-//            parent.instances.add(sphere)
-            sphere.material().diffuse = rgbColorSpectrum.sample((colorIncrement.toFloat() / mapSize) * 0.99f).xyz()
-//            sphere.instancedProperties["Color"] = {
-//                rgbColorSpectrum.sample(colorIncrement.toFloat() / mapSize).xyz()
-//            }
-//            sphere.instancedProperties["ModelMatrix"] = { sphere.world }
+            val sphere = Icosphere(keyScale / 2, 2)
+            sphere.material {
+                ambient = Vector3f(0.3f, 0.3f, 0.3f)
+                specular = Vector3f(0.1f, 0.1f, 0.1f)
+                roughness = 0.19f
+                metallic = 0.0001f
+                diffuse = rgbColorSpectrum.sample((colorIncrement.toFloat() / mapSize) * 0.99f).xyz()
+            }
 
             if (lenIndex == -1) {
-                key.position = Vector3f(rootPosX + scale, rootPosY - (overflow + 1) * scale, -11f)
-                sphere.position = Vector3f(rootPosX, (rootPosY - (overflow + 1) * scale) + scale / 2, -11f)
+                key.spatial().position = Vector3f(rootPosX + keyScale, rootPosY - (overflow + 1) * keyScale, -11f)
+                sphere.spatial().position = Vector3f(rootPosX, (rootPosY - (overflow + 1) * keyScale) + keyScale / 2, -11f)
 
             } else {
-                key.position =
-                    Vector3f(rootPosX + scale + (charSum * 0.31f * scale), rootPosY - (overflow + 1) * scale, -11f)
-                sphere.position = Vector3f(
-                    rootPosX + (charSum * 0.31f * scale),
-                    (rootPosY - (overflow + 1) * scale) + scale / 2,
+                key.spatial().position =
+                    Vector3f(rootPosX + keyScale + (charSum * 0.31f * keyScale), rootPosY - (overflow + 1) * keyScale, -11f)
+                sphere.spatial().position = Vector3f(
+                    rootPosX + (charSum * 0.31f * keyScale),
+                    (rootPosY - (overflow + 1) * keyScale) + keyScale / 2,
                     -11f
                 )
             }
@@ -453,7 +446,6 @@ class XPlot(filePath: String) : RichNode() {
                 backgroundArray.toDoubleArray()
             )
         }
-
         for (i in 0..9) {
             val maxKey = pMap.minByOrNull { it.value }?.key
             if (maxKey != null) {
@@ -461,7 +453,6 @@ class XPlot(filePath: String) : RichNode() {
             }
             pMap.remove(maxKey)
         }
-
         return maxGenesList
     }
 

@@ -17,7 +17,6 @@ class Xui(private val parent: XVisualization) {
     val transcription = TextBoard("SourceSansPro-Light.ttf")
     val micButton = Box(Vector3f(0.015f, 0f, 0.015f))
     val genesToLoad = Mesh()
-    val testLabel = TextBoard("SourceSansPro-Light.ttf")
 
     val requestedGenesNames = ArrayList<String>()
     val requestedGenesIndices = ArrayList<Int>()
@@ -25,10 +24,6 @@ class Xui(private val parent: XVisualization) {
     var geneTagMesh = Mesh()
 
     var categoryLabel = TextBoard("SourceSansPro-Light.ttf")
-
-//    val resetUI = arrayListOf(TextBoard("SourceSansPro-Light.ttf"), Icosphere(0.02f, 3))
-//    val switchSelectionModeUI = arrayListOf(TextBoard("SourceSansPro-Light.ttf"), Icosphere(0.02f, 3))
-//    val loadGenes = arrayListOf(TextBoard("SourceSansPro-Light.ttf"), Icosphere(0.02f, 3))
 
     var switchSelectionModeUIState = 0
 
@@ -46,14 +41,15 @@ class Xui(private val parent: XVisualization) {
         for (mesh in meshList) {
 
             val sphere = Icosphere(scale, 3)
+            sphere.material {
+                diffuse = Vector3f(0.5f)
+                ambient = Vector3f(0.3f)
+                specular = Vector3f(0.1f)
+                roughness = 0.1f
+                metallic = 0.000001f
+            }
+
             val board = TextBoard("SourceSansPro-Light.ttf")
-
-            sphere.material().diffuse = Vector3f(0.5f)
-            sphere.material().ambient = Vector3f(0.3f)
-            sphere.material().specular = Vector3f(0.1f)
-            sphere.material().roughness = 0.1f
-            sphere.material().metallic = 0.000001f
-
             board.spatial().scale = Vector3f(scale)
             board.spatial().rotation.rotateX(-Math.PI.toFloat() / 2f)
             board.transparent = 0
@@ -67,55 +63,58 @@ class Xui(private val parent: XVisualization) {
     }
 
     init {
-//        genesToLoad.visible = true
-        val labelList = arrayListOf(testLabel, transcription, categoryLabel)
+        genesToLoad.visible = true
+        val labelList = arrayListOf(transcription, categoryLabel)
 
         for (label in labelList) {
             label.transparent = 0
             label.fontColor = Vector4f(0f)
             label.backgroundColor = Vector4f(0.7f)
-            label.scale = Vector3f(0.012f)
-            label.rotation.rotateX(-Math.PI.toFloat() / 2f)
+            label.spatial {
+                scale = Vector3f(0.012f)
+                rotation.rotateX(-Math.PI.toFloat() / 2f)
+            }
         }
-
-        testLabel.text = "switch view"
-        testLabel.position = Vector3f(0.005f, 0.009f, 0.017f)
-
         transcription.spatial().position = Vector3f(0.03f, 0.01f, 0.02f)
-
-//        genesToLoad.position = Vector3f(0.03f, 0.01f, 0.03f)
-
         micButton.material().textures["diffuse"] =
             Texture.fromImage(Image.fromResource("volumes/mic_image.jpg", this::class.java))
-        micButton.material().metallic = 0.3f
-        micButton.material().roughness = 0.9f
-        micButton.material().diffuse = Vector3f(0.5f)
+        micButton.material {
+            metallic = 0.3f
+            roughness = 0.9f
+            diffuse = Vector3f(0.5f)
+        }
         micButton.spatial().position = Vector3f(0f, 0.01f, 0.02f)
 
         // define features of category label (display selected category on controller)
-        categoryLabel.scale = Vector3f(scale)
-        categoryLabel.position = Vector3f(0.1f, 0f, 0f)
+        categoryLabel.spatial {
+            scale = Vector3f(scale)
+            position = Vector3f(0.1f, 0f, 0f)
+        }
 
         dispMainUI()
     }
 
-    fun dispMainUI() {
-        (resetUI.children.first() as TextBoard).text = "reset"
-        (switchSelectionModeUI.children.first() as TextBoard).text = "switch selector"
-        (loadGenesUI.children.first() as TextBoard).text = "load genes"
+    private fun dispMainUI() {
+        val resetUIText = resetUI.children.first() as TextBoard
+        val switchSelectionModeUIText = switchSelectionModeUI.children.first() as TextBoard
+        val loadGenesUIText = loadGenesUI.children.first() as TextBoard
 
-        resetUI.children.first().position =
+        resetUIText.text = "reset"
+        switchSelectionModeUIText.text = "switch selector"
+        loadGenesUIText.text = "load genes"
+
+        resetUIText.spatial().position =
             Vector3f(-triSize + (scale / sqrt(2f)), -0.025f, triSize - triOffset - (scale / sqrt(2f)))
-        resetUI.children.last().position = Vector3f(-triSize, -0.025f, triSize - triOffset)
+        (resetUI.children.last() as Icosphere).spatial().position = Vector3f(-triSize, -0.025f, triSize - triOffset)
 
-        switchSelectionModeUI.children.first().position =
+        switchSelectionModeUIText.spatial().position =
             Vector3f(triSize + (scale / sqrt(2f)), -0.025f, triSize - triOffset - (scale / sqrt(2f)))
-        switchSelectionModeUI.children.last().position = Vector3f(triSize, -0.025f, triSize - triOffset)
+        (switchSelectionModeUI.children.last() as Icosphere).spatial().position =
+            Vector3f(triSize, -0.025f, triSize - triOffset)
 
-        loadGenesUI.children.first().position =
+        loadGenesUIText.spatial().position =
             Vector3f((scale / sqrt(2f)), -0.025f, -triSize - triOffset - (scale / sqrt(2f)))
-        loadGenesUI.children.last().position = Vector3f(0f, -0.025f, -triSize - triOffset)
-
+        (loadGenesUI.children.last() as Icosphere).spatial().position = Vector3f(0f, -0.025f, -triSize - triOffset)
     }
 
     /**
@@ -125,7 +124,7 @@ class Xui(private val parent: XVisualization) {
     fun dispGenes(selectedCluster: Int) {
         if (selectedCluster != -1 && !currentlyFetching) {
             currentlyFetching = true
-            val geneIndices = ArrayList<Int>()
+//            val geneIndices = ArrayList<Int>()
 
             parent.hmd.getTrackedDevices(TrackedDeviceType.Controller).forEach { device ->
                 if (device.value.role == TrackerRole.LeftHand) {
@@ -139,44 +138,11 @@ class Xui(private val parent: XVisualization) {
             categoryLabel.text = parent.plot.annFetcher.categoryNames[annotationPicker][selectedCluster]
 
             val clusterData = parent.plot.annFetcher.precompGenesReader(annotationPicker, selectedCluster)
+            val geneIDs = clusterData.second.first
+            val geneIndices = if (geneIDs.isNotEmpty()) geneIDs[0].map {
+                parent.plot.annFetcher.feature_id.indexOf(it)
+            } as ArrayList<Int> else arrayListOf()
 
-            if (clusterData.second.first.isNotEmpty()) {
-                val backC =
-                    ((selectedCluster.toFloat()) / (clusterData.first.toFloat() - 1)) * 0.99f
-
-                for (i in 0 until clusterData.second.first[0].size) {
-
-                    geneIndices.add(parent.plot.annFetcher.geneNames.indexOf(clusterData.second.first[0][i]))
-
-                    val geneTag = TextBoard("SourceSansPro-Light.ttf")
-                    geneTag.text =
-                        clusterData.second.first[0][i] +
-                                ", p: " + clusterData.second.second[0][i].toString() +
-                                ", f.c.: " + clusterData.second.third[0][i].toString()
-
-                    geneTag.scale = Vector3f(scale)
-                    geneTag.position = Vector3f(
-                        0.1f,
-                        0f,
-                        (i * scale) + (scale * 1.15f)
-                    )
-                    geneTag.rotation.rotateX(-Math.PI.toFloat() / 2f)
-                    geneTag.transparent = 0
-                    geneTag.fontColor = Vector4f(0f)
-                    geneTag.backgroundColor = parent.plot.rgbColorSpectrum.sample(backC)
-
-                    geneTagMesh.addChild(geneTag)
-                }
-            }
-
-            (geneTagMesh.children.first() as TextBoard).fontFamily = "SourceSansPro-Semibold.ttf"
-
-            parent.hmd.getTrackedDevices(TrackedDeviceType.Controller).forEach { device ->
-                if (device.value.role == TrackerRole.LeftHand) {
-                    device.value.model?.addChild(geneTagMesh)
-                    device.value.model?.addChild(categoryLabel)
-                }
-            }
             ////////////////////////////////////////
 
             val buffer = parent.plot.annFetcher.fetchGeneExpression(geneIndices)
@@ -192,32 +158,77 @@ class Xui(private val parent: XVisualization) {
             parent.maxTick.text = maxExprList[genePicker].toString()
 
             ///////////////////////////////////////
+
+            if (clusterData.second.first.isNotEmpty()) {
+                val backC = ((selectedCluster.toFloat()) / (clusterData.first.toFloat() - 1)) * 0.99f
+                clusterData.second.first[0].withIndex().forEach {
+                    val geneTag = TextBoard("SourceSansPro-Light.ttf")
+                    geneTag.text =
+                        geneNames[it.index] +
+                                ", p: " + clusterData.second.second[0][it.index].toString() +
+                                ", f.c.: " + clusterData.second.third[0][it.index].toString()
+                    geneTag.spatial().scale = Vector3f(scale)
+                    geneTag.spatial().rotation.rotateX(-Math.PI.toFloat() / 2f)
+                    geneTag.spatial().position = Vector3f(
+                        0.1f,
+                        0f,
+                        (it.index * scale) + (scale * 1.15f)
+                    )
+                    geneTag.transparent = 0
+                    geneTag.fontColor = Vector4f(0f)
+                    geneTag.backgroundColor = parent.plot.rgbColorSpectrum.sample(backC)
+
+                    geneTagMesh.addChild(geneTag)
+                }
+                (geneTagMesh.children.first() as TextBoard).fontFamily = "SourceSansPro-Semibold.ttf"
+
+                parent.hmd.getTrackedDevices(TrackedDeviceType.Controller).forEach { device ->
+                    if (device.value.role == TrackerRole.LeftHand) {
+                        device.value.model?.addChild(geneTagMesh)
+                        device.value.model?.addChild(categoryLabel)
+                    }
+                }
+            }
             currentlyFetching = false
         }
     }
-
-    fun addDecodedGene(name: String) {
-        requestedGenesNames.add(name)
-
+    /**
+     * addDecodedGene takes alternatives returned by LibVosk and checks if they match a known gene.
+     * If a match is found, it is added to the XUi property requestedGenesIndices to be loaded on user request.
+     * If not, the first alternative is loaded on a red instead of green label.
+     */
+    fun addDecodedGene(alternatives: List<String>) {
+        // doesn't seem to pick up the first letter or do a good job of decoding.
         val geneLabel = TextBoard("SourceSansPro-Light.ttf")
         geneLabel.visible = true
         geneLabel.transparent = 0
         geneLabel.fontColor = Vector4f(0f)
-        geneLabel.scale = Vector3f(0.012f)
-        geneLabel.rotation.rotateX(-Math.PI.toFloat() / 2f)
-        geneLabel.text = name
-
-        val geneIndex = parent.plot.annFetcher.geneNames.indexOf(name)
-
-        if (geneIndex != -1) {
-            geneLabel.backgroundColor = Vector3f(0.73f, 1.00f, 0.60f).xyzw()
-            requestedGenesIndices.add(geneIndex)
-        } else {
-            geneLabel.backgroundColor = Vector3f(1.00f, 0.73f, 0.60f).xyzw()
+        geneLabel.spatial {
+            scale = Vector3f(0.012f)
+            rotation.rotateX(-Math.PI.toFloat() / 2f)
         }
 
-        geneLabel.position = Vector3f(0.03f, 0.01f, 0.025f + (0.012f * (requestedGenesNames.size)))
+        val checks = alternatives.map { alt ->
+            parent.plot.annFetcher.feature_name.indexOf(alt)
+        } as ArrayList<Int>
+
+        geneLabel.backgroundColor = Vector3f(1.00f, 0.73f, 0.60f).xyzw() //start red and turn green if found
+
+        var chosenAlternative = ""
+        for (result in checks.withIndex()) {
+            if (result.value != -1) {
+                chosenAlternative = alternatives[result.index]
+                geneLabel.backgroundColor = Vector3f(0.73f, 1.00f, 0.60f).xyzw()
+                requestedGenesIndices.add(result.value)
+                break
+            } else {
+                chosenAlternative = alternatives[0]
+            }
+        }
+        geneLabel.text = chosenAlternative
+        requestedGenesNames.add(chosenAlternative)
+
+        geneLabel.spatial().position = Vector3f(0.03f, 0.01f, 0.025f + (0.012f * (requestedGenesNames.size)))
         genesToLoad.addChild(geneLabel)
     }
-
 }

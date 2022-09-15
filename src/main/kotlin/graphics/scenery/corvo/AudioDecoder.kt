@@ -13,6 +13,9 @@ import org.json.JSONArray
 import org.json.JSONObject
 import org.json.JSONString
 import org.json.JSONStringer
+import java.util.*
+import kotlin.collections.ArrayList
+import kotlin.reflect.typeOf
 
 
 class AudioDecoder(private val parent: XVisualization, resource: Array<String>) {
@@ -68,12 +71,12 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
     private val phonesToSymbols = hashMapOf(
         "dash" to "-",
         "and" to "n"
-    // issue - some gene names are capitalized after the dash!!!!!
+        // issue - some gene names are capitalized after the dash!!!!!
     )
 
     init {
         LibVosk.setLogLevel(LogLevel.DEBUG)
-        rc.setMaxAlternatives(3)
+        rc.setMaxAlternatives(5)
     }
 
     @Throws(IOException::class, UnsupportedAudioFileException::class)
@@ -106,7 +109,6 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
                 joinedUtteranceList.add(utterance.joinToString(""))
             }
         }
-
         return joinedUtteranceList
     }
 
@@ -125,54 +127,52 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
                 val CHUNK_SIZE = 1024
                 val b = ByteArray(4096)
 
+                val alternatives = arrayListOf<MutableList<String>>()
+
                 while (liveFlag || decodingFlag) {
+                    decodingFlag = true
                     numBytesRead = microphone.read(b, 0, CHUNK_SIZE)
                     out.write(b, 0, numBytesRead)
+
                     if (recognizer.acceptWaveForm(b, numBytesRead)) {
-
-//                        println(recognizer.result.drop(21).dropLast(1))
-
-                        val j = JSONArray(recognizer.result.drop(21).dropLast(1))
-                        println(j.query("/0/text"))
-                        println(j.query("/1/text"))
-                        // can  now fetch n best results. Check all combinations of the word
-
-                        val utterance = recognizer.result.toString().drop(14).dropLast(3).split(" ").toMutableList()
-
-                        for (word in utterance.withIndex()) {
-                            if (phonesToNum.containsKey(word.value)) {
-                                utterance[word.index] = phonesToNum[word.value].toString()
-                            }
-                            if (phonesToSymbols.containsKey(word.value)) {
-                                utterance[word.index] = phonesToSymbols[word.value].toString()
-                            }
+                        JSONArray(recognizer.result.drop(21).dropLast(1)).forEach {
+                            alternatives.add(
+                                (it as JSONObject).query("/text").toString().drop(1).split(" ").toMutableList()
+                            )
                         }
-                        utterance[0] = utterance[0].capitalize()
-
-//                         add to list of requested genes in Xui class
-                        parent.ui.transcription.text = utterance.joinToString(" ")
-                        parent.ui.addDecodedGene(utterance.joinToString(""))
-
-                        // sometimes doesn't stream in partial results, but loads the final result successfully
-                        // load custom selected cells genes using load genes sphere
-                        // make reset last priority
-
+                        // can  now fetch n best results. Check all combinations of the word
+                        // add to list of requested genes in Xui class
+                        parent.ui.transcription.text = alternatives[0].joinToString(" ")
                         decodingFlag = false
-
                     } else {
                         if (recognizer.partialResult[18].toString().isNotBlank()) {
                             decodingFlag = true
                             parent.ui.transcription.text = recognizer.partialResult.drop(17).dropLast(3)
                         }
-
                     }
                 }
                 microphone.close()
-                inProgressFlag = false
 
+                if (alternatives[0][0] != "") { //true when decoding silence
+                    alternatives.forEach { alt ->
+                        for (word in alt.withIndex()) {
+                            if (phonesToNum.containsKey(word.value)) {
+                                alt[word.index] = phonesToNum[word.value].toString()
+                            }
+                            if (phonesToSymbols.containsKey(word.value)) {
+                                alt[word.index] = phonesToSymbols[word.value].toString()
+                            }
+                        }
+                        alt[0] =
+                            alt[0].replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+                    }
+                    println(alternatives.map{it.joinToString("")} + " alternatives joined")
+                    parent.ui.addDecodedGene(alternatives.map{it.joinToString("")})
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
+        inProgressFlag = false
     }
 }

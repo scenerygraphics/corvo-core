@@ -81,10 +81,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         hmd.let { hub.add(SceneryElement.HMDInput, it) }
         settings.set("Renderer.DisableVsync", true)
         renderer = hub.add(Renderer.createRenderer(hub, applicationName, scene, windowWidth, windowHeight))
-        //renderer?.toggleVR
+        renderer?.toggleVR()
 
         // add parameter hmd to DetachedHeadCamera for VR
-        cam = DetachedHeadCamera()
+        cam = DetachedHeadCamera(hmd)
         with(cam) {
             spatial().position = Vector3f(0f, 0f, 0f)
             perspectiveCamera(70.0f, windowWidth, windowHeight, 0.1f, 1000.0f)
@@ -110,7 +110,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         hmd.attachToNode(device, it, cam)
                         if (device.role == TrackerRole.RightHand) {
                             it.addChild(rightSelector)
-                            it.addChild(ui.testLabel)
                         }
                         if (device.role == TrackerRole.LeftHand) {
                             it.addChild(ui.resetUI)
@@ -140,13 +139,12 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
         scene.addChild(plot)
 
-//        val selectBg = BoundingGrid()
-//        selectBg.node = rightSelector
-//        for (board in plot.labelList[annotationPicker].children) {
-//            val selectBg = BoundingGrid()
-//            selectBg.node = board
-//        }
-
+        val selectBg = BoundingGrid()
+        selectBg.node = rightSelector
+        for (board in plot.labelList[annotationPicker].children) {
+            val selectBg = BoundingGrid()
+            selectBg.node = board.children.first()
+        }
     }
 
     private fun loadEnvironment() {
@@ -182,11 +180,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         //text board displaying name of gene currently encoded as colormap. Disappears if color encodes cell type
         geneBoard.transparent = 1
         geneBoard.fontColor = Vector4f(1f)
-        geneBoard.spatial().position = Vector3f(-2.5f, 1.5f, -12.4f) // on far wall
-        geneBoard.spatial().scale = Vector3f(1f)
+        geneBoard.spatial {
+            position = Vector3f(-2.5f, 1.5f, -12.4f) // on far wall
+            scale = Vector3f(1f)
+        }
         geneScaleMesh.addChild(geneBoard)
 
-//      create y axis cylinder to add center to data exploration
+//      create y-axis cylinder to add center to data exploration
         val y = generateAxis("Y", 50.00f)
         scene.addChild(y)
 
@@ -199,8 +199,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
         colorMapScale.material().textures["diffuse"] =
             Texture.fromImage(Image.fromResource("volumes/colormap-$encoding.png", this::class.java))
-        colorMapScale.material().metallic = 0.3f
-        colorMapScale.material().roughness = 0.9f
+        colorMapScale.material {
+            metallic = 0.3f
+            roughness = 0.9f
+        }
         colorMapScale.spatial().position = Vector3f(0f, 3f, -12.4f)
         geneScaleMesh.addChild(colorMapScale)
 
@@ -235,18 +237,22 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             }
             else -> throw IllegalArgumentException("$dimension is not a valid dimension")
         }
-        cyl.material().roughness = 0.18f
-        cyl.material().metallic = 0.001f
-        cyl.material().diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+        cyl.material {
+            roughness = 0.18f
+            metallic = 0.001f
+            diffuse = Vector3f(1.0f, 1.0f, 1.0f)
+        }
         return cyl
     }
 
     private fun initializeSelector(selectorName: Icosphere) {
-        selectorName.material().diffuse = Vector3f(0.5f)
-        selectorName.material().ambient = Vector3f(0.3f)
-        selectorName.material().specular = Vector3f(0.1f)
-        selectorName.material().roughness = 0.1f
-        selectorName.material().metallic = 0.000001f
+        selectorName.material {
+            diffuse = Vector3f(0.5f)
+            ambient = Vector3f(0.3f)
+            specular = Vector3f(0.1f)
+            roughness = 0.1f
+            metallic = 0.000001f
+        }
 //        laserName.rotation.rotateY(-Math.PI.toFloat() / 3f) // point laser forwards
         selectorName.spatial().position = Vector3f(0f, 0.2f, -0.35f)
         selectorName.visible = true
@@ -277,7 +283,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         }
                     }
                 }
-
                 println(selectedList.size)
                 println(backgroundList.size)
                 when {
@@ -341,6 +346,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
         hmd.addBehaviour("record_drag", PressAndReleaseAudio(this))
         hmd.addKeyBinding("record_drag", TrackerRole.LeftHand, OpenVRHMD.OpenVRButton.Menu) //H
+
+//        inputHandler?.addBehaviour("record_drag", PressAndReleaseAudio(this))
+//        inputHandler?.addKeyBinding("record_drag", "H") //H
 
 //        inputHandler?.addBehaviour("increase_size", ClickBehaviour { _, _ ->
         hmd.addBehaviour("increase_size", ClickBehaviour { _, _ ->
@@ -484,6 +492,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         hmd.addKeyBinding("toggleMode", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Menu) //X
 //        inputHandler?.addKeyBinding("toggleMode", "X") //X
 
+//        inputHandler?.addBehaviour("interact", ClickBehaviour { _, _ ->
         hmd.addBehaviour("interact", ClickBehaviour { _, _ ->
             GlobalScope.launch(Dispatchers.Default) {
 //                Thread.currentThread().priority = Thread.MIN_PRIORITY
@@ -510,9 +519,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
 
                         rightSelector.material().diffuse = Vector3f(0.2f)
                     }
-                } else if (rightSelector.intersects((ui.loadGenesUI.children.last() as Icosphere))) {
+                } else if (rightSelector.spatial().intersects((ui.loadGenesUI.children.last() as Icosphere))) {
 
-                    if (ui.switchSelectionModeUIState == 0) {
+                    if (ui.switchSelectionModeUIState == 0) { // for cluster selection
                         if (ui.requestedGenesIndices.isNotEmpty() && !currentlyFetching) {  // only if genes have been dictated
                             currentlyFetching = true
                             // remove potential preloaded gene boards and the dictated words / genes
@@ -572,7 +581,6 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         (ui.resetUI.children.last() as Icosphere).material().diffuse = Vector3f(0.5f)
 
                     }
-
                     // all reset routines
                     hmd.getTrackedDevices(TrackedDeviceType.Controller).forEach { device ->
                         if (device.value.role == TrackerRole.LeftHand) {
@@ -580,11 +588,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                             device.value.model?.removeChild(ui.categoryLabel)
                         }
                     }
-
                     ui.geneTagMesh.children.forEach {
                         ui.geneTagMesh.removeChild(it)
                     }
-
                     for (i in 1..plot.instancedNodeMap.size) {
                         plot.instancedNodeMap[i]?.instances?.forEach {
                             it.metadata["selected"] = false
@@ -593,14 +599,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     plot.updateInstancingLambdas()
                     for (master in 1..plot.instancedNodeMap.size)
                         (plot.instancedNodeMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
-
                 } else {
                     if (ui.switchSelectionModeUIState == 0) {
                         var selectedCluster = -1
 
                         // breaks once first intersecting label is encountered and saves index to 'var selectedCluster'
                         for (label in plot.labelList[annotationPicker].children.withIndex()) {
-                            if (label.value.intersects(rightSelector)) {
+                            if ((label.value.children.first() as Sphere).spatial().intersects(rightSelector)) {
                                 selectedCluster = label.index
                                 break
                             }
@@ -608,14 +613,11 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         thread {
                             ui.dispGenes(selectedCluster)
                         }
-
                     } else {
                         for (i in 1..plot.instancedNodeMap.size) {
                             plot.instancedNodeMap[i]?.instances?.forEach {
-                                //plot.instancedNodeMap[i]?.instances?.forEach { !!!! investigate issue
-                                if (rightSelector.spatial().intersects(it)) {
+                                if ((it.children.first() as Sphere).spatial().intersects(rightSelector)) {
                                     it.metadata["selected"] = true
-//                                    it.material.diffuse = Vector3f(0.73f, 1.00f, 0.60f)
                                 }
                             }
                         }
@@ -627,7 +629,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             }
         })
         hmd.addKeyBinding("interact", TrackerRole.RightHand, OpenVRHMD.OpenVRButton.Trigger) //U
-
+//        inputHandler?.addKeyBinding("interact", "I") //X
         hmd.addBehaviour("extendSelector", ClickBehaviour { _, _ ->
             if (rightSelector.spatial().scale[0] <= 1.7f) {
                 rightSelector.spatial().scale *= 1.10f
@@ -648,7 +650,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
-            val arg = arrayOf("aorta_raw_processed.h5ad", "vosk-model-small-en-us-0.15")
+            val arg = arrayOf("marrow_processed.h5ad", "vosk-model-small-en-us-0.15")
 //            System.setProperty("scenery.Renderer.Device", "3070")
             System.setProperty("scenery.Renderer", "VulkanRenderer")
             System.setProperty("scenery.Renderer.ForceUndecoratedWindow", "true")
@@ -657,7 +659,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     println("input ${arg.index}: $arg")
                 }
             }
-            XVisualization(args).main()
+            XVisualization(arg).main()
         }
     }
 }

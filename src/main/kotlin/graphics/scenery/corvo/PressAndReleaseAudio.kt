@@ -14,9 +14,7 @@ class PressAndReleaseAudio(private val parent: XVisualization) : DragBehaviour {
     var noRescale = false
 
     override fun init(x: Int, y: Int) {
-
         thread {
-
             // don't launch decoder if not gracefully shut down
             if (!parent.audioDecoder.inProgressFlag) {
                 parent.ui.micButton.position = Vector3f(0f, 0.018f, 0.02f)
@@ -31,8 +29,8 @@ class PressAndReleaseAudio(private val parent: XVisualization) : DragBehaviour {
             else {
                 noRescale = true  // don't give visual signal that recording is in progress to avoid confusion
             }
-        }
 
+        }
     }
 
     override fun drag(x: Int, y: Int) {}
@@ -46,7 +44,5 @@ class PressAndReleaseAudio(private val parent: XVisualization) : DragBehaviour {
             parent.ui.micButton.scale.z /= 1.3f
             noRescale = false
         }
-
     }
-
 }

@@ -29,6 +29,7 @@ class PressAndReleaseAudio(private val parent: XVisualization) : DragBehaviour {
             else {
                 noRescale = true  // don't give visual signal that recording is in progress to avoid confusion
             }
+
         }
     }
 

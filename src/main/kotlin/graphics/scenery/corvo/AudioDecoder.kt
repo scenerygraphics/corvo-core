@@ -115,7 +115,6 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
     @Throws(IOException::class, UnsupportedAudioFileException::class)
     fun decodeLiveVosk() {
         inProgressFlag = true
-
         var microphone: TargetDataLine
         rc.also { recognizer ->
             try {
@@ -131,6 +130,7 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
                 val alternatives = arrayListOf<MutableList<String>>()
 
                 while (liveFlag || decodingFlag) {
+                    decodingFlag = true
                     numBytesRead = microphone.read(b, 0, CHUNK_SIZE)
                     out.write(b, 0, numBytesRead)
 
@@ -149,30 +149,36 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
                             decodingFlag = true
                             parent.ui.transcription.text = recognizer.partialResult.drop(17).dropLast(3)
                         }
-
                     }
                 }
                 microphone.close()
+                print("alternatives ")
+                println(alternatives)
 
-                alternatives.forEach { alt ->
-                    for (word in alt.withIndex()) {
-                        if (phonesToNum.containsKey(word.value)) {
-                            alt[word.index] = phonesToNum[word.value].toString()
+                if (alternatives[0][0] != "") { //true when decoding silence
+                    alternatives.forEach { alt ->
+                        for (word in alt.withIndex()) {
+                            if (phonesToNum.containsKey(word.value)) {
+                                alt[word.index] = phonesToNum[word.value].toString()
+                            }
+                            if (phonesToSymbols.containsKey(word.value)) {
+                                alt[word.index] = phonesToSymbols[word.value].toString()
+                            }
                         }
-                        if (phonesToSymbols.containsKey(word.value)) {
-                            alt[word.index] = phonesToSymbols[word.value].toString()
-                        }
+                        alt[0] =
+                            alt[0].replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
                     }
-                    alt[0] =
-                        alt[0].replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
-                }
-                if (alternatives.isNotEmpty()) {
+                    println(alternatives.map{it.joinToString("")} + " alternatives joined")
                     parent.ui.addDecodedGene(alternatives.map{it.joinToString("")})
                 }
-                inProgressFlag = false
+//                else {
+//                    parent.ui.addDecodedGene(listOf("audio detection error"))
+//                }
+
             } catch (e: Exception) {
                 e.printStackTrace()
             }
         }
+        inProgressFlag = false
     }
 }

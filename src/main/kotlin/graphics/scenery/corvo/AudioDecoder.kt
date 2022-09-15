@@ -152,8 +152,6 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
                     }
                 }
                 microphone.close()
-                print("alternatives ")
-                println(alternatives)
 
                 if (alternatives[0][0] != "") { //true when decoding silence
                     alternatives.forEach { alt ->
@@ -171,10 +169,6 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
                     println(alternatives.map{it.joinToString("")} + " alternatives joined")
                     parent.ui.addDecodedGene(alternatives.map{it.joinToString("")})
                 }
-//                else {
-//                    parent.ui.addDecodedGene(listOf("audio detection error"))
-//                }
-
             } catch (e: Exception) {
                 e.printStackTrace()
             }

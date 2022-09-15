@@ -211,7 +211,6 @@ class Xui(private val parent: XVisualization) {
         val checks = alternatives.map { alt ->
             parent.plot.annFetcher.feature_name.indexOf(alt)
         } as ArrayList<Int>
-        println(checks + " checks")
 
         geneLabel.backgroundColor = Vector3f(1.00f, 0.73f, 0.60f).xyzw() //start red and turn green if found
 
@@ -226,7 +225,6 @@ class Xui(private val parent: XVisualization) {
                 chosenAlternative = alternatives[0]
             }
         }
-        println(chosenAlternative + " chosen alternative")
         geneLabel.text = chosenAlternative
         requestedGenesNames.add(chosenAlternative)
 

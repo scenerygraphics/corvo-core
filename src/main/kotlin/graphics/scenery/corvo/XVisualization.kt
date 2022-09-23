@@ -652,7 +652,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
         fun main(args: Array<String>) {
             val arg = arrayOf("marrow_processed.h5ad", "vosk-model-small-en-us-0.15")
 //            System.setProperty("scenery.Renderer.Device", "3070")
-            System.setProperty("scenery.Renderer", "VulkanRenderer")
+//            System.setProperty("scenery.Renderer", "VulkanRenderer")
             System.setProperty("scenery.Renderer.ForceUndecoratedWindow", "true")
             if (args.isNotEmpty()) {
                 for (arg in args.withIndex()){

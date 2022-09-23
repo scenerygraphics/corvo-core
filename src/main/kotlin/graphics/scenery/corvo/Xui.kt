@@ -20,7 +20,7 @@ class Xui(private val parent: XVisualization) {
 
     val requestedGenesNames = ArrayList<String>()
     val requestedGenesIndices = ArrayList<Int>()
-
+    // tb.material().depthTest = Material.DepthTest.Always
     var geneTagMesh = Mesh()
 
     var categoryLabel = TextBoard("SourceSansPro-Light.ttf")

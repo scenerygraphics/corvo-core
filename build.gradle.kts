@@ -36,7 +36,7 @@ repositories {
 
 dependencies {
     implementation(kotlin("stdlib-jdk8"))
-    implementation("graphics.scenery:scenery:678dada")  // f11dc08b
+    implementation("graphics.scenery:scenery:a8f5b7a")  // f11dc08b
     implementation("org.junit.jupiter:junit-jupiter:5.4.2")
     val lwjglNative = "natives-" + when (current()) {
         WINDOWS -> "windows"
@@ -44,20 +44,20 @@ dependencies {
         else -> "macos"
     }
 
-    listOf("", "-glfw", "-jemalloc", "-vulkan", "-opengl", "-openvr", "-xxhash", "-remotery").forEach {
-        implementation("org.lwjgl:lwjgl$it:3.2.3")
-        if (it != "-vulkan")
-            runtimeOnly("org.lwjgl", "lwjgl$it", version = "3.2.3", classifier = lwjglNative)
-    }
+//    listOf("", "-glfw", "-jemalloc", "-vulkan", "-opengl", "-openvr", "-xxhash", "-remotery").forEach {
+//        implementation("org.lwjgl:lwjgl$it:3.2.3")
+//        if (it != "-vulkan")
+//            runtimeOnly("org.lwjgl", "lwjgl$it", version = "3.2.3", classifier = lwjglNative)
+//    }
 
     implementation("org.joml:joml:1.9.25")
     implementation("org.janelia.saalfeldlab:n5-imglib2:3.5.1")
     implementation("org.jogamp.gluegen:gluegen-rt:2.3.2")
     implementation("org.jogamp.jogl:jogl-all:2.3.2")
     implementation("org.scijava:ui-behaviour:2.0.3")
-    implementation("graphics.scenery:spirvcrossj:0.7.1-1.1.106.0")
-    implementation("org.nd4j:nd4j-api:1.0.0-beta7")
-    implementation("org.nd4j:nd4j-native-platform:1.0.0-beta7")
+//    implementation("graphics.scenery:spirvcrossj:0.7.1-1.1.106.0")
+//    implementation("org.nd4j:nd4j-api:1.0.0-beta7")
+//    implementation("org.nd4j:nd4j-native-platform:1.0.0-beta7")
 
     // needed for logging to work correctly, don't use log4j, it's overkill in this case.
     implementation("org.slf4j:slf4j-api:1.7.30")
@@ -66,15 +66,15 @@ dependencies {
 
     implementation("org.json:json:20210307")
 
-    runtimeOnly("net.java.jinput", "jinput", version = "2.0.9", classifier = "natives-all")
-    runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.1-1.1.106.0", classifier = lwjglNative)
+//    runtimeOnly("net.java.jinput", "jinput", version = "2.0.9", classifier = "natives-all")
+//    runtimeOnly("graphics.scenery", "spirvcrossj", version = "0.7.1-1.1.106.0", classifier = lwjglNative)
 
     runtimeOnly("org.slf4j:slf4j-simple:1.7.30")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.4.3")
 
-    api(githubRelease("JaneliaSciComp", "jhdf5", "jhdf5-19.04.1_fatjar", "sis-base-18.09.0.jar"))
-    api(githubRelease("JaneliaSciComp", "jhdf5", "jhdf5-19.04.1_fatjar", "sis-jhdf5-1654327451.jar"))
+//    api(githubRelease("JaneliaSciComp", "jhdf5", "jhdf5-19.04.1_fatjar", "sis-base-18.09.0.jar"))
+//    api(githubRelease("JaneliaSciComp", "jhdf5", "jhdf5-19.04.1_fatjar", "sis-jhdf5-1654327451.jar"))
 
     implementation("net.java.dev.jna", "jna", version = "5.7.0")
     implementation("com.alphacephei","vosk", version = "0.3.30+")

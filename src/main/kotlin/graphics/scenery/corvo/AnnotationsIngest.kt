@@ -6,7 +6,8 @@ import ch.systemsx.cisd.hdf5.HDF5Factory
 import ch.systemsx.cisd.hdf5.IHDF5Reader
 import graphics.scenery.numerics.Random
 import graphics.scenery.utils.LazyLogger
-import hdf.hdf5lib.exceptions.HDF5SymbolTableException
+import ncsa.hdf.hdf5lib.exceptions.HDF5SymbolTableException
+//import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.ceil

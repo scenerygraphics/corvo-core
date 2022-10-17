@@ -583,8 +583,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     }
                     // all reset routines
                     hmd.getTrackedDevices(TrackedDeviceType.Controller).forEach { device ->
-                        if (device.value.role == TrackerRole.LeftHand) {
-                            device.value.model?.removeChild(ui.geneTagMesh)
+                        if (device.value.role == TrackerRole.LeftHand) {                            device.value.model?.removeChild(ui.geneTagMesh)
                             device.value.model?.removeChild(ui.categoryLabel)
                         }
                     }
@@ -597,6 +596,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         }
                     }
                     plot.updateInstancingLambdas()
+
                     for (master in 1..plot.instancedNodeMap.size)
                         (plot.instancedNodeMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
                 } else {
@@ -650,7 +650,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
-            val arg = arrayOf("marrow_processed.h5ad", "vosk-model-small-en-us-0.15")
+            val arg = arrayOf("local2.h5ad", "vosk-model-small-en-us-0.15")
 //            System.setProperty("scenery.Renderer.Device", "3070")
 //            System.setProperty("scenery.Renderer", "VulkanRenderer")
             System.setProperty("scenery.Renderer.ForceUndecoratedWindow", "true")

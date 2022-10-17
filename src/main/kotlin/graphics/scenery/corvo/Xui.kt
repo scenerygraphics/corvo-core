@@ -139,9 +139,22 @@ class Xui(private val parent: XVisualization) {
 
             val clusterData = parent.plot.annFetcher.precompGenesReader(annotationPicker, selectedCluster)
             val geneIDs = clusterData.second.first
-            val geneIndices = if (geneIDs.isNotEmpty()) geneIDs[0].map {
-                parent.plot.annFetcher.feature_id.indexOf(it)
-            } as ArrayList<Int> else arrayListOf()
+            var geneIndices = ArrayList<Int>()
+            if ((geneIDs.isNotEmpty() && parent.plot.annFetcher.feature_id_needed)) {
+                geneIndices = geneIDs[0].map {
+                    parent.plot.annFetcher.feature_id.indexOf(it)
+                } as ArrayList<Int>
+            } else if ((geneIDs.isNotEmpty() && !parent.plot.annFetcher.feature_id_needed)) {
+                geneIndices = geneIDs[0].map {
+                    parent.plot.annFetcher.feature_name.indexOf(it)
+                } as ArrayList<Int>
+            } else {
+                geneIndices = arrayListOf()
+            }
+//            val geneIndices = if (geneIDs.isNotEmpty() && parent.plot.annFetcher.feature_id_needed) geneIDs[0].map {
+//                parent.plot.annFetcher.feature_id.indexOf(it)
+//            } as ArrayList<Int> else geneIDs[0].map {
+//                parent.plot.annFetcher.feature_name.indexOf(it)
 
             ////////////////////////////////////////
 

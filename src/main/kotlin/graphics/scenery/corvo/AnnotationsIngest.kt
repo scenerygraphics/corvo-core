@@ -17,16 +17,18 @@ var annotationList = ArrayList<String>()
 
 class AnnotationsIngest(h5adPath: String) {
     val logger by LazyLogger()
-    val reader: IHDF5Reader = HDF5Factory.openForReading(h5adPath)
+    val reader: IHDF5Reader = HDF5Factory.openForReading(h5adPath) // some strange characters like — are not recognized throwing error
 
+    var feature_id_needed = false
     val feature_name = h5adAnnotationReader("/var/feature_name/categories") //not robust, create UI selector
-    val feature_id = h5adAnnotationReader("/var/feature_id")
+    var feature_id: ArrayList<*>
 
     private val cscData: MDFloatArray = reader.float32().readMDArray("/X/data")
     private val cscIndices: MDIntArray = reader.int32().readMDArray("/X/indices")
     private val cscIndptr: MDIntArray = reader.int32().readMDArray("/X/indptr")
 
-    val numGenes = reader.string().readArrayRaw("/var/feature_id").size
+//    val numGenes = reader.string().readArrayRaw("/var/feature_id").size
+    val numGenes = reader.string().readArrayRaw("/var/feature_name/categories").size
     val numCells = reader.string().readArrayRaw("/obs/index").size
 
     val nonZeroGenes = ArrayList<Int>()
@@ -39,6 +41,15 @@ class AnnotationsIngest(h5adPath: String) {
     val categoryNames = ArrayList<ArrayList<String>>()
 
     init {
+        // some datasets compute genes with feature_id instead of feature_name (gene names), requiring substitution
+        try {
+            feature_id = h5adAnnotationReader("/var/feature_id")
+            feature_id_needed = true
+        } catch (e: Exception) {
+            feature_id = ArrayList<Any>()
+            feature_id_needed = false
+        }
+
         val overflow = if (numCells < 1000) 16 else 17 // for num categories recognition in case dataset has fewer than 1000 cells
         // only color encode datasets with fewer than 1000 types. Only read coded annotations to avoid crash
         for (ann in reader.getGroupMembers("/obs")) {

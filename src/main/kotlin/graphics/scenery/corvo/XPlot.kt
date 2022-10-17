@@ -51,7 +51,6 @@ class XPlot(filePath: String) : RichNode() {
     val container = RichNode("cell container")
 
     init {
-
         for (ann in annotationList) {
             logger.info("annotation: $ann")
 

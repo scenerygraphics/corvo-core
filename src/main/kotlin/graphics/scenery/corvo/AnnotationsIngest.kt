@@ -20,8 +20,8 @@ class AnnotationsIngest(h5adPath: String) {
     val reader: IHDF5Reader = HDF5Factory.openForReading(h5adPath) // some strange characters like — are not recognized throwing error
 
     var feature_id_needed = false
-    val feature_name = h5adAnnotationReader("/var/feature_name/categories") //not robust, create UI selector
-    var feature_id: ArrayList<*>
+    val feature_name = h5adAnnotationReader("/var/feature_name/categories") //not robust, create UI selector - but how would a user know this?
+    lateinit var feature_id: ArrayList<*>
 
     private val cscData: MDFloatArray = reader.float32().readMDArray("/X/data")
     private val cscIndices: MDIntArray = reader.int32().readMDArray("/X/indices")
@@ -42,12 +42,19 @@ class AnnotationsIngest(h5adPath: String) {
 
     init {
         // some datasets compute genes with feature_id instead of feature_name (gene names), requiring substitution
-        try {
-            feature_id = h5adAnnotationReader("/var/feature_id")
-            feature_id_needed = true
-        } catch (e: Exception) {
-            feature_id = ArrayList<Any>()
-            feature_id_needed = false
+        // check if var with id signature exists, storing the array and triggering the flag indicating the substitution is needed
+        for (variable in reader.getGroupMembers("/var")) {
+            if (!reader.exists("/var/$variable/categories")) {
+                val var_sample = h5adAnnotationReader("/var/$variable")
+                if (var_sample[0] is String){
+                    if ((var_sample[0] as String).contains("ENSMUSG"))
+                        feature_id = var_sample
+                        feature_id_needed = true
+                        break
+                } else {
+                    feature_id = ArrayList<Any>()
+                }
+            }
         }
 
         val overflow = if (numCells < 1000) 16 else 17 // for num categories recognition in case dataset has fewer than 1000 cells

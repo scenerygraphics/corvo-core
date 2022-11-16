@@ -92,12 +92,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             scene.addChild(this)
         }
 
+        // instantiate ui, audio deciding, and environment classes
         ui = Xui(this)
         audioDecoder = AudioDecoder(this, resource)
-
         loadEnvironment()
-
-        // try arrows, multithread, raycast laser
 
         thread {
             while (!running) {
@@ -136,9 +134,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
-
         scene.addChild(plot)
-
         val selectBg = BoundingGrid()
         selectBg.node = rightSelector
         for (board in plot.labelList[annotationPicker].children) {
@@ -361,9 +357,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             textBoardMesh.children.forEach {
                 (it as Mesh).spatial().scale *= 1.02f
             }
-
             plot.container.spatial().scale *= 1.02f
-
             // scale sphere checking for intersection with textboards
             (cam.children.first() as Sphere).spatial().scale *= 1.02f
 
@@ -382,11 +376,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
             plot.container.spatial().scale /= 1.02f
-
             textBoardMesh.children.forEach {
                 (it as Mesh).spatial().scale /= 1.02f
             }
-
             (cam.children.first() as Sphere).spatial().scale /= 1.02f
 
             for (master in 1..plot.instancedNodeMap.size) {

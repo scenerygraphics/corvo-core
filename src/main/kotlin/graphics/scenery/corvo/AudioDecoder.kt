@@ -31,6 +31,8 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
     var decodingFlag = false
     var inProgressFlag = false
 
+    var microphone: TargetDataLine
+
     private val phonesToNum = hashMapOf(
         "zero" to 0,
         "one" to 1,
@@ -77,6 +79,9 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
     init {
         LibVosk.setLogLevel(LogLevel.DEBUG)
         rc.setMaxAlternatives(5)
+
+        microphone = AudioSystem.getLine(info) as TargetDataLine
+        microphone.open(format)
     }
 
     @Throws(IOException::class, UnsupportedAudioFileException::class)
@@ -115,12 +120,16 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
     @Throws(IOException::class, UnsupportedAudioFileException::class)
     fun decodeLiveVosk() {
         inProgressFlag = true
-        var microphone: TargetDataLine
+
         rc.also { recognizer ->
             try {
-                microphone = AudioSystem.getLine(info) as TargetDataLine
-                microphone.open(format)
-                microphone.start()
+                if(!microphone.isOpen) {
+                    microphone.open(format)
+                }
+
+                if(!microphone.isRunning) {
+                    microphone.start()
+                }
 
                 val out = ByteArrayOutputStream()
                 var numBytesRead: Int
@@ -151,26 +160,31 @@ class AudioDecoder(private val parent: XVisualization, resource: Array<String>) 
                         }
                     }
                 }
-                microphone.close()
+
 
                 if (alternatives[0][0] != "") { //true when decoding silence
                     alternatives.forEach { alt ->
-                        for (word in alt.withIndex()) {
-                            if (phonesToNum.containsKey(word.value)) {
-                                alt[word.index] = phonesToNum[word.value].toString()
-                            }
-                            if (phonesToSymbols.containsKey(word.value)) {
-                                alt[word.index] = phonesToSymbols[word.value].toString()
+                        if (alt.joinToString("") != "") {
+                            for (word in alt.withIndex()) {
+                                if (phonesToNum.containsKey(word.value)) {
+                                    alt[word.index] = phonesToNum[word.value].toString()
+                                }
+                                if (phonesToSymbols.containsKey(word.value)) {
+                                    alt[word.index] = phonesToSymbols[word.value].toString()
+                                }
                             }
                         }
                         alt[0] =
                             alt[0].replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
                     }
-                    println(alternatives.map{it.joinToString("")} + " alternatives joined")
+                    println(alternatives.map{it.joinToString("")})
                     parent.ui.addDecodedGene(alternatives.map{it.joinToString("")})
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+                microphone.close()
+            } finally {
+                microphone.stop()
             }
         }
         inProgressFlag = false

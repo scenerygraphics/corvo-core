@@ -7,7 +7,6 @@ import ch.systemsx.cisd.hdf5.IHDF5Reader
 import graphics.scenery.numerics.Random
 import graphics.scenery.utils.LazyLogger
 import ncsa.hdf.hdf5lib.exceptions.HDF5SymbolTableException
-//import hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.ceil
@@ -71,17 +70,10 @@ class AnnotationsIngest(h5adPath: String) {
                 }
             }
         }
-        println(categoryNames)
-        // start on cell_ontology_class annotation if present
-        annotationPicker = annotationList.indexOf("cell_ontology_class")
-        if (annotationPicker == -1) {
-            annotationPicker = 0
-        }
 
         val ratioList = ArrayList<Float>()
         for (geneIndex in 0 until numGenes) {
             ratioList.add((cscIndptr[geneIndex + 1] - cscIndptr[geneIndex]).toFloat() / numCells.toFloat())
-
             if (ratioList[geneIndex] > 0.2) {
                 nonZeroGenes.add(geneIndex)
             }
@@ -93,7 +85,6 @@ class AnnotationsIngest(h5adPath: String) {
                 flatNamesList.add(h5adAnnotationReader("/uns/" + obs + "_names") as ArrayList<String>)
                 flatPvalsList.add(h5adAnnotationReader("/uns/" + obs + "_pvals") as ArrayList<Float>)
                 flatLogfoldchanges.add(h5adAnnotationReader("/uns/" + obs + "_logfoldchanges") as ArrayList<Float>)
-
             } catch (e: HDF5SymbolTableException) {
                 println("not encoded")
                 flatNamesList.add(arrayListOf())
@@ -110,7 +101,6 @@ class AnnotationsIngest(h5adPath: String) {
             }
         }
         val expressions = (genes.map { cscReader(it) } as ArrayList<FloatArray>)
-
         // normalize between 0 and 10
         val maxList = ArrayList<Float>()  // save in list for access by color map labels
         for (gene in 0 until genes.size) {
@@ -125,10 +115,7 @@ class AnnotationsIngest(h5adPath: String) {
                 }
             }
         }
-
         val names = genes.map {feature_name[it]} as ArrayList<String>
-//        println(names)
-
         return Triple(names, expressions, maxList.map { it.toInt() } as ArrayList<Int>)
     }
 
@@ -137,7 +124,6 @@ class AnnotationsIngest(h5adPath: String) {
          * read the 3D /obsm category to an ArrayList object
          **/
         val umap = arrayListOf<ArrayList<Float>>()
-
         var tripletCounter = 0
         val cellUMAP = ArrayList<Float>()
 
@@ -159,7 +145,6 @@ class AnnotationsIngest(h5adPath: String) {
             }
         }
         umap.add(arrayListOf(cellUMAP[0], cellUMAP[1], cellUMAP[2])) // add final sub-array
-
         return umap
     }
 
@@ -169,7 +154,6 @@ class AnnotationsIngest(h5adPath: String) {
          **/
         if (hdf5Path[4].toString() != "/")
             throw InputMismatchException("this function is only for reading arrays from /obs, /var, or /uns")
-
         val data = ArrayList<Any>()
         when {
             reader.getDataSetInformation(hdf5Path).toString().contains("STRING") -> {// String

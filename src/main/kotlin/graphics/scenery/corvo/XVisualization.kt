@@ -92,12 +92,10 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             scene.addChild(this)
         }
 
+        // instantiate ui, audio deciding, and environment classes
         ui = Xui(this)
         audioDecoder = AudioDecoder(this, resource)
-
         loadEnvironment()
-
-        // try arrows, multithread, raycast laser
 
         thread {
             while (!running) {
@@ -136,9 +134,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
         }
-
         scene.addChild(plot)
-
         val selectBg = BoundingGrid()
         selectBg.node = rightSelector
         for (board in plot.labelList[annotationPicker].children) {
@@ -361,9 +357,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
             textBoardMesh.children.forEach {
                 (it as Mesh).spatial().scale *= 1.02f
             }
-
             plot.container.spatial().scale *= 1.02f
-
             // scale sphere checking for intersection with textboards
             (cam.children.first() as Sphere).spatial().scale *= 1.02f
 
@@ -382,11 +376,9 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
             }
             plot.container.spatial().scale /= 1.02f
-
             textBoardMesh.children.forEach {
                 (it as Mesh).spatial().scale /= 1.02f
             }
-
             (cam.children.first() as Sphere).spatial().scale /= 1.02f
 
             for (master in 1..plot.instancedNodeMap.size) {
@@ -583,8 +575,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                     }
                     // all reset routines
                     hmd.getTrackedDevices(TrackedDeviceType.Controller).forEach { device ->
-                        if (device.value.role == TrackerRole.LeftHand) {
-                            device.value.model?.removeChild(ui.geneTagMesh)
+                        if (device.value.role == TrackerRole.LeftHand) {                            device.value.model?.removeChild(ui.geneTagMesh)
                             device.value.model?.removeChild(ui.categoryLabel)
                         }
                     }
@@ -597,6 +588,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                         }
                     }
                     plot.updateInstancingLambdas()
+
                     for (master in 1..plot.instancedNodeMap.size)
                         (plot.instancedNodeMap[master]?.metadata?.get("MaxInstanceUpdateCount") as AtomicInteger).getAndIncrement()
                 } else {
@@ -650,13 +642,13 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
-            val arg = arrayOf("marrow_processed.h5ad", "vosk-model-small-en-us-0.15")
+            val arg = arrayOf("mouse_pancreatic_islet_cells_processed.h5ad", "vosk-model-small-en-us-0.15")
 //            System.setProperty("scenery.Renderer.Device", "3070")
-            System.setProperty("scenery.Renderer", "VulkanRenderer")
+//            System.setProperty("scenery.Renderer", "VulkanRenderer")
             System.setProperty("scenery.Renderer.ForceUndecoratedWindow", "true")
             if (args.isNotEmpty()) {
-                for (arg in args.withIndex()){
-                    println("input ${arg.index}: $arg")
+                for (argument in args.withIndex()){
+                    println("input ${argument.index}: $argument")
                 }
             }
             XVisualization(arg).main()

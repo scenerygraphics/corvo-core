@@ -6,7 +6,7 @@ import ch.systemsx.cisd.hdf5.HDF5Factory
 import ch.systemsx.cisd.hdf5.IHDF5Reader
 import graphics.scenery.numerics.Random
 import graphics.scenery.utils.LazyLogger
-import hdf.hdf5lib.exceptions.HDF5SymbolTableException
+import ncsa.hdf.hdf5lib.exceptions.HDF5SymbolTableException
 import java.util.*
 import kotlin.collections.ArrayList
 import kotlin.math.ceil
@@ -16,16 +16,18 @@ var annotationList = ArrayList<String>()
 
 class AnnotationsIngest(h5adPath: String) {
     val logger by LazyLogger()
-    val reader: IHDF5Reader = HDF5Factory.openForReading(h5adPath)
+    val reader: IHDF5Reader = HDF5Factory.openForReading(h5adPath) // some strange characters like — are not recognized throwing error
 
-    val feature_name = h5adAnnotationReader("/var/feature_name/categories") //not robust, create UI selector
-    val feature_id = h5adAnnotationReader("/var/feature_id")
+    var feature_id_needed = false
+    val feature_name = h5adAnnotationReader("/var/feature_name/categories") //not robust, create UI selector - but how would a user know this?
+    lateinit var feature_id: ArrayList<*>
 
     private val cscData: MDFloatArray = reader.float32().readMDArray("/X/data")
     private val cscIndices: MDIntArray = reader.int32().readMDArray("/X/indices")
     private val cscIndptr: MDIntArray = reader.int32().readMDArray("/X/indptr")
 
-    val numGenes = reader.string().readArrayRaw("/var/feature_id").size
+//    val numGenes = reader.string().readArrayRaw("/var/feature_id").size
+    val numGenes = reader.string().readArrayRaw("/var/feature_name/categories").size
     val numCells = reader.string().readArrayRaw("/obs/index").size
 
     val nonZeroGenes = ArrayList<Int>()
@@ -38,6 +40,22 @@ class AnnotationsIngest(h5adPath: String) {
     val categoryNames = ArrayList<ArrayList<String>>()
 
     init {
+        // some datasets compute genes with feature_id instead of feature_name (gene names), requiring substitution
+        // check if var with id signature exists, storing the array and triggering the flag indicating the substitution is needed
+        for (variable in reader.getGroupMembers("/var")) {
+            if (!reader.exists("/var/$variable/categories")) {
+                val var_sample = h5adAnnotationReader("/var/$variable")
+                if (var_sample[0] is String){
+                    if ((var_sample[0] as String).contains("ENSMUSG"))
+                        feature_id = var_sample
+                        feature_id_needed = true
+                        break
+                } else {
+                    feature_id = ArrayList<Any>()
+                }
+            }
+        }
+
         val overflow = if (numCells < 1000) 16 else 17 // for num categories recognition in case dataset has fewer than 1000 cells
         // only color encode datasets with fewer than 1000 types. Only read coded annotations to avoid crash
         for (ann in reader.getGroupMembers("/obs")) {
@@ -52,17 +70,10 @@ class AnnotationsIngest(h5adPath: String) {
                 }
             }
         }
-        println(categoryNames)
-        // start on cell_ontology_class annotation if present
-        annotationPicker = annotationList.indexOf("cell_ontology_class")
-        if (annotationPicker == -1) {
-            annotationPicker = 0
-        }
 
         val ratioList = ArrayList<Float>()
         for (geneIndex in 0 until numGenes) {
             ratioList.add((cscIndptr[geneIndex + 1] - cscIndptr[geneIndex]).toFloat() / numCells.toFloat())
-
             if (ratioList[geneIndex] > 0.2) {
                 nonZeroGenes.add(geneIndex)
             }
@@ -74,7 +85,6 @@ class AnnotationsIngest(h5adPath: String) {
                 flatNamesList.add(h5adAnnotationReader("/uns/" + obs + "_names") as ArrayList<String>)
                 flatPvalsList.add(h5adAnnotationReader("/uns/" + obs + "_pvals") as ArrayList<Float>)
                 flatLogfoldchanges.add(h5adAnnotationReader("/uns/" + obs + "_logfoldchanges") as ArrayList<Float>)
-
             } catch (e: HDF5SymbolTableException) {
                 println("not encoded")
                 flatNamesList.add(arrayListOf())
@@ -91,7 +101,6 @@ class AnnotationsIngest(h5adPath: String) {
             }
         }
         val expressions = (genes.map { cscReader(it) } as ArrayList<FloatArray>)
-
         // normalize between 0 and 10
         val maxList = ArrayList<Float>()  // save in list for access by color map labels
         for (gene in 0 until genes.size) {
@@ -106,10 +115,7 @@ class AnnotationsIngest(h5adPath: String) {
                 }
             }
         }
-
         val names = genes.map {feature_name[it]} as ArrayList<String>
-//        println(names)
-
         return Triple(names, expressions, maxList.map { it.toInt() } as ArrayList<Int>)
     }
 
@@ -118,7 +124,6 @@ class AnnotationsIngest(h5adPath: String) {
          * read the 3D /obsm category to an ArrayList object
          **/
         val umap = arrayListOf<ArrayList<Float>>()
-
         var tripletCounter = 0
         val cellUMAP = ArrayList<Float>()
 
@@ -140,7 +145,6 @@ class AnnotationsIngest(h5adPath: String) {
             }
         }
         umap.add(arrayListOf(cellUMAP[0], cellUMAP[1], cellUMAP[2])) // add final sub-array
-
         return umap
     }
 
@@ -150,7 +154,6 @@ class AnnotationsIngest(h5adPath: String) {
          **/
         if (hdf5Path[4].toString() != "/")
             throw InputMismatchException("this function is only for reading arrays from /obs, /var, or /uns")
-
         val data = ArrayList<Any>()
         when {
             reader.getDataSetInformation(hdf5Path).toString().contains("STRING") -> {// String

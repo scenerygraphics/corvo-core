@@ -20,7 +20,7 @@ class Xui(private val parent: XVisualization) {
 
     val requestedGenesNames = ArrayList<String>()
     val requestedGenesIndices = ArrayList<Int>()
-
+    // tb.material().depthTest = Material.DepthTest.Always
     var geneTagMesh = Mesh()
 
     var categoryLabel = TextBoard("SourceSansPro-Light.ttf")
@@ -139,12 +139,23 @@ class Xui(private val parent: XVisualization) {
 
             val clusterData = parent.plot.annFetcher.precompGenesReader(annotationPicker, selectedCluster)
             val geneIDs = clusterData.second.first
-            val geneIndices = if (geneIDs.isNotEmpty()) geneIDs[0].map {
-                parent.plot.annFetcher.feature_id.indexOf(it)
-            } as ArrayList<Int> else arrayListOf()
+            var geneIndices = ArrayList<Int>()
+            if ((geneIDs.isNotEmpty() && parent.plot.annFetcher.feature_id_needed)) {
+                println("feature gene IDs")
+                geneIndices = geneIDs[0].map {
+                    parent.plot.annFetcher.feature_id.indexOf(it)
+                } as ArrayList<Int>
+            } else if ((geneIDs.isNotEmpty() && !parent.plot.annFetcher.feature_id_needed)) {
+                println("non feature IDs")
+                geneIndices = geneIDs[0].map {
+                    parent.plot.annFetcher.feature_name.indexOf(it)
+                } as ArrayList<Int>
+            } else {
+                geneIndices = arrayListOf()
+            }
 
             ////////////////////////////////////////
-
+            println(geneIndices)
             val buffer = parent.plot.annFetcher.fetchGeneExpression(geneIndices)
             genePicker = 0
             geneNames.clear()

@@ -658,6 +658,7 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
                 }
                 XVisualization(args).main()
             } else {
+                System.err.println("No command line arguments given, using default H5AD file and speech model")
                 val arg = arrayOf("marrow_processed.h5ad", "vosk-model-small-en-us-0.15")
                 XVisualization(arg).main()
             }

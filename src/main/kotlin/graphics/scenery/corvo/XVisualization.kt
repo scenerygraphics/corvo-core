@@ -650,16 +650,17 @@ class XVisualization constructor(val resource: Array<String> = emptyArray()) :
     companion object {
         @JvmStatic
         fun main(args: Array<String>) {
-            val arg = arrayOf("marrow_processed.h5ad", "vosk-model-small-en-us-0.15")
-//            System.setProperty("scenery.Renderer.Device", "3070")
             System.setProperty("scenery.Renderer", "VulkanRenderer")
             System.setProperty("scenery.Renderer.ForceUndecoratedWindow", "true")
             if (args.isNotEmpty()) {
                 for (arg in args.withIndex()){
                     println("input ${arg.index}: $arg")
                 }
+                XVisualization(args).main()
+            } else {
+                val arg = arrayOf("marrow_processed.h5ad", "vosk-model-small-en-us-0.15")
+                XVisualization(arg).main()
             }
-            XVisualization(arg).main()
         }
     }
 }
